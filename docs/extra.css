@@ -1,0 +1,17 @@
+.tabs{display:flex;gap:6px;margin:0 0 14px;border-bottom:1px solid var(--line)}
+.tab{border:none;background:none;border-radius:0;padding:10px 12px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
+.tab[aria-selected=true]{color:var(--text);border-bottom-color:var(--text)}
+.banner{border-radius:14px;padding:12px;margin-bottom:14px;border:1px solid var(--line)}
+.okb{background:color-mix(in srgb,var(--up) 10%,var(--card))}.warnb{background:var(--warnbg)}
+.bt{font-size:13px;margin-bottom:10px}
+.mk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mki{font-size:13px;display:flex;flex-direction:column;gap:2px}.mki .m{font-size:11px}
+.good{background:color-mix(in srgb,var(--up) 14%,var(--card));color:var(--up)}
+.act{color:var(--muted);font-size:12px;margin:-10px 0 14px}
+.tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.tabla{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.tabla th,.tabla td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+.tabla th{color:var(--muted);font-weight:600;font-size:12px}
+.tk2{font-weight:700;color:var(--text);text-decoration:none}
+.nota{color:var(--muted);font-size:12px;margin:10px 0}
+@media (max-width:480px){.mk{grid-template-columns:1fr}}
