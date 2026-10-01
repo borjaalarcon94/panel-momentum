@@ -3,83 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Panel Momentum</title>
-<style>
-:root{--bg:#f6f7f9;--card:#fff;--text:#14171c;--muted:#68707c;--line:#e3e6ea;--up:#0f8a4b;--down:#c62f2f;--warn:#9a6400;--warnbg:#fff4dc;--info:#2453b8;--infobg:#e8effd;--badbg:#fde9e9}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--text:#e8eaee;--muted:#9097a3;--line:#2a2e36;--up:#3ccf82;--down:#ff6b6b;--warn:#f0b54a;--warnbg:#3a2d12;--info:#86a8ff;--infobg:#1c2742;--badbg:#3d1d1d}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-main{max-width:760px;margin:0 auto;padding:20px 16px 48px}
-h1{font-size:22px;margin:0 0 4px}
-.sub{color:var(--muted);font-size:13px;margin:0 0 16px}
-.bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
-select{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text)}
-.count{color:var(--muted);font-size:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
-.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.tk{font-weight:700;font-size:17px;color:var(--text);text-decoration:none}
-.name{color:var(--muted);font-size:13px;margin-top:1px}
-.px{text-align:right;font-variant-numeric:tabular-nums}
-.px b{font-size:17px}.up{color:var(--up)}.down{color:var(--down)}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
-.m{font-size:12px;color:var(--muted)}.m span{display:block;font-size:14px;color:var(--text);font-variant-numeric:tabular-nums}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.tag{font-size:12px;padding:3px 8px;border-radius:999px}
-.tag.bad{background:var(--badbg);color:var(--down)}.tag.warn{background:var(--warnbg);color:var(--warn)}.tag.info{background:var(--infobg);color:var(--info)}
-.new{font-size:11px;font-weight:600;margin-left:6px;color:var(--info)}
-.empty{text-align:center;color:var(--muted);padding:40px 0}
-footer{color:var(--muted);font-size:12px;margin-top:24px}
-@media (max-width:420px){.grid{grid-template-columns:repeat(2,1fr)}}
-</style>
+<title>Acciones con momentum</title>
+<link rel="stylesheet" href="estilos.css">
 </head>
 <body>
 <main>
-<h1>Panel Momentum</h1>
-<p class="sub">Acciones de EE. UU. que cumplen el filtro al cierre del día</p>
-<div class="bar"><select id="dia" aria-label="Elegir día"></select><span class="count" id="count"></span></div>
+<h1>Acciones con momentum</h1>
+<p class="sub">Acciones de EE. UU. que cumplen el filtro al cierre del día · se actualiza cada día laborable por la noche</p>
+<div class="row"><select id="dia" aria-label="Día"></select><select id="orden" aria-label="Ordenar"><option value="cambio">Más subida del día</option><option value="adr">Más ADR (más movida)</option><option value="rsi">Más RSI (más fuerza)</option><option value="volrel">Más volumen relativo</option><option value="racha">Más días seguidos</option><option value="cap">Más capitalización</option></select></div>
+<div class="row"><input id="q" type="search" placeholder="Buscar ticker o empresa" aria-label="Buscar"></div>
+<div class="row"><button class="chip" id="c1" aria-pressed="false">Ocultar las que pierden dinero</button><button class="chip" id="c2" aria-pressed="false">Solo nuevas</button><button class="chip" id="c3" aria-pressed="false">Sin resultados próximos</button></div>
+<div class="stats" id="stats"></div>
+<div class="row"><button class="main" id="bpdf">Descargar PDF</button><button id="bcsv">Descargar Excel (CSV)</button><span class="sub" id="cuenta" style="margin:auto 0"></span></div>
 <div id="lista"></div>
-<footer>Filtro: precio &gt; 3 $ · sube en el día · capitalización &gt; 300 M $ · por encima de EMA 9 y EMA 50 · volumen medio 10 d &gt; 500.000 · ADR &gt; 7 % · RSI 14 &gt; 60. Datos de TradingView. Solo información, no es una recomendación.</footer>
+<footer>Filtro: precio &gt; 3 $ · sube en el día · capitalización &gt; 300 M $ · por encima de EMA 9 y EMA 50 · volumen medio 10 d &gt; 500.000 · ADR &gt; 7 % · RSI 14 &gt; 60. Racha = días seguidos en la lista. Datos de TradingView. Solo información, no es una recomendación.</footer>
 </main>
-<script>
-const DIAS = {"2026-10-01": [{"ticker": "SHMD", "empresa": "SCHMID Group N.V.", "precio": 4.86, "cambio": 8.240534521158132, "volrel": 0.6542194178400925, "cap": 323597765, "adr": 8.795120517342713, "rsi": 68.14951918123634, "sector": "Electronic Technology", "ingresos": 114.80958360799542, "margen": -112.744312223377, "resultados": "2027-05-24", "simbolo": "NASDAQ:SHMD"}, {"ticker": "DNA", "empresa": "Ginkgo Bioworks Holdings, Inc.", "precio": 12.83, "cambio": 7.274247491638788, "volrel": 1.8288101784250892, "cap": 863975750.9999999, "adr": 7.363990646921284, "rsi": 80.06308203223794, "sector": "Health Services", "ingresos": -51.53564543032299, "margen": -263.613527261025, "resultados": "2026-11-16", "simbolo": "NYSE:DNA"}, {"ticker": "ABSI", "empresa": "Absci Corporation", "precio": 10.77, "cambio": 6.21301775147928, "volrel": 1.0879789007431035, "cap": 1848283005.9999998, "adr": 7.155723570765325, "rsi": 61.95324067033278, "sector": "Health Technology", "ingresos": -62.276462058965684, "margen": -7756.37411915439, "resultados": "2026-11-17", "simbolo": "NASDAQ:ABSI"}, {"ticker": "USDE", "empresa": "StablecoinX Inc.", "precio": 16.08, "cambio": 4.960835509138368, "volrel": 0.7374425808136391, "cap": 437169033.00000006, "adr": 10.996090973702909, "rsi": 70.97147963360192, "sector": "Technology Services", "ingresos": null, "margen": -77375.3078304368, "resultados": null, "simbolo": "NASDAQ:USDE"}, {"ticker": "PS", "empresa": "Pershing Square Inc.", "precio": 55.94, "cambio": 4.443614637789387, "volrel": 0.2860899348899363, "cap": 22375999507, "adr": 7.212613003728488, "rsi": 65.79371497976254, "sector": "Finance", "ingresos": null, "margen": null, "resultados": "2026-12-02", "simbolo": "NYSE:PS"}, {"ticker": "SDGR", "empresa": "Schrodinger, Inc.", "precio": 31.05, "cambio": 2.3738872403560913, "volrel": 1.1800942164001291, "cap": 2322714652, "adr": 7.401081205429041, "rsi": 74.11742723526173, "sector": "Technology Services", "ingresos": 8.87620472685854, "margen": -20.9759298936437, "resultados": "2026-11-11", "simbolo": "NASDAQ:SDGR"}, {"ticker": "SVIA", "empresa": "Silvia, Inc.", "precio": 3.875, "cambio": 1.174934725848562, "volrel": 0.3842971470533076, "cap": 342432104.99999994, "adr": 10.093087557603663, "rsi": 65.66791132288142, "sector": "Technology Services", "ingresos": null, "margen": null, "resultados": null, "simbolo": "NASDAQ:SVIA"}, {"ticker": "SRZN", "empresa": "Surrozen, Inc.", "precio": 32.18, "cambio": 0.6253908692933061, "volrel": 1.0803793097376644, "cap": 378229474, "adr": 7.450279676817968, "rsi": 68.98979340483473, "sector": "Health Technology", "ingresos": -8.79486570002377, "margen": -3042.90678481453, "resultados": "2026-11-11", "simbolo": "NASDAQ:SRZN"}]} || {};
-const fechas = Object.keys(DIAS).sort().reverse();
-const sel = document.getElementById('dia');
-const fmtFecha = f => new Date(f+'T12:00:00Z').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
-fechas.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=fmtFecha(f);sel.appendChild(o)});
-const n = (v,d=2)=> v==null?'—':Number(v).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
-const cap = v => v==null?'—':(v>=1e9?n(v/1e9,1)+' B':n(v/1e6,0)+' M');
-function el(t,c,txt){const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e}
-function pinta(f){
-const lista=document.getElementById('lista');lista.replaceChildren();
-const filas=DIAS[f]||[];
-const prev=DIAS[fechas[fechas.indexOf(f)+1]]||null;
-const antes=new Set((prev||[]).map(x=>x.ticker));
-document.getElementById('count').textContent=filas.length+(filas.length===1?' acción':' acciones');
-if(!filas.length){lista.appendChild(el('div','empty','Ese día ninguna acción cumplió el filtro.'));return}
-const hoy=new Date(f+'T12:00:00Z');
-filas.forEach(a=>{
-const c=el('div','card');
-const top=el('div','top');const izq=el('div');
-const tk=el('a','tk',a.ticker);tk.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(a.simbolo||a.ticker);tk.target='_blank';tk.rel='noopener';
-izq.appendChild(tk);if(prev&&!antes.has(a.ticker))izq.appendChild(el('span','new','NUEVA'));
-izq.appendChild(el('div','name',a.empresa||''));
-const der=el('div','px');der.appendChild(el('b',null,n(a.precio)+' $'));
-der.appendChild(el('div',a.cambio>=0?'up':'down',(a.cambio>=0?'+':'')+n(a.cambio)+' %'));
-top.append(izq,der);c.appendChild(top);
-const g=el('div','grid');
-[['ADR',n(a.adr,1)+' %'],['RSI',n(a.rsi,0)],['Vol. relativo',n(a.volrel)],['Capitaliz.',cap(a.cap)]].forEach(([k,v])=>{const m=el('div','m',k);m.appendChild(el('span',null,v));g.appendChild(m)});
-c.appendChild(g);
-const tags=el('div','tags');
-if(a.margen!=null&&a.margen<0)tags.appendChild(el('span','tag bad','Pierde dinero'));
-if(a.ingresos!=null)tags.appendChild(el('span','tag '+(a.ingresos<0?'bad':'info'),'Ingresos '+(a.ingresos>=0?'+':'')+n(a.ingresos,0)+' % anual'));
-if(a.resultados){const d=Math.round((new Date(a.resultados+'T12:00:00Z')-hoy)/864e5);if(d>=0&&d<=14)tags.appendChild(el('span','tag warn','Resultados en '+d+' días'))}
-if(a.volrel>=1.5)tags.appendChild(el('span','tag info','Volumen alto'));
-if(a.sector)tags.appendChild(el('span','tag info',a.sector));
-c.appendChild(tags);lista.appendChild(c);
-});
-}
-sel.addEventListener('change',()=>pinta(sel.value));
-if(fechas.length)pinta(fechas[0]);else document.getElementById('lista').appendChild(el('div','empty','Aún no hay datos.'));
-</script>
+<script>window.DIAS={"2026-10-01": [{"ticker": "ABSI", "empresa": "Absci Corporation", "precio": 11.2, "cambio": 3.992571959145773, "volrel": 0.17003761396018363, "cap": 1922077035.0232124, "adr": 7.051831992850739, "rsi": 64.5032905869005, "sector": "Health Technology", "ingresos": -62.276462058965684, "margen": -7756.37411915439, "resultados": "2026-11-17", "simbolo": "NASDAQ:ABSI"}, {"ticker": "FWDI", "empresa": "Forward Industries, Inc.", "precio": 7.99, "cambio": 2.435897435897441, "volrel": 0.11338857525000627, "cap": 609542858.3371794, "adr": 7.254693366708374, "rsi": 61.433639399821374, "sector": "Finance", "ingresos": 171.5850214312161, "margen": -2073.84598450995, "resultados": "2026-12-17", "simbolo": "NASDAQ:FWDI"}, {"ticker": "QMCO", "empresa": "Quantum Corporation", "precio": 32.46, "cambio": 2.3329129886507, "volrel": 0.21867120183927072, "cap": 1279248567.2534678, "adr": 7.994014611389836, "rsi": 73.74657189138148, "sector": "Electronic Technology", "ingresos": 10.898127340823969, "margen": -80.7614370917737, "resultados": "2026-11-13", "simbolo": "NASDAQ:QMCO"}, {"ticker": "USDE", "empresa": "StablecoinX Inc.", "precio": 16.3, "cambio": 1.3681592039801147, "volrel": 0.09353673549773293, "cap": 443150201.3619404, "adr": 10.632953549517971, "rsi": 71.4221192599554, "sector": "Technology Services", "ingresos": null, "margen": -77375.3078304368, "resultados": null, "simbolo": "NASDAQ:USDE"}, {"ticker": "SDGR", "empresa": "Schrodinger, Inc.", "precio": 31.41, "cambio": 1.1594202898550705, "volrel": 0.06598844822989576, "cap": 2349644676.9507246, "adr": 7.441328967116954, "rsi": 74.84214426799329, "sector": "Technology Services", "ingresos": 8.87620472685854, "margen": -20.9759298936437, "resultados": "2026-11-11", "simbolo": "NASDAQ:SDGR"}, {"ticker": "YDES", "empresa": "YD Bio Limited", "precio": 7.5, "cambio": 1.078167115902966, "volrel": 0.042671670370790615, "cap": 531321321.42857146, "adr": 12.197809523809475, "rsi": 75.16823197854045, "sector": "Health Technology", "ingresos": null, "margen": null, "resultados": null, "simbolo": "NASDAQ:YDES"}, {"ticker": "SVIA", "empresa": "Silvia, Inc.", "precio": 3.91, "cambio": 0.9032258064516167, "volrel": 0.04745233485610637, "cap": 345525040.14193547, "adr": 10.084947022287178, "rsi": 66.25945719176394, "sector": "Technology Services", "ingresos": null, "margen": null, "resultados": null, "simbolo": "NASDAQ:SVIA"}, {"ticker": "DNA", "empresa": "Ginkgo Bioworks Holdings, Inc.", "precio": 12.88, "cambio": 0.38971161340608507, "volrel": 0.11779887151555539, "cap": 867342764.8386593, "adr": 7.540594498669051, "rsi": 80.20822899826352, "sector": "Health Services", "ingresos": -51.53564543032299, "margen": -263.613527261025, "resultados": "2026-11-16", "simbolo": "NYSE:DNA"}, {"ticker": "PS", "empresa": "Pershing Square Inc.", "precio": 56.02, "cambio": 0.1430103682517079, "volrel": 0.02420515165613986, "cap": 22407999506.294964, "adr": 7.257063803743568, "rsi": 65.88173756164548, "sector": "Finance", "ingresos": null, "margen": null, "resultados": "2026-12-02", "simbolo": "NYSE:PS"}]};</script>
+<script src="app.js"></script>
+<script src="export.js"></script>
 </body>
 </html>
