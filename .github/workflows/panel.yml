@@ -1,0 +1,29 @@
+name: Panel diario
+
+on:
+  schedule:
+    - cron: "30 21 * * 1-5"   # 23:30 en verano / 22:30 en invierno (hora de España), tras el cierre de EE. UU.
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["build.py", "plantilla.html", ".github/workflows/panel.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python build.py
+      - name: Guardar resultados
+        run: |
+          git config user.name "panel-bot"
+          git config user.email "panel-bot@users.noreply.github.com"
+          git add data docs
+          git commit -m "Datos $(date -u +%F)" || echo "Sin cambios"
+          git push
