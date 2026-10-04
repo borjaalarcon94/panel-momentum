@@ -8,9 +8,12 @@ Web: https://borjaalarcon94.github.io/panel-momentum/
 ## Cómo funciona
 
 - `build.py` consulta el escáner de TradingView cada día laborable (GitHub Actions, `.github/workflows/panel.yml`),
-  guarda los datos en bruto en `data/AAAA-MM-DD.json` e incrusta los últimos 90 días en `docs/index.html`.
-- `docs/puntuacion.js` calcula la puntuación y las señales **en el navegador**, a partir de los datos guardados. Así,
-  si cambian los criterios, los días anteriores se vuelven a puntuar solos, sin volver a descargar nada.
+  puntúa a las candidatas y guarda **solo las 25 mejores** en `data/AAAA-MM-DD.json` (unos 25 KB al día).
+- `docs/puntuacion.js` tiene la lógica de puntuación. Es la única copia: `build.py` la ejecuta con node
+  (`puntuar.js`) para ordenar el día, y el navegador la usa para mostrar el detalle. Si cambian los criterios,
+  los días guardados se vuelven a puntuar solos.
+- `docs/index.html` lleva incrustados los **10 últimos días completos** y un resumen ligero (ticker, precio y
+  puntuación) de los 90 últimos para el seguimiento. La web muestra el **top 10** por defecto (ajustable a 20 o 25).
 - `docs/app.js` (estado y filtros), `docs/hoy.js` (tarjetas), `docs/seguimiento.js` (resultados posteriores),
   `docs/export.js` (PDF y CSV).
 
@@ -51,11 +54,14 @@ Después se aplica:
 Cada tarjeta muestra por qué aparece, sus señales fundamentales y sus riesgos. Lo que no tiene dato no se inventa:
 suma 0 y se avisa.
 
-## Filtros de la web
+Se excluyen antes de puntuar las cíclicas de materias primas (navieras, petroleras, mineras, químicas y utilities):
+su crecimiento viene del precio del flete o de la materia prima, no de ganar clientes.
 
-Aceleración, crecimiento ≥ 25 %, a menos del 10 % del máximo, volumen ≥ 1,5x, sin sobreextensión, solo nuevas, sin
-resultados próximos y sin cíclicas de materias primas (navieras, petroleras, mineras, químicas y utilities, cuyo
-crecimiento suele venir del precio de una materia prima y no de ganar clientes).
+## Seguimiento
+
+Sigue a las acciones que han pasado por el top. Para cada una: estado (mantiene momentum / pierde fuerza / fuera del
+top), puntuación actual frente a la de entrada, días en el top, mejor puesto alcanzado, resultado desde la entrada,
+máxima subida alcanzada y comparación con el S&P 500. Por defecto muestra las que han estado en el top 10.
 
 ## Desarrollo
 

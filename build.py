@@ -1,14 +1,21 @@
 """Screener de growth con momentum: consulta TradingView y genera docs/index.html.
 Lo ejecuta GitHub Actions cada dia laborable. Solo usa la libreria estandar.
 
-Aqui solo se OBTIENEN y se GUARDAN datos en bruto. La puntuacion y las senales se calculan en
-docs/puntuacion.js, para que cualquier cambio de criterio se aplique tambien a los dias ya guardados.
+Aqui se OBTIENEN los datos y se GUARDAN solo las mejores del dia. La logica de puntuacion vive en
+docs/puntuacion.js (unica fuente): aqui se ejecuta con node (puntuar.js) para ordenar y quedarnos con el top,
+y en el navegador para mostrar el detalle. Asi un cambio de criterio recalcula tambien los dias ya guardados.
 """
-import json, statistics, urllib.request, datetime, pathlib
+import json, statistics, subprocess, urllib.request, datetime, pathlib
 
 R = pathlib.Path(__file__).parent
 DATOS, WEB = R / "data", R / "docs"
-DIAS = 90
+GUARDAR = 25          # acciones que se guardan cada dia (el panel muestra el top 10/20)
+DIAS_COMPLETOS = 10   # dias con todos los datos dentro de index.html
+DIAS = 90             # dias del resumen ligero que usa el seguimiento
+
+# Negocios cuyo "crecimiento" suele venir del precio de una materia prima o de los fletes, no de mas clientes.
+SECTORES_CICLICOS = {"Energy Minerals", "Non-Energy Minerals", "Process Industries", "Utilities"}
+INDUSTRIAS_CICLICAS = ("Marine Shipping", "Oil", "Gas", "Coal", "Steel", "Mining", "Metals", "Chemicals")
 
 # Requisitos obligatorios (reducen el universo a empresas en tendencia alcista con crecimiento real).
 # ADR, volumen relativo, aceleracion, margenes y ruptura NO son obligatorios: puntuan (docs/puntuacion.js).
@@ -52,15 +59,34 @@ def scan(body):
         return json.load(r).get("data", [])
 
 
+def redondea(v):
+    """TradingView devuelve 15 decimales inutiles: ocupan espacio en el repositorio y no aportan nada."""
+    if isinstance(v, float):
+        return round(v, 4) if abs(v) < 1e6 else round(v)
+    return v
+
+
 def filas(datos):
     out = []
     for it in datos:
-        f = dict(zip(C.values(), it["d"]))
+        f = {k: redondea(v) for k, v in zip(C.values(), it["d"])}
         if f.get("resultados"):
             f["resultados"] = datetime.datetime.utcfromtimestamp(f["resultados"]).strftime("%Y-%m-%d")
         f["simbolo"] = it["s"]
         out.append(f)
     return out
+
+
+def ciclica(a):
+    return (a.get("sector") in SECTORES_CICLICOS
+            or any(x.lower() in (a.get("industria") or "").lower() for x in INDUSTRIAS_CICLICAS))
+
+
+def puntuar(acciones, ctx):
+    """Ejecuta docs/puntuacion.js con node y devuelve {ticker: puntuacion}."""
+    entrada = json.dumps({"acciones": acciones, "ctx": ctx}, ensure_ascii=False)
+    out = subprocess.run(["node", str(R / "puntuar.js")], input=entrada, capture_output=True, text=True, check=True)
+    return {x["ticker"]: x["total"] for x in json.loads(out.stdout)}
 
 
 def cumple(a):
@@ -108,9 +134,13 @@ def main():
     hoy = datetime.datetime.utcnow().strftime("%Y-%m-%d")
     universo = filas(scan({"columns": list(C), "filter": FILTROS, "range": [0, 3000],
                            "sort": {"sortBy": "market_cap_basic", "sortOrder": "desc"}}))
-    acciones = [a for a in universo if cumple(a)]
+    candidatas = [a for a in universo if cumple(a) and not ciclica(a)]
     mercado = filas(scan({"columns": list(C), "symbols": {"tickers": ["AMEX:SPY", "NASDAQ:QQQ", "AMEX:IWM"]}}))
     ref = referencia()
+    spy = next((m for m in mercado if m["ticker"] == "SPY"), {})
+    ctx = {"fecha": hoy, "spy": {"tres": spy.get("tres"), "seis": spy.get("seis")}, "sectores": ref["sectores"]}
+    puntos = puntuar(candidatas, ctx)
+    acciones = sorted(candidatas, key=lambda a: puntos.get(a["ticker"]) or 0, reverse=True)[:GUARDAR]
     previos = [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
     if previos:
         ant = leer(previos[-1])["acciones"]
@@ -119,20 +149,35 @@ def main():
             acciones = None
     if acciones is not None:
         (DATOS / f"{hoy}.json").write_text(json.dumps(
-            {"acciones": acciones, "mercado": mercado, "referencia": ref, "universo": len(universo)},
+            {"acciones": acciones, "mercado": mercado, "referencia": ref,
+             "universo": len(universo), "candidatas": len(candidatas)},
             ensure_ascii=False))
-    dias = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
-    simbolos = sorted({a["simbolo"] for d in dias.values() for a in d["acciones"] if a.get("simbolo")})
+    todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
+    dias = {f: d for f, d in list(todos.items())[-DIAS_COMPLETOS:]}
+    # Resumen ligero de todos los dias (lo usa el seguimiento): ticker, simbolo, precio y puntuacion.
+    historico = {}
+    for f, d in todos.items():
+        if not d["acciones"]:
+            continue
+        spy_d = next((m for m in d.get("mercado", []) if m["ticker"] == "SPY"), {})
+        pts = puntuar(d["acciones"], {"fecha": f, "spy": {"tres": spy_d.get("tres"), "seis": spy_d.get("seis")},
+                                      "sectores": (d.get("referencia") or {}).get("sectores", {})})
+        historico[f] = {"acciones": [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
+                                      "sc": pts.get(a["ticker"]) if d.get("referencia") else None,
+                                      "n": a.get("empresa")} for a in d["acciones"]],
+                        "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
+    simbolos = sorted({a["simbolo"] for d in todos.values() for a in d["acciones"] if a.get("simbolo")})
     precios = {}
     for i in range(0, len(simbolos), 400):
         for it in scan({"columns": ["close"], "symbols": {"tickers": simbolos[i:i + 400]}}):
             precios[it["s"]] = it["d"][0]
-    todo = {"dias": dias, "precios": precios, "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
+    todo = {"dias": dias, "historico": historico, "precios": precios,
+            "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
     html = (R / "plantilla.html").read_text().replace(
         "/*DATOS*/null", json.dumps(todo, ensure_ascii=False).replace("</", "<\\/"))
     (WEB / "index.html").write_text(html)
-    print(hoy, "universo:", len(universo), "seleccionadas:", "-" if acciones is None else len(acciones),
-          "seguimiento:", len(precios))
+    print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
+          "guardadas:", "-" if acciones is None else len(acciones), "seguimiento:", len(precios))
 
 
 if __name__ == "__main__":

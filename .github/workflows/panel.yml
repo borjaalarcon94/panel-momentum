@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["build.py", "plantilla.html", ".github/workflows/panel.yml"]
+    paths: ["build.py", "puntuar.js", "plantilla.html", "docs/**", ".github/workflows/panel.yml"]
 
 permissions:
   contents: write
@@ -19,6 +19,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4        # build.py puntúa con docs/puntuacion.js
+        with:
+          node-version: "20"
       - run: python build.py
       - name: Guardar resultados
         run: |
