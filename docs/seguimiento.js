@@ -1,9 +1,6 @@
 /* Pestana "Seguimiento": de las que han pasado por el top 10, si la compra sigue siendo viable y como va.
    Usa el resumen ligero de cada dia (historico) y los datos de HOY de cada accion (actual). */
 const CAIDA_SCORE = 8;            // puntos de caida que consideramos "pierde fuerza"
-const ACT = T.actual || {};       // datos de hoy de las acciones seguidas
-const MHOY = (T.mercadoHoy || []).find(x => x.ticker === 'SPY') || {};
-const REFHOY = (T.referenciaHoy || {}).sectores || {};
 
 function estadoHoy(sim) {
   const a = ACT[sim];
@@ -117,6 +114,8 @@ window.seguimiento = function () {
   });
   R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana.'));
 };
-$('per').onchange = () => window.seguimiento();
-$('segorden').onchange = () => window.seguimiento();
-$('segest').onchange = () => window.seguimiento();
+window.initSeguimiento = function () {
+  $('per').onchange = () => window.seguimiento();
+  $('segorden').onchange = () => window.seguimiento();
+  $('segest').onchange = () => window.seguimiento();
+};

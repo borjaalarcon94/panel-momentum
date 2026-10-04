@@ -1,6 +1,6 @@
 /* Pestana "Oportunidades del dia": banner de mercado, estadisticas y una tarjeta por accion. */
 function stat(k,v){const s=el('div','stat',k);s.prepend(el('b',null,v));return s}
-function mercado(){const m=((DD[S.dia]||{}).mercado)||[],B=$('mercado');B.replaceChildren();if(!m.length){B.hidden=true;return}B.hidden=false;
+function mercado(v){const m=v.mercado||[],B=$('mercado');B.replaceChildren();if(!m.length){B.hidden=true;return}B.hidden=false;
 const nom={SPY:'S&P 500',QQQ:'Nasdaq 100',IWM:'Russell 2000'};let a50=0;
 const fila=el('div','mk');m.forEach(x=>{const s50=x.precio>x.ema50,s200=x.precio>x.sma200;if(s50)a50++;
 const c=el('div','mki');c.appendChild(el('b',null,nom[x.ticker]||x.ticker));c.appendChild(el('span',x.cambio>=0?'up':'down',pc(x.cambio,2)+' hoy · '+pc(x.mes,1)+' mes'));
@@ -39,7 +39,7 @@ const g=el('div','grid');[['Ingresos',pc(a.g,0)],['1 mes',pc(a.mes,0)],['6 meses
 if(a.pt&&a.pt.penal.motivos.length)c.appendChild(el('div','pen','Muy extendida: '+a.pt.penal.motivos.join(' · ')));
 L.appendChild(c)})}
 
-function pinta(){mercado();const v=window.vista(),L=$('lista');L.replaceChildren();marcha(v);
+window.pinta=function(){const v=window.vista();mercado(v);const L=$('lista');L.replaceChildren();marcha(v);
 const top=v.filas,medio=top.length?top.reduce((s,a)=>s+(a.score||0),0)/top.length:0;
 $('stats').replaceChildren(stat('en el top mostrado',top.length),stat('puntuación media',n(medio,0)),
 stat('nuevas hoy',top.filter(a=>a.nueva).length));
@@ -67,9 +67,8 @@ const f=document.createElement('iframe');f.loading='lazy';f.title='Gráfico '+sy
 f.src='https://s.tradingview.com/widgetembed/?symbol='+encodeURIComponent(sym)+'&interval=D&style=1&theme='+osc+'&locale=es&hidesidetoolbar=1&hidetoptoolbar=1&saveimage=0&symboledit=0&withdateranges=1&studies=[]';
 if(abrir)w.appendChild(f);return w}
 
-F.forEach(f=>{const o=el('option',null,fFecha(f));o.value=f;$('dia').appendChild(o)});
-$('dia').onchange=e=>{S.dia=e.target.value;pinta()};$('orden').onchange=e=>{S.orden=e.target.value;pinta()};
-
+window.initHoy=function(){
+$('dia').onchange=e=>window.cambiarDia(e.target.value);
+$('orden').onchange=e=>{S.orden=e.target.value;window.pinta()};
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));$('vhoy').hidden=b.dataset.v!=='hoy';$('vseg').hidden=b.dataset.v!=='seg';if(b.dataset.v==='seg'&&window.seguimiento)window.seguimiento()});
-if(T.actualizado)$('act').textContent='Última actualización: '+new Date(T.actualizado.replace('Z',':00Z')).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'});
-if(F.length)pinta();else $('lista').appendChild(el('div','empty','Aún no hay datos.'));
+};

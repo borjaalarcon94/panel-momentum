@@ -150,6 +150,8 @@
     if (mn != null && mn < 0) riesgos.push('Pierde dinero (margen neto ' + mn.toFixed(0) + ' %)');
     if (fcfm != null && fcfm < 0) riesgos.push('Flujo de caja libre negativo (' + fcfm.toFixed(0) + ' % de ventas)');
     if (acel != null && acel < -3) riesgos.push('El crecimiento se está frenando (' + pp(acel) + ' en el último trimestre)');
+    if (gT != null && gT < 10 && gQ != null && gQ >= 20) riesgos.push('En 12 meses los ingresos solo crecen ' + pc1(gT) + ': la tesis depende del último trimestre (' + pc1(gQ) + ')');
+    if (gQ != null && gQ < 5 && gT != null && gT >= 20) riesgos.push('El último trimestre se ha frenado a ' + pc1(gQ) + ' pese al ' + pc1(gT) + ' de los 12 meses');
     if (caja != null && deuda != null && deuda > caja * 2) riesgos.push('Deuda muy superior a la caja');
     else if (dp != null && dp >= 2) riesgos.push('Deuda alta frente al patrimonio (' + dp.toFixed(1) + ')');
     motivos.forEach(m => riesgos.push(m));

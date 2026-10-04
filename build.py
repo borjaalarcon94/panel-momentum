@@ -8,12 +8,17 @@ y en el navegador para mostrar el detalle. Asi un cambio de criterio recalcula t
 import json, statistics, subprocess, urllib.request, datetime, pathlib
 
 R = pathlib.Path(__file__).parent
-DATOS, WEB = R / "data", R / "docs"
+WEB = R / "docs"
+DATOS = WEB / "datos"      # los ficheros de cada dia se sirven tal cual: no se incrustan en el HTML
 GUARDAR = 10          # top que se guarda y se sigue cada dia
 EN_MARCHA = 5         # cumplen todo pero estan muy extendidas: se guardan aparte, no son entrada temprana
-DIAS_COMPLETOS = 10   # dias con todos los datos dentro de index.html
-DIAS = 90             # dias del resumen ligero que usa el seguimiento
-SEGUIR_DIAS = 30      # dias de los que se vigila el estado actual de cada accion
+DIAS = 45             # dias del resumen ligero que usa el seguimiento
+SEGUIR_DIAS = 12      # dias de los que se vigila el estado actual de cada accion
+# Campos necesarios para recomprobar requisitos y repuntuar una accion seguida (el resto no se publica).
+CAMPOS_SEGUIMIENTO = ("ticker", "empresa", "simbolo", "precio", "cambio", "cap", "volmedio", "volrel", "adr", "rsi",
+                      "sma200", "ema9", "ema21", "ema50", "max52", "max1m", "max3m", "ingresos", "ingresosq",
+                      "ingresostot", "bpa", "bpaq", "mbruto", "margen", "fcfm", "deudapat", "caja", "deuda",
+                      "semana", "mes", "tres", "seis", "sector", "industria", "resultados")
 
 # Negocios cuyo "crecimiento" suele venir del precio de una materia prima o de los fletes, no de mas clientes.
 SECTORES_CICLICOS = {"Energy Minerals", "Non-Energy Minerals", "Process Industries", "Utilities"}
@@ -141,8 +146,8 @@ def leer(p):
 
 
 def main():
-    DATOS.mkdir(exist_ok=True)
     WEB.mkdir(exist_ok=True)
+    DATOS.mkdir(parents=True, exist_ok=True)
     hoy = datetime.datetime.utcnow().strftime("%Y-%m-%d")
     universo = filas(scan({"columns": list(C), "filter": FILTROS, "range": [0, 3000],
                            "sort": {"sortBy": "market_cap_basic", "sortOrder": "desc"}}))
@@ -171,7 +176,6 @@ def main():
              "universo": len(universo), "candidatas": len(candidatas)},
             ensure_ascii=False))
     todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
-    dias = {f: d for f, d in list(todos.items())[-DIAS_COMPLETOS:]}
     # Resumen ligero de todos los dias (lo usa el seguimiento): ticker, simbolo, precio y puntuacion.
     historico = {}
     for f, d in todos.items():
@@ -191,19 +195,24 @@ def main():
     actual = {}
     for i in range(0, len(recientes), 300):
         for fila in filas(scan({"columns": list(C), "symbols": {"tickers": recientes[i:i + 300]}})):
-            actual[fila["simbolo"]] = fila
+            actual[fila["simbolo"]] = {k: v for k, v in fila.items() if k in CAMPOS_SEGUIMIENTO and v is not None}
     antiguos = sorted({a["simbolo"] for d in todos.values() for a in d["acciones"]
                        if a.get("simbolo") and a["simbolo"] not in actual})
     precios = {s: a["precio"] for s, a in actual.items()}
     for i in range(0, len(antiguos), 400):
         for it in scan({"columns": ["close"], "symbols": {"tickers": antiguos[i:i + 400]}}):
             precios[it["s"]] = redondea(it["d"][0])
-    todo = {"dias": dias, "historico": historico, "precios": precios, "actual": actual,
-            "mercadoHoy": mercado, "referenciaHoy": ref,
-            "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
-    html = (R / "plantilla.html").read_text().replace(
-        "/*DATOS*/null", json.dumps(todo, ensure_ascii=False).replace("</", "<\\/"))
-    (WEB / "index.html").write_text(html)
+    panel = {"dias": sorted(todos), "historico": historico, "precios": precios, "actual": actual,
+             "mercadoHoy": mercado, "referenciaHoy": ref,
+             "criterios": {"precioMin": 2, "capMin": 300e6, "capMax": CAP_MAX, "volumenMin": 300000,
+                           "liquidezMin": LIQUIDEZ_MIN, "rsiMin": 55, "crecimientoMin": CRECIMIENTO_MIN,
+                           "maxDesdeMaximo": MAX_DESDE_MAXIMO},
+             "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
+    (WEB / "panel.json").write_text(json.dumps(panel, ensure_ascii=False))
+    # index.html solo cambia cuando cambia la plantilla: los datos se cargan aparte.
+    html = (R / "plantilla.html").read_text()
+    if not (WEB / "index.html").exists() or (WEB / "index.html").read_text() != html:
+        (WEB / "index.html").write_text(html)
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
           "guardadas:", "-" if acciones is None else len(acciones),
           "ya en marcha:", len(en_marcha), "seguidas con datos de hoy:", len(actual))

@@ -9,13 +9,16 @@ Web: https://borjaalarcon94.github.io/panel-momentum/
 ## Cómo funciona
 
 - `build.py` consulta el escáner de TradingView cada día laborable (GitHub Actions, `.github/workflows/panel.yml`),
-  puntúa a las candidatas y guarda **solo las 10 mejores** en `data/AAAA-MM-DD.json` (unos 12 KB al día).
+  puntúa a las candidatas y guarda **solo las 10 mejores** en `docs/datos/AAAA-MM-DD.json` (unos 16 KB al día).
 - `docs/puntuacion.js` tiene la lógica de puntuación. Es la única copia: `build.py` la ejecuta con node
   (`puntuar.js`) para ordenar el día, y el navegador la usa para mostrar el detalle. Si cambian los criterios,
   los días guardados se vuelven a puntuar solos.
-- `docs/index.html` lleva incrustados los **10 últimos días completos**, un resumen ligero (ticker, precio y
-  puntuación) de los 90 últimos y los **datos de hoy** de todas las acciones que han pasado por el top en los últimos
-  30 días, para comprobar en el seguimiento si siguen cumpliendo los requisitos.
+- Los datos **no se incrustan en el HTML**: `docs/index.html` es estático y la web descarga `docs/panel.json`
+  (días disponibles, resumen de 60 días para el seguimiento, datos de hoy de las acciones vigiladas y los umbrales de
+  los requisitos) y, solo del día que estás mirando, su `docs/datos/<fecha>.json`. Así el repositorio crece unos
+  40 KB al día (~10 MB al año) en lugar de reescribir un HTML cada vez más gordo, y la página carga en 30 KB.
+- Los umbrales viven en `build.py` y viajan dentro de `panel.json`: la web comprueba los requisitos con los mismos
+  números con los que se filtró, sin duplicarlos.
 - `docs/app.js` (estado y filtros), `docs/hoy.js` (tarjetas), `docs/seguimiento.js` (resultados posteriores),
   `docs/export.js` (PDF y CSV).
 
