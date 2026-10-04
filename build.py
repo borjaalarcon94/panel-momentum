@@ -5,7 +5,7 @@ Aqui se OBTIENEN los datos y se GUARDAN solo las mejores del dia. La logica de p
 docs/puntuacion.js (unica fuente): aqui se ejecuta con node (puntuar.js) para ordenar y quedarnos con el top,
 y en el navegador para mostrar el detalle. Asi un cambio de criterio recalcula tambien los dias ya guardados.
 """
-import json, statistics, subprocess, urllib.request, datetime, pathlib
+import hashlib, json, statistics, subprocess, urllib.request, datetime, pathlib
 
 R = pathlib.Path(__file__).parent
 WEB = R / "docs"
@@ -209,8 +209,11 @@ def main():
                            "maxDesdeMaximo": MAX_DESDE_MAXIMO},
              "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
     (WEB / "panel.json").write_text(json.dumps(panel, ensure_ascii=False))
-    # index.html solo cambia cuando cambia la plantilla: los datos se cargan aparte.
-    html = (R / "plantilla.html").read_text()
+    # index.html solo cambia cuando cambia la plantilla o el codigo de la web: los datos se cargan aparte.
+    # La version en las URLs de css/js evita que el navegador sirva una version antigua tras un despliegue.
+    estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css"))
+    version = hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
+    html = (R / "plantilla.html").read_text().replace("VERSION", version)
     if not (WEB / "index.html").exists() or (WEB / "index.html").read_text() != html:
         (WEB / "index.html").write_text(html)
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
