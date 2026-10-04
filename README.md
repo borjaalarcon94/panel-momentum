@@ -71,6 +71,20 @@ Debajo del top, plegada, una lista corta (5) con las que cumplen todos los requi
 suele salir caro; lo habitual es que consoliden y vuelvan a arrancar desde una base, y entonces reaparecen en el top.
 Se guardan en `enMarcha` dentro del fichero del día y también se les hace seguimiento.
 
+## Gestión de la posición
+
+El panel no solo dice qué mirar, también dónde salir. Cada acción del top muestra un **stop técnico**
+(cierre bajo la EMA 21, alternativa más holgada en la EMA 50 y una tercera por volatilidad, a dos veces su ATR) con
+el precio y el porcentaje desde el nivel actual. En el seguimiento, cuando aparecen **señales de salida** (pierde la
+EMA 21 o la EMA 50, RSI por debajo de 45, cae más de un 15 % desde su máximo del mes o devuelve más de la mitad de
+lo que llegó a ganar) se muestran destacadas. Son referencias técnicas, no órdenes.
+
+## Cambios del día y sectores
+
+Bajo el banner de mercado: los **sectores con más fuerza** (mediana a 3 meses de todo el mercado, con cuántas del top
+pertenecen a cada uno) y un bloque de **cambios respecto al día anterior**: quién entra al top, quién sale y qué
+acciones vigiladas han dado señal de salida.
+
 ## Seguimiento
 
 Sigue a todas las acciones que han pasado por el top 10 y responde a si la compra sigue siendo viable. Cada día

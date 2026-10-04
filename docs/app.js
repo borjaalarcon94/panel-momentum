@@ -35,6 +35,27 @@ window.REQUISITOS = function (a) {
   ];
 };
 
+/* Gestion de la posicion: donde poner el stop y que senales dicen que toca salir.
+   Todo sale de los datos de hoy; son referencias tecnicas, no ordenes. */
+window.SALIDA = function (a, extra) {
+  extra = extra || {};
+  const p = a.precio, dist = x => x == null || !p ? null : (x / p - 1) * 100;
+  const atr = a.atr && p ? p - 2 * a.atr : null;
+  const opciones = [
+    { t: 'Cierre bajo la EMA 21', v: a.ema21, d: dist(a.ema21), nota: 'stop corto, para capturar tramos rápidos' },
+    { t: 'Cierre bajo la EMA 50', v: a.ema50, d: dist(a.ema50), nota: 'stop amplio, aguanta sustos normales' },
+    { t: 'Dos veces su rango diario (ATR)', v: atr, d: dist(atr), nota: 'stop por volatilidad' },
+  ].filter(x => x.v != null);
+  const senales = [];
+  if (p != null && a.ema21 != null && p < a.ema21) senales.push('Ha perdido la EMA 21 (' + n(a.ema21) + ' $): primera señal de salida');
+  if (p != null && a.ema50 != null && p < a.ema50) senales.push('Ha perdido la EMA 50 (' + n(a.ema50) + ' $): la tendencia corta se ha roto');
+  if (a.rsi != null && a.rsi < 45) senales.push('RSI ' + n(a.rsi, 0) + ': ha perdido la fuerza compradora');
+  const caida = a.max1m && p ? (p / a.max1m - 1) * 100 : null;
+  if (caida != null && caida <= -15) senales.push('Ha caído ' + n(Math.abs(caida), 0) + ' % desde su máximo del último mes');
+  if (extra.devuelto != null && extra.devuelto >= 50 && extra.maxGanancia >= 10) senales.push('Ha devuelto el ' + n(extra.devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(extra.maxGanancia) + ' a ' + pc(extra.ganancia) + ')');
+  return { opciones, senales, caidaMes: caida };
+};
+
 function ctxDia(f, a, d) {
   const m = ((d || {}).mercado || []).find(x => x.ticker === 'SPY') || {};
   return { fecha: f, spy: { tres: m.tres, seis: m.seis }, sector: (((d || {}).referencia || {}).sectores || {})[a.sector] || null };

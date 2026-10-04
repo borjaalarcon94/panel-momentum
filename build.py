@@ -18,7 +18,7 @@ SEGUIR_DIAS = 12      # dias de los que se vigila el estado actual de cada accio
 CAMPOS_SEGUIMIENTO = ("ticker", "empresa", "simbolo", "precio", "cambio", "cap", "volmedio", "volrel", "adr", "rsi",
                       "sma200", "ema9", "ema21", "ema50", "max52", "max1m", "max3m", "ingresos", "ingresosq",
                       "ingresostot", "bpa", "bpaq", "mbruto", "margen", "fcfm", "deudapat", "caja", "deuda",
-                      "semana", "mes", "tres", "seis", "sector", "industria", "resultados")
+                      "semana", "mes", "tres", "seis", "sector", "industria", "resultados", "atr")
 
 # Negocios cuyo "crecimiento" suele venir del precio de una materia prima o de los fletes, no de mas clientes.
 SECTORES_CICLICOS = {"Energy Minerals", "Non-Energy Minerals", "Process Industries", "Utilities"}
@@ -57,7 +57,7 @@ C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "c
      "price_52_week_high": "max52", "price_52_week_low": "min52",
      "SMA50": "sma50", "SMA200": "sma200", "EMA9": "ema9", "EMA21": "ema21", "EMA50": "ema50",
      "High.1M": "max1m", "High.3M": "max3m",
-     "average_volume_10d_calc": "volmedio", "volume": "vol", "total_revenue_ttm": "ingresostot"}
+     "average_volume_10d_calc": "volmedio", "volume": "vol", "total_revenue_ttm": "ingresostot", "ATR": "atr"}
 
 
 def scan(body):

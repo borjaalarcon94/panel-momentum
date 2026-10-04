@@ -52,3 +52,12 @@ details#marcha[open] summary{margin-bottom:6px}
 .card.mini{padding:12px}
 .card.mini .grid{grid-template-columns:repeat(5,1fr)}
 @media (max-width:620px){.card.mini .grid{grid-template-columns:repeat(3,1fr)}}
+.secg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12px}
+.sec b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+.cambios{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin:12px 0}
+.cl{display:flex;gap:8px;font-size:13px;margin-top:3px;flex-wrap:wrap}
+.clt{color:var(--muted);min-width:120px;font-size:12px}
+.stop{margin-top:10px;font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--line) 40%,var(--card));padding:6px 9px;border-radius:8px}
+.venta{margin-top:10px;border-left:3px solid var(--down);padding-left:10px}
+@media (max-width:620px){.secg{grid-template-columns:repeat(2,1fr)}}

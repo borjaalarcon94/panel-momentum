@@ -30,8 +30,12 @@ function historial(lim) {
       const estado = !h ? 'sindatos' : h.fallos.length ? 'nocumple'
       : h.pt && h.pt.extendida ? 'extendida'
       : dScore != null && dScore < -CAIDA_SCORE ? 'flojea' : 'viable';
+    const maxGan = r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null;
+    const gan = ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null;
+    const devuelto = maxGan != null && gan != null && maxGan > 0 ? (1 - gan / maxGan) * 100 : null;
+    const salida = h ? window.SALIDA(h.a, { devuelto, maxGanancia: maxGan, ganancia: gan }) : null;
     return { ...r, clave: k, ahora, enTop, puestoHoy, puestoAyer, estado, dScore, score: h ? h.score : null, req: h ? h.req : null,
-      fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [],
+      fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [], salida, devuelto,
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
       desdeMax: ahora != null && r.maxCierre ? (ahora / r.maxCierre - 1) * 100 : null,
@@ -85,12 +89,22 @@ window.seguimiento = function () {
     else if (a.estado === 'viable') fila.appendChild(el('span', 'm', 'cumple los 9 requisitos' + (a.dScore != null ? ' · puntuación ' + (a.dScore >= 0 ? '+' : '') + n(a.dScore, 0) + ' desde su entrada' : '')));
     c.appendChild(fila);
 
+    if (a.salida && a.salida.senales.length) {
+      const v = el('div', 'venta');
+      v.appendChild(el('div', 'blt', 'Señales de salida'));
+      const u = el('ul', 'bll');
+      a.salida.senales.forEach(t => u.appendChild(el('li', 'risk', t)));
+      v.appendChild(u);
+      c.appendChild(v);
+    }
     const g = el('div', 'grid');
     [['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
      ['Puesto hoy', a.puestoHoy ? '#' + a.puestoHoy + (a.puestoAyer ? ' (ayer #' + a.puestoAyer + ')' : ' (nueva)') : 'fuera del top'],
      ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
      ['Máx. alcanzado', pc(a.max)], ['Frente a su mejor cierre', pc(a.desdeMax)],
-     ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt']]
+     ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt'],
+     ['Stop (EMA 21)', a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : '-'],
+     ['Devuelto del máximo', a.devuelto == null || a.devuelto <= 0 ? '—' : n(a.devuelto, 0) + ' %']]
       .forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
     c.appendChild(g);
 
@@ -103,6 +117,11 @@ window.seguimiento = function () {
         const u = el('ul', 'bll');
         a.req.forEach(x => u.appendChild(el('li', x.ok ? 'good2' : 'risk', (x.ok ? '✓ ' : '✗ ') + x.t + ': ' + x.v)));
         abierto.appendChild(el('div', 'blt', 'Requisitos obligatorios hoy')); abierto.appendChild(u);
+        if (a.salida && a.salida.opciones.length) {
+          const s2 = el('ul', 'bll');
+          a.salida.opciones.forEach(o => s2.appendChild(el('li', null, o.t + ': ' + n(o.v) + ' $ (' + pc(o.d, 0) + ') — ' + o.nota)));
+          abierto.appendChild(el('div', 'blt', 'Dónde poner el stop')); abierto.appendChild(s2);
+        }
         if (a.pt || true) { const p = estadoHoy(a.clave);
           if (p && p.pt) { const r2 = el('ul', 'bll'); p.pt.riesgos.slice(0, 4).forEach(t => r2.appendChild(el('li', 'risk', t)));
             if (p.pt.riesgos.length) { abierto.appendChild(el('div', 'blt', 'Riesgos ahora')); abierto.appendChild(r2) } } }
@@ -112,7 +131,7 @@ window.seguimiento = function () {
     }
     R.appendChild(c);
   });
-  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana.'));
+  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana. El stop y las señales de salida son referencias técnicas calculadas con los datos de hoy, no órdenes: decide tú.'));
 };
 window.initSeguimiento = function () {
   $('per').onchange = () => window.seguimiento();
