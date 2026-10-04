@@ -86,7 +86,8 @@ if(!top.length){L.appendChild(el('div','empty','Ese día ninguna acción cumpli�
 top.forEach((a,i)=>L.appendChild(tarjeta(a,i)))};
 
 /* Tarjeta compacta: lo justo para decidir si merece abrirla. El detalle va dentro del desplegable. */
-function tarjeta(a,i){const c=el('div','card'),top=el('div','top'),izq=el('div');
+function tarjeta(a,i){const nivel=a.score>=75?' n3':a.score>=55?' n2':' n1';
+const c=el('div','card'+nivel+(i===0?' destacada':'')),top=el('div','top'),izq=el('div');
 const tk=el('a','tk',a.ticker);tk.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(a.simbolo||a.ticker);tk.target='_blank';tk.rel='noopener';
 izq.appendChild(el('span','pos','#'+(i+1)));izq.appendChild(tk);if(a.nueva)izq.appendChild(el('span','new','NUEVA'));
 izq.appendChild(el('div','name',(a.empresa||'')+' · '+(a.industria||'')+' · '+cap(a.cap)));

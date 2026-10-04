@@ -10,6 +10,19 @@ function estadoHoy(sim) {
   return { a, req, fallos, score: p ? p.total : null, pt: p };
 }
 
+/* Mini gráfico con la puntuación de cada día que la acción estuvo en el top. */
+function spark(serie) {
+  if (serie.length < 2) return null;
+  const an = 86, al = 22, min = Math.min(...serie, 40), max = Math.max(...serie, 90), r = max - min || 1;
+  const pts = serie.map((v, i) => (i * an / (serie.length - 1)).toFixed(1) + ',' + (al - (v - min) / r * al).toFixed(1)).join(' ');
+  const sube = serie[serie.length - 1] >= serie[0];
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', an); svg.setAttribute('height', al); svg.setAttribute('class', 'spark');
+  svg.innerHTML = '<polyline fill="none" stroke="' + (sube ? 'var(--up)' : 'var(--down)') + '" stroke-width="1.6" points="' + pts + '"/>';
+  svg.setAttribute('aria-label', 'Evolución de la puntuación: ' + serie.map(x => Math.round(x)).join(', '));
+  return svg;
+}
+
 function historial(lim) {
   const P = T.precios || {}, fechas = FH.slice(0, lim), hoyF = FH[0];
   const spyHoy = (HIST[hoyF] || {}).spy;
@@ -18,10 +31,10 @@ function historial(lim) {
   const reg = {};
   [...fechas].reverse().forEach(f => ((HIST[f] || {}).acciones || []).forEach((a, i) => {
     const k = a.s || a.t;
-    if (!reg[k]) reg[k] = { ticker: a.t, empresa: a.n, entrada: f, precioEntrada: a.p, scoreEntrada: a.sc, spyEntrada: (HIST[f] || {}).spy, dias: 0, maxCierre: a.p || 0, mejorPuesto: 99, ultimo: f, puestoHoy: null };
+    if (!reg[k]) reg[k] = { ticker: a.t, empresa: a.n, entrada: f, precioEntrada: a.p, scoreEntrada: a.sc, spyEntrada: (HIST[f] || {}).spy, dias: 0, maxCierre: a.p || 0, mejorPuesto: 99, ultimo: f, puestoHoy: null, serie: [] };
     const r = reg[k];
     r.dias++; r.ultimo = f; r.maxCierre = Math.max(r.maxCierre, a.p || 0); r.mejorPuesto = Math.min(r.mejorPuesto, i + 1);
-
+    if (a.sc != null) r.serie.push(a.sc);   // puntuacion de cada dia que estuvo en el top
   }));
   return Object.entries(reg).map(([k, r]) => {
     const h = estadoHoy(k), ahora = (h ? h.a.precio : P[k]) ?? null;
@@ -131,13 +144,19 @@ window.seguimiento = function () {
     }
     const g = el('div', 'grid');
     [['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
+     ['Puntuación día a día', ''],
      ['Puesto hoy', a.puestoHoy ? '#' + a.puestoHoy + (a.puestoAyer ? ' (ayer #' + a.puestoAyer + ')' : ' (nueva)') : 'fuera del top'],
      ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
      ['Máx. alcanzado', pc(a.max)], ['Frente a su mejor cierre', pc(a.desdeMax)],
      ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt'],
      ['Stop (EMA 21)', a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : '-'],
      ['Devuelto del máximo', a.devuelto == null || a.devuelto <= 0 ? '—' : n(a.devuelto, 0) + ' %']]
-      .forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
+      .forEach(([k, v]) => {
+        const m = el('div', 'm', k);
+        if (k === 'Puntuación día a día') { const sp = spark((a.serie || []).concat(a.score != null ? [a.score] : [])); m.appendChild(sp || el('span', null, '—')) }
+        else m.appendChild(el('span', null, v));
+        g.appendChild(m);
+      });
     c.appendChild(g);
 
     if (a.req) {

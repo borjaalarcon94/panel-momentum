@@ -113,5 +113,10 @@ async function iniciar() {
   window.initSeguimiento();
   window.pinta();
 }
-window.cambiarDia = async f => { S.dia = f; await dia(f); window.pinta() };
+window.cambiarDia = async f => {
+  S.dia = f;
+  if (!CACHE[f]) { $('lista').replaceChildren(el('div', 'cargando', 'Cargando ese día…')) }
+  await dia(f);
+  window.pinta();
+};
 document.addEventListener('DOMContentLoaded', iniciar);

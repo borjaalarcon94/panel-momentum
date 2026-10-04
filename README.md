@@ -140,6 +140,13 @@ Además: puntuación de hoy frente a la de entrada, días en el top, mejor puest
 máxima subida alcanzada, distancia a su mejor cierre y diferencia con el S&P 500. El desplegable muestra los 8
 requisitos uno a uno y los riesgos actuales.
 
+## Interfaz, detalles
+
+Dos columnas de tarjetas en pantallas anchas, borde de color según la puntuación (verde ≥ 75, azul 55-75, gris por
+debajo), pestañas fijas al desplazar, rejilla fija de métricas en móvil, aviso mientras carga otro día, icono propio
+y `manifest.json` para añadirla a la pantalla de inicio del móvil. En el seguimiento, un mini gráfico muestra la
+evolución de la puntuación de cada acción día a día.
+
 ## Resultados
 
 Tercera pestaña: compara lo que decía el panel con lo que luego hicieron las acciones. Cada entrada al top queda

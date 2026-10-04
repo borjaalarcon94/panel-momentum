@@ -82,3 +82,18 @@ details.descartadas .tw{margin-top:8px}
 .qbad{background:var(--badbg);color:var(--text)}
 .quehacer b{margin-right:4px}
 .stop.riesgo{background:var(--warnbg);color:var(--text)}
+/* Pestañas siempre accesibles al desplazar */
+.tabs{position:sticky;top:0;z-index:6;background:var(--bg);padding-top:6px}
+/* Color del borde según la puntuación: permite barrer la lista de un vistazo */
+.card.n3{border-left:3px solid var(--up)}
+.card.n2{border-left:3px solid var(--info)}
+.card.n1{border-left:3px solid var(--muted)}
+.card.destacada{box-shadow:0 0 0 1px color-mix(in srgb,var(--up) 35%,transparent)}
+/* Evolución de la puntuación en el seguimiento */
+.spark{display:block;margin-top:2px}
+.cargando{color:var(--muted);font-size:13px;padding:20px 0;text-align:center}
+@media (max-width:620px){
+  .resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  main{padding:14px 12px 40px}
+  h1{font-size:20px}
+}
