@@ -71,6 +71,17 @@ Debajo del top, plegada, una lista corta (5) con las que cumplen todos los requi
 suele salir caro; lo habitual es que consoliden y vuelvan a arrancar desde una base, y entonces reaparecen en el top.
 Se guardan en `enMarcha` dentro del fichero del día y también se les hace seguimiento.
 
+## Interfaz
+
+La pestaña del día muestra una tarjeta compacta por acción: puesto, ticker, empresa, capitalización, precio,
+puntuación y seis cifras clave (ingresos, aceleración, distancia al máximo, RSI, volumen relativo y ADR), más el
+motivo principal por el que aparece. El botón «Ver análisis completo» despliega las cinco barras de la puntuación,
+por qué aparece, señales fundamentales, riesgos, el stop técnico, quince métricas y el gráfico.
+
+El seguimiento se ordena por defecto por **las más recomendables ahora**: primero las que siguen cumpliendo y sin
+señales de salida, después las extendidas, las que pierden fuerza y las que ya no cumplen; dentro de cada grupo, por
+puntuación.
+
 ## Gestión de la posición
 
 El panel no solo dice qué mirar, también dónde salir. Cada acción del top muestra un **stop técnico**

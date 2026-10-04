@@ -15,10 +15,10 @@
 <div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Top del día</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button></div>
 <section id="vhoy">
 <div class="banner" id="mercado" hidden></div>
-<div class="blk" id="sectores" hidden></div>
+<details id="dsectores"><summary>Sectores con más fuerza</summary><div class="blk" id="sectores" hidden></div></details>
 <div class="blk cambios" id="cambios" hidden></div>
 <div class="row"><select id="dia" aria-label="Día"></select><select id="orden" aria-label="Ordenar"><option value="score">Más momentum (puntuación)</option><option value="acel">Más aceleración del crecimiento</option><option value="g">Más crecimiento de ingresos</option><option value="dmax">Más cerca de máximos</option><option value="volrel">Más volumen relativo</option><option value="cambio">Más subida del día</option></select></div>
-<div class="stats" id="stats"></div>
+<p class="resumenlinea" id="stats"></p>
 <div class="row"><button class="main" id="bpdf">Descargar PDF</button><button id="bcsv">Descargar Excel (CSV)</button><span class="sub" id="cuenta" style="margin:auto 0"></span></div>
 <div id="lista"></div>
 <details id="marcha"><summary>Ya en marcha: cumplen todo pero están muy extendidas <span class="sub" id="nmarcha"></span></summary>
@@ -27,7 +27,7 @@
 </section>
 <section id="vseg" hidden>
 <p class="nota">Qué ha pasado con cada acción desde el día que entró en el top: cuánto lleva, cuánto subió como máximo, cómo va frente al S&amp;P 500 y, sobre todo, <b>si mantiene el momentum</b> (sigue en el top y su puntuación aguanta) o lo está perdiendo.</p>
-<div class="row"><select id="per" aria-label="Periodo"><option value="5">Entradas de la última semana</option><option value="20">Entradas del último mes</option><option value="90" selected>Entradas de los últimos 3 meses</option></select><select id="segest" aria-label="Estado"><option value="">Todas las seguidas</option><option value="viables">Solo las que siguen viables</option><option value="top">Solo las del top de hoy</option><option value="fuera">Solo las que ya no cumplen</option></select><select id="segorden" aria-label="Ordenar"><option value="ret">Mejor resultado</option><option value="score">Más momentum ahora</option><option value="entrada">Entrada más reciente</option><option value="max">Mayor subida alcanzada</option></select></div>
+<div class="row"><select id="per" aria-label="Periodo"><option value="5">Entradas de la última semana</option><option value="20">Entradas del último mes</option><option value="90" selected>Entradas de los últimos 3 meses</option></select><select id="segest" aria-label="Estado"><option value="">Todas las seguidas</option><option value="viables">Solo las que siguen viables</option><option value="top">Solo las del top de hoy</option><option value="fuera">Solo las que ya no cumplen</option></select><select id="segorden" aria-label="Ordenar"><option value="reco" selected>Las más recomendables ahora</option><option value="score">Más momentum ahora</option><option value="ret">Mejor resultado</option><option value="entrada">Entrada más reciente</option><option value="max">Mayor subida alcanzada</option></select></div>
 <div id="rseg"></div>
 </section>
 <footer>

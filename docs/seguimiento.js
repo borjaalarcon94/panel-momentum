@@ -49,9 +49,13 @@ const ETIQUETA = {
 };
 
 window.seguimiento = function () {
-  const lim = +$('per').value, orden = $('segorden').value, filtro = $('segest').value;
+  const lim = +$('per').value, orden = $('segorden').value || 'reco', filtro = $('segest').value;
   let r = historial(lim).filter(a => filtro === 'viables' ? a.estado === 'viable' : filtro === 'top' ? a.enTop : filtro === 'fuera' ? a.estado === 'nocumple' : true);
-  const clave = { ret: a => a.ret, score: a => a.score ?? -1e9, entrada: a => -FH.indexOf(a.entrada), max: a => a.max };
+  // "Recomendables": primero las que siguen cumpliendo y sin señales de salida, y dentro de cada grupo, más momentum.
+  const ORDEN_ESTADO = { viable: 0, extendida: 1, flojea: 2, nocumple: 3, sindatos: 4 };
+  const clave = {
+    reco: a => -(ORDEN_ESTADO[a.estado] * 1000 + (a.salida && a.salida.senales.length ? 300 : 0) - (a.score ?? 0)),
+    score: a => a.score ?? -1e9, ret: a => a.ret, entrada: a => -FH.indexOf(a.entrada), max: a => a.max };
   r.sort((x, y) => (clave[orden](y) ?? -1e18) - (clave[orden](x) ?? -1e18));
   const R = $('rseg'); R.replaceChildren();
   if (!r.length) { R.appendChild(el('div', 'empty', 'Aún no hay historial. Las acciones aparecen aquí al día siguiente de entrar en el top 10.')); return }
