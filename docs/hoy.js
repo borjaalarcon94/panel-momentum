@@ -100,6 +100,11 @@ const r=el('div','resumen');
 .forEach(([k,x])=>{const m=el('span','rz');m.appendChild(el('i',null,k));m.appendChild(el('b',null,x));r.appendChild(m)});
 c.appendChild(r);
 if(a.pt&&a.pt.razones.length)c.appendChild(el('div','clave','➜ '+a.pt.razones[0]));
+const sal=window.SALIDA(a);
+if(sal.opciones.length){const st=el('div','stop');
+st.appendChild(el('b',null,'Stop técnico '+n(sal.opciones[0].v)+' $'));
+st.appendChild(el('span',null,' ('+pc(sal.opciones[0].d,0)+', cierre bajo la EMA 21)'+(sal.opciones[1]?' · holgado '+n(sal.opciones[1].v)+' $ ('+pc(sal.opciones[1].d,0)+')':'')));
+c.appendChild(st)}
 const nr=a.pt?a.pt.riesgos.length:0;
 
 const b=el('button','chip','Ver análisis completo'+(nr?' · '+nr+(nr===1?' riesgo':' riesgos'):''));b.style.marginTop='10px';
@@ -111,8 +116,9 @@ const b1=bloque('Por qué aparece',a.pt.razones,'good2');if(b1)abierto.appendChi
 const b2=bloque('Señales fundamentales',a.pt.fundamentales,'good2');if(b2)abierto.appendChild(b2);
 const b3=bloque('Riesgos',a.pt.riesgos,'risk');if(b3)abierto.appendChild(b3);
 if(a.pt.penal.total)abierto.appendChild(el('div','pen','Penalización por sobreextensión: −'+n(a.pt.penal.total,0)+' puntos'))}
-const sal=window.SALIDA(a);
-if(sal.opciones.length)abierto.appendChild(el('div','stop','Si entras, stop técnico en '+n(sal.opciones[0].v)+' $ ('+pc(sal.opciones[0].d,0)+', cierre bajo la EMA 21) · más holgado: '+(sal.opciones[1]?n(sal.opciones[1].v)+' $ ('+pc(sal.opciones[1].d,0)+')':'—')));
+if(sal.opciones.length){const u=el('ul','bll');
+sal.opciones.forEach(o=>u.appendChild(el('li',null,o.t+': '+n(o.v)+' $ ('+pc(o.d,0)+') — '+o.nota)));
+abierto.appendChild(el('div','blt','Dónde poner el stop'));abierto.appendChild(u)}
 abierto.appendChild(detalle(a));abierto.appendChild(grafico(a.simbolo||a.ticker,true));
 c.appendChild(abierto);b.textContent='Ocultar análisis'};
 c.appendChild(b);return c}

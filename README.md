@@ -78,7 +78,11 @@ puntuación y seis cifras clave (ingresos, aceleración, distancia al máximo, R
 motivo principal por el que aparece. El botón «Ver análisis completo» despliega las cinco barras de la puntuación,
 por qué aparece, señales fundamentales, riesgos, el stop técnico, quince métricas y el gráfico.
 
-El seguimiento se ordena por defecto por **las más recomendables ahora**: primero las que siguen cumpliendo y sin
+La tarjeta compacta incluye el **stop técnico** sin necesidad de desplegarla.
+
+El seguimiento muestra por defecto solo **las que siguen siendo oportunidad** (viables, extendidas o flojeando),
+ordenadas por cuál comprarías antes. Las que dejan de cumplir algún requisito salen de la lista y quedan plegadas en
+«Descartadas», con el motivo y su resultado final, de modo que la lista no crece sin fin. El orden es: primero las que siguen cumpliendo y sin
 señales de salida, después las extendidas, las que pierden fuerza y las que ya no cumplen; dentro de cada grupo, por
 puntuación.
 

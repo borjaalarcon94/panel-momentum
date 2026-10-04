@@ -43,6 +43,31 @@ function historial(lim) {
   }).filter(a => a.ret != null && a.entrada !== hoyF);   // las que entran hoy aun no tienen evolucion
 }
 
+/* Las que ya no cumplen salen de la lista principal y quedan plegadas aqui, con su motivo y su resultado. */
+function tablaDescartadas(xs) {
+  const d = document.createElement('details'); d.className = 'descartadas';
+  const su = document.createElement('summary');
+  su.textContent = 'Descartadas: ya no cumplen los requisitos (' + xs.length + ')';
+  d.appendChild(su);
+  const t = el('table', 'tabla'), h = el('tr');
+  ['Acción', 'Entró', 'Días en el top', 'Resultado', 'Por qué ha salido'].forEach(x => h.appendChild(el('th', null, x)));
+  t.appendChild(h);
+  xs.slice(0, 20).forEach(a => {
+    const tr = el('tr');
+    const td = el('td'); const l = el('a', 'tk2', a.ticker);
+    l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(a.clave); l.target = '_blank'; l.rel = 'noopener';
+    td.appendChild(l); tr.appendChild(td);
+    tr.appendChild(el('td', null, fFecha(a.entrada)));
+    tr.appendChild(el('td', null, a.dias));
+    tr.appendChild(el('td', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
+    tr.appendChild(el('td', null, a.fallos && a.fallos.length ? a.fallos.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', ') : 'sin datos actualizados'));
+    t.appendChild(tr);
+  });
+  const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  if (xs.length > 20) d.appendChild(el('p', 'nota', 'y ' + (xs.length - 20) + ' más.'));
+  return d;
+}
+
 const ETIQUETA = {
   viable: ['Sigue viable', 'eok'], extendida: ['Muy extendida', 'ewarn'], flojea: ['Pierde fuerza', 'ewarn'],
   nocumple: ['Ya no cumple', 'ebad'], sindatos: ['Sin datos de hoy', 'eoff'],
@@ -50,7 +75,10 @@ const ETIQUETA = {
 
 window.seguimiento = function () {
   const lim = +$('per').value, orden = $('segorden').value || 'reco', filtro = $('segest').value;
-  let r = historial(lim).filter(a => filtro === 'viables' ? a.estado === 'viable' : filtro === 'top' ? a.enTop : filtro === 'fuera' ? a.estado === 'nocumple' : true);
+  const todo = historial(lim);
+  const viva = a => a.estado === 'viable' || a.estado === 'extendida' || a.estado === 'flojea';
+  const descartadas = todo.filter(a => !viva(a));
+  let r = filtro === 'todas' ? todo : filtro === 'top' ? todo.filter(a => a.enTop) : filtro === 'fuera' ? descartadas : todo.filter(viva);
   // "Recomendables": primero las que siguen cumpliendo y sin señales de salida, y dentro de cada grupo, más momentum.
   const ORDEN_ESTADO = { viable: 0, extendida: 1, flojea: 2, nocumple: 3, sindatos: 4 };
   const clave = {
@@ -58,15 +86,22 @@ window.seguimiento = function () {
     score: a => a.score ?? -1e9, ret: a => a.ret, entrada: a => -FH.indexOf(a.entrada), max: a => a.max };
   r.sort((x, y) => (clave[orden](y) ?? -1e18) - (clave[orden](x) ?? -1e18));
   const R = $('rseg'); R.replaceChildren();
-  if (!r.length) { R.appendChild(el('div', 'empty', 'Aún no hay historial. Las acciones aparecen aquí al día siguiente de entrar en el top 10.')); return }
+  if (!r.length) {
+    R.appendChild(el('div', 'empty', todo.length
+      ? 'Ninguna de las seguidas sigue cumpliendo los requisitos. Mira el top del día para buscar nuevas oportunidades.'
+      : 'Aún no hay historial. Las acciones aparecen aquí al día siguiente de entrar en el top 10.'));
+    if (descartadas.length) R.appendChild(tablaDescartadas(descartadas));
+    return;
+  }
 
-  const viables = r.filter(a => a.estado === 'viable').length, med = r.reduce((s, a) => s + a.ret, 0) / r.length;
-  const pos = r.filter(a => a.ret > 0).length;
+  // Las dos primeras hablan de la lista viva; las dos ultimas miden como ha ido la estrategia con todas.
+  const med = todo.reduce((s, a) => s + a.ret, 0) / todo.length, pos = todo.filter(a => a.ret > 0).length;
   const st = el('div', 'stats');
-  st.append(stat('en seguimiento', r.length), stat('siguen viables', viables), stat('en positivo', Math.round(pos / r.length * 100) + ' %'), stat('media', pc(med)));
+  st.append(stat('siguen siendo oportunidad', todo.filter(viva).length), stat('descartadas', descartadas.length),
+    stat('en positivo', Math.round(pos / todo.length * 100) + ' %'), stat('media de todas', pc(med)));
   R.appendChild(st);
 
-  const cs = r.filter(a => a.sp != null), spMed = cs.length ? cs.reduce((s, a) => s + a.sp, 0) / cs.length : null, gana = cs.filter(a => a.ret > a.sp).length;
+  const cs = todo.filter(a => a.sp != null), spMed = cs.length ? cs.reduce((s, a) => s + a.sp, 0) / cs.length : null, gana = cs.filter(a => a.ret > a.sp).length;
   if (spMed != null) { const d = med - spMed, B = el('div', 'banner ' + (d >= 0 ? 'okb' : 'warnb'));
     B.appendChild(el('div', 'bt', (d >= 0 ? 'El top va mejor que el mercado: ' : 'El top va peor que el mercado: ') + 'de media ' + pc(med) + ' frente a ' + pc(spMed) + ' del S&P 500 en los mismos días (' + (d >= 0 ? '+' : '') + n(d, 1) + ' puntos). ' + gana + ' de ' + cs.length + ' lo hacen mejor que el índice.'));
     R.appendChild(B) }
@@ -135,7 +170,8 @@ window.seguimiento = function () {
     }
     R.appendChild(c);
   });
-  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana. El stop y las señales de salida son referencias técnicas calculadas con los datos de hoy, no órdenes: decide tú.'));
+  if (filtro !== 'fuera' && descartadas.length) R.appendChild(tablaDescartadas(descartadas));
+  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que dejan de cumplir salen de la lista principal y quedan plegadas abajo, con el motivo. Las que entran hoy aparecen mañana. El stop y las señales de salida son referencias técnicas calculadas con los datos de hoy, no órdenes: decide tú.'));
 };
 window.initSeguimiento = function () {
   $('per').onchange = () => window.seguimiento();
