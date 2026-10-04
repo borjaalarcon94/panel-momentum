@@ -48,12 +48,16 @@
 
     // ── 2. Aceleracion del crecimiento (25) ───────────────────────────────────
     const t2 = [];
+    // Crecimiento poco representativo: base de ingresos diminuta o salto puntual (hitos, licencias, una compra).
+    const ingTot = num(a.ingresostot);
+    const dudoso = (ingTot != null && ingTot < 25e6) || (g != null && g > 300);
     const pNivel = tramo(g, [[40, 8], [25, 6], [20, 4]]);
-    const pAcel = acel == null ? 0 : acel >= 10 ? 9 : acel >= 3 ? 6 : acel > 0 ? 3 : 0;
+    let pAcel = acel == null ? 0 : acel >= 10 ? 9 : acel >= 3 ? 6 : acel > 0 ? 3 : 0;
+    if (dudoso) pAcel = Math.min(pAcel, 4);
     const pBpa = eQ != null && eT != null && eQ > 0 && acelBpa > 0 ? 8 : eQ != null && eQ > 0 ? 5
       : eT != null && eT > 0 ? 3 : eQ == null && eT == null ? 2 : 0;
     t2.push(d('Ingresos ' + (g == null ? 'sin dato' : pc1(g)) + ' interanual', pNivel >= 4));
-    t2.push(d(acel == null ? 'Aceleración de ingresos: sin dato trimestral' : 'Crecimiento ' + (acel > 0 ? 'acelerando' : 'desacelerando') + ' ' + pp(acel) + ' (trimestre vs 12 meses)', pAcel >= 3));
+    t2.push(d((acel == null ? 'Aceleración de ingresos: sin dato trimestral' : 'Crecimiento ' + (acel > 0 ? 'acelerando' : 'desacelerando') + ' ' + pp(acel) + ' (trimestre vs 12 meses)') + (dudoso ? ' — poco representativo' : ''), pAcel >= 3));
     t2.push(d(eQ == null && eT == null ? 'Beneficio por acción: sin dato' : 'BPA ' + (eQ != null ? pc1(eQ) + ' trimestral' : pc1(eT) + ' TTM') + (acelBpa > 0 ? ', acelerando' : ''), pBpa >= 5));
     partes.push({ id: 'ace', label: 'Aceleración del crecimiento', p: pNivel + pAcel + pBpa, max: 25, detalle: t2 });
 
@@ -86,13 +90,16 @@
 
     // ── 5. Volumen y confirmacion de ruptura (15) ─────────────────────────────
     const t5 = [];
-    const pVol = tramo(vr, [[2, 6], [1.5, 5], [1.2, 3], [1, 1]]);
-    const pMax = dmax == null ? 0 : dmax >= -5 ? 5 : dmax >= -10 ? 3.5 : dmax >= -20 ? 2 : 0;
+    const pVol = tramo(vr, [[2, 4], [1.5, 3], [1.2, 2], [1, 0.5]]);
+    // ADR: cuanto se mueve al dia. Sin movimiento no hay recorrido que capturar a corto plazo.
+    const pAdr = tramo(adr, [[7, 2.5], [5, 2], [3.5, 1], [2.5, 0.5]]);
+    const pMax = dmax == null ? 0 : dmax >= -5 ? 4.5 : dmax >= -10 ? 3 : dmax >= -20 ? 1.5 : 0;
     const pRup = rupt === '3m' ? 4 : rupt === '1m' ? 2.5 : 0;
-    t5.push(d('Volumen ' + (vr == null ? 'sin dato' : vr.toFixed(1).replace('.', ',') + 'x su media') + (adr != null ? ' · ADR ' + adr.toFixed(1) + ' %' : ''), pVol >= 3));
-    t5.push(d(dmax == null ? 'Distancia al máximo de 52 semanas: sin dato' : 'A ' + Math.abs(dmax).toFixed(1).replace('.', ',') + ' % de su máximo de 52 semanas', pMax >= 3.5));
+    t5.push(d('Volumen ' + (vr == null ? 'sin dato' : vr.toFixed(1).replace('.', ',') + 'x su media'), pVol >= 2));
+    t5.push(d(adr == null ? 'ADR: sin dato' : 'Se mueve ' + adr.toFixed(1).replace('.', ',') + ' % al día de media (ADR)', pAdr >= 1));
+    t5.push(d(dmax == null ? 'Distancia al máximo de 52 semanas: sin dato' : 'A ' + Math.abs(dmax).toFixed(1).replace('.', ',') + ' % de su máximo de 52 semanas', pMax >= 3));
     t5.push(d(rupt === '3m' ? 'Rompe máximos de 3 meses' : rupt === '1m' ? 'Rompe máximos de 1 mes' : 'Sin ruptura reciente de máximos', !!rupt));
-    partes.push({ id: 'vol', label: 'Volumen y ruptura', p: pVol + pMax + pRup, max: 15, detalle: t5 });
+    partes.push({ id: 'vol', label: 'Volumen y ruptura', p: pVol + pAdr + pMax + pRup, max: 15, detalle: t5 });
 
     // ── Penalizacion por sobreextension ───────────────────────────────────────
     const motivos = [];
@@ -151,7 +158,11 @@
       if (dd >= 0 && dd <= 14) riesgos.push('Publica resultados en ' + dd + ' días: puede moverse mucho');
     }
     if (num(a.volmedio) != null && a.volmedio < 500000) riesgos.push('Volumen medio bajo (' + Math.round(a.volmedio / 1000) + ' mil acciones): menos liquidez');
-    if (adr != null && adr > 12) riesgos.push('Muy volátil: se mueve ' + adr.toFixed(1) + ' % al día de media');
+    if (adr != null && adr > 12) riesgos.push('Muy volátil: se mueve ' + adr.toFixed(1).replace('.', ',') + ' % al día de media');
+    if (adr != null && adr < 3) riesgos.push('Se mueve poco: ' + adr.toFixed(1).replace('.', ',') + ' % al día. Cuesta sacar partido en semanas');
+    if (dudoso) riesgos.push(ingTot != null && ingTot < 25e6
+      ? 'Crecimiento sobre una base de ingresos muy pequeña (' + Math.round(ingTot / 1e6) + ' M$): puede no repetirse'
+      : 'Crecimiento de ' + Math.round(g) + ' %: probablemente un efecto puntual, no un ritmo sostenible');
     if (g == null) riesgos.push('Sin datos de crecimiento de ingresos');
 
     return { total, sinPenalizar, extendida: pen >= 10, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },

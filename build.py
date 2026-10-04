@@ -36,6 +36,7 @@ FILTROS = [
 CRECIMIENTO_MIN = 20     # % interanual, el mayor entre TTM y ultimo trimestre
 MAX_DESDE_MAXIMO = 20    # % por debajo del maximo de 52 semanas
 CAP_MAX = 10e9           # techo de capitalizacion: buscamos empresas que puedan multiplicar, no megacaps
+LIQUIDEZ_MIN = 2e6       # $ negociados al dia de media: hay que poder salir de la posicion
 
 C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "cambio",
      "relative_volume_10d_calc": "volrel", "market_cap_basic": "cap", "ADRP": "adr", "RSI": "rsi",
@@ -104,6 +105,8 @@ def cumple(a):
     if g < CRECIMIENTO_MIN:
         return False
     if not a.get("max52") or not a.get("precio"):
+        return False
+    if (a.get("volmedio") or 0) * a["precio"] < LIQUIDEZ_MIN:
         return False
     return a["precio"] >= a["max52"] * (1 - MAX_DESDE_MAXIMO / 100)
 

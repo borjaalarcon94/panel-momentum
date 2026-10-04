@@ -15,23 +15,25 @@ function estadoHoy(sim) {
 
 function historial(lim) {
   const P = T.precios || {}, fechas = FH.slice(0, lim), hoyF = FH[0];
-  const spyHoy = (HIST[hoyF] || {}).spy, enTopHoy = new Set(((HIST[hoyF] || {}).acciones || []).map(x => x.s || x.t));
+  const spyHoy = (HIST[hoyF] || {}).spy;
+  const puesto = f => { const m = {}; ((HIST[f] || {}).acciones || []).forEach((x, i) => { m[x.s || x.t] = i + 1 }); return m };
+  const hoyPuesto = puesto(hoyF), ayerPuesto = puesto(FH[1]);
   const reg = {};
   [...fechas].reverse().forEach(f => ((HIST[f] || {}).acciones || []).forEach((a, i) => {
     const k = a.s || a.t;
     if (!reg[k]) reg[k] = { ticker: a.t, empresa: a.n, entrada: f, precioEntrada: a.p, scoreEntrada: a.sc, spyEntrada: (HIST[f] || {}).spy, dias: 0, maxCierre: a.p || 0, mejorPuesto: 99, ultimo: f, puestoHoy: null };
     const r = reg[k];
     r.dias++; r.ultimo = f; r.maxCierre = Math.max(r.maxCierre, a.p || 0); r.mejorPuesto = Math.min(r.mejorPuesto, i + 1);
-    if (f === hoyF) r.puestoHoy = i + 1;
+
   }));
   return Object.entries(reg).map(([k, r]) => {
     const h = estadoHoy(k), ahora = (h ? h.a.precio : P[k]) ?? null;
     const dScore = h && h.score != null && r.scoreEntrada != null ? h.score - r.scoreEntrada : null;
-    const enTop = enTopHoy.has(k);
+    const puestoHoy = hoyPuesto[k] || null, puestoAyer = ayerPuesto[k] || null, enTop = !!puestoHoy;
       const estado = !h ? 'sindatos' : h.fallos.length ? 'nocumple'
       : h.pt && h.pt.extendida ? 'extendida'
       : dScore != null && dScore < -CAIDA_SCORE ? 'flojea' : 'viable';
-    return { ...r, clave: k, ahora, enTop, estado, dScore, score: h ? h.score : null, req: h ? h.req : null,
+    return { ...r, clave: k, ahora, enTop, puestoHoy, puestoAyer, estado, dScore, score: h ? h.score : null, req: h ? h.req : null,
       fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [],
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
@@ -68,7 +70,10 @@ window.seguimiento = function () {
     const c = el('div', 'card seg'), top = el('div', 'top'), izq = el('div');
     const l = el('a', 'tk', a.ticker); l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(a.clave); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);
-    if (a.enTop) izq.appendChild(el('span', 'new', 'HOY #' + a.puestoHoy));
+    if (a.enTop) {
+      const mov = a.puestoAyer ? a.puestoAyer - a.puestoHoy : null;
+      izq.appendChild(el('span', 'new', 'HOY #' + a.puestoHoy + (mov ? (mov > 0 ? ' ↑' + mov : ' ↓' + -mov) : mov === 0 ? ' =' : ' · entra')));
+    } else if (a.ultimo !== FH[0]) izq.appendChild(el('span', 'm', 'fuera del top desde ' + fFecha(a.ultimo)));
     izq.appendChild(el('div', 'name', (a.empresa || '') + ' · entró ' + fFecha(a.entrada) + ' · ' + a.dias + (a.dias === 1 ? ' día' : ' días') + ' en el top · mejor puesto #' + a.mejorPuesto));
     const der = el('div', 'px');
     der.appendChild(el('b', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
@@ -78,14 +83,15 @@ window.seguimiento = function () {
     const [txt, cls] = ETIQUETA[a.estado], fila = el('div', 'segfila');
     fila.appendChild(el('span', 'est ' + cls, txt));
     if (a.estado === 'nocumple') fila.appendChild(el('span', 'm', 'ya no cumple: ' + a.fallos.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', ')));
-    else if (a.estado === 'extendida') fila.appendChild(el('span', 'm', 'cumple los 8 requisitos, pero comprar aquí es caro: ' + a.motivosExt.join(' · ') + '. Esperar a que consolide.'));
+    else if (a.estado === 'extendida') fila.appendChild(el('span', 'm', 'cumple los 9 requisitos, pero comprar aquí es caro: ' + a.motivosExt.join(' · ') + '. Esperar a que consolide.'));
     else if (a.estado === 'flojea') fila.appendChild(el('span', 'm', 'cumple los requisitos, pero su puntuación ha caído ' + n(Math.abs(a.dScore), 0) + ' puntos desde que entró'));
-    else if (a.estado === 'viable') fila.appendChild(el('span', 'm', 'cumple los 8 requisitos' + (a.dScore != null ? ' · puntuación ' + (a.dScore >= 0 ? '+' : '') + n(a.dScore, 0) + ' desde su entrada' : '')));
+    else if (a.estado === 'viable') fila.appendChild(el('span', 'm', 'cumple los 9 requisitos' + (a.dScore != null ? ' · puntuación ' + (a.dScore >= 0 ? '+' : '') + n(a.dScore, 0) + ' desde su entrada' : '')));
     c.appendChild(fila);
 
     const g = el('div', 'grid');
     [['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
-     ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/8' : '-'],
+     ['Puesto hoy', a.puestoHoy ? '#' + a.puestoHoy + (a.puestoAyer ? ' (ayer #' + a.puestoAyer + ')' : ' (nueva)') : 'fuera del top'],
+     ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
      ['Máx. alcanzado', pc(a.max)], ['Frente a su mejor cierre', pc(a.desdeMax)],
      ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt']]
       .forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
@@ -109,7 +115,7 @@ window.seguimiento = function () {
     }
     R.appendChild(c);
   });
-  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 8 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana.'));
+  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana.'));
 };
 $('per').onchange = () => window.seguimiento();
 $('segorden').onchange = () => window.seguimiento();

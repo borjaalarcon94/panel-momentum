@@ -32,7 +32,8 @@ const dmax=a.precio&&a.max52?(a.precio/a.max52-1)*100:null;
 return [
  {t:'Precio > 2 $',ok:a.precio>2,v:n(a.precio)+' $'},
  {t:'Capitalización entre 300 M y 10 B',ok:a.cap>300e6&&a.cap<=CAP_MAX,v:cap(a.cap)},
- {t:'Volumen medio > 300.000',ok:a.volmedio>3e5,v:a.volmedio==null?'-':Math.round(a.volmedio/1000)+' mil'},
+ {t:'Volumen medio > 300.000 acciones',ok:a.volmedio>3e5,v:a.volmedio==null?'-':Math.round(a.volmedio/1000)+' mil'},
+ {t:'Se negocian > 2 M$ al día',ok:(a.volmedio||0)*(a.precio||0)>2e6,v:a.volmedio==null?'-':n(a.volmedio*a.precio/1e6,1)+' M$'},
  {t:'Precio sobre la media de 200 días',ok:a.sma200!=null&&a.precio>a.sma200,v:a.sma200==null?'-':pc((a.precio/a.sma200-1)*100,0)},
  {t:'EMA 9 sobre EMA 50',ok:a.ema9!=null&&a.ema50!=null&&a.ema9>a.ema50,v:a.ema9==null?'-':pc((a.ema9/a.ema50-1)*100,1)},
  {t:'RSI > 55',ok:a.rsi>55,v:n(a.rsi,0)},
