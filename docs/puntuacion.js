@@ -122,6 +122,7 @@
     }
 
     const bruto = partes.reduce((s, x) => s + x.p, 0);
+    const sinPenalizar = Math.max(0, Math.min(100, Math.round((bruto + bon + pTam) * 10) / 10));
     const total = Math.max(0, Math.min(100, Math.round((bruto - pen + bon + pTam) * 10) / 10));
 
     // ── Explicacion ───────────────────────────────────────────────────────────
@@ -153,7 +154,7 @@
     if (adr != null && adr > 12) riesgos.push('Muy volátil: se mueve ' + adr.toFixed(1) + ' % al día de media');
     if (g == null) riesgos.push('Sin datos de crecimiento de ingresos');
 
-    return { total, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },
+    return { total, sinPenalizar, extendida: pen >= 10, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },
              tamano: { puntos: pTam, texto: tamTxt },
              razones, senales, fundamentales, riesgos,
              g, acel, acelBpa, dmax, extEma, extSma, rupt, r3, rs };

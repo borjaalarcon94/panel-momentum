@@ -28,8 +28,11 @@ function historial(lim) {
     const h = estadoHoy(k), ahora = (h ? h.a.precio : P[k]) ?? null;
     const dScore = h && h.score != null && r.scoreEntrada != null ? h.score - r.scoreEntrada : null;
     const enTop = enTopHoy.has(k);
-    const estado = !h ? 'sindatos' : h.fallos.length ? 'nocumple' : dScore != null && dScore < -CAIDA_SCORE ? 'flojea' : 'viable';
-    return { ...r, clave: k, ahora, enTop, estado, dScore, score: h ? h.score : null, req: h ? h.req : null, fallos: h ? h.fallos : [],
+      const estado = !h ? 'sindatos' : h.fallos.length ? 'nocumple'
+      : h.pt && h.pt.extendida ? 'extendida'
+      : dScore != null && dScore < -CAIDA_SCORE ? 'flojea' : 'viable';
+    return { ...r, clave: k, ahora, enTop, estado, dScore, score: h ? h.score : null, req: h ? h.req : null,
+      fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [],
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
       desdeMax: ahora != null && r.maxCierre ? (ahora / r.maxCierre - 1) * 100 : null,
@@ -38,7 +41,7 @@ function historial(lim) {
 }
 
 const ETIQUETA = {
-  viable: ['Sigue viable', 'eok'], flojea: ['Pierde fuerza', 'ewarn'],
+  viable: ['Sigue viable', 'eok'], extendida: ['Muy extendida', 'ewarn'], flojea: ['Pierde fuerza', 'ewarn'],
   nocumple: ['Ya no cumple', 'ebad'], sindatos: ['Sin datos de hoy', 'eoff'],
 };
 
@@ -75,6 +78,7 @@ window.seguimiento = function () {
     const [txt, cls] = ETIQUETA[a.estado], fila = el('div', 'segfila');
     fila.appendChild(el('span', 'est ' + cls, txt));
     if (a.estado === 'nocumple') fila.appendChild(el('span', 'm', 'ya no cumple: ' + a.fallos.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', ')));
+    else if (a.estado === 'extendida') fila.appendChild(el('span', 'm', 'cumple los 8 requisitos, pero comprar aquí es caro: ' + a.motivosExt.join(' · ') + '. Esperar a que consolide.'));
     else if (a.estado === 'flojea') fila.appendChild(el('span', 'm', 'cumple los requisitos, pero su puntuación ha caído ' + n(Math.abs(a.dScore), 0) + ' puntos desde que entró'));
     else if (a.estado === 'viable') fila.appendChild(el('span', 'm', 'cumple los 8 requisitos' + (a.dScore != null ? ' · puntuación ' + (a.dScore >= 0 ? '+' : '') + n(a.dScore, 0) + ' desde su entrada' : '')));
     c.appendChild(fila);
@@ -105,7 +109,7 @@ window.seguimiento = function () {
     }
     R.appendChild(c);
   });
-  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 8 requisitos obligatorios y mantiene su puntuación. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana.'));
+  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 8 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que entran hoy aparecen mañana.'));
 };
 $('per').onchange = () => window.seguimiento();
 $('segorden').onchange = () => window.seguimiento();

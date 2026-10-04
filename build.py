@@ -10,6 +10,7 @@ import json, statistics, subprocess, urllib.request, datetime, pathlib
 R = pathlib.Path(__file__).parent
 DATOS, WEB = R / "data", R / "docs"
 GUARDAR = 10          # top que se guarda y se sigue cada dia
+EN_MARCHA = 5         # cumplen todo pero estan muy extendidas: se guardan aparte, no son entrada temprana
 DIAS_COMPLETOS = 10   # dias con todos los datos dentro de index.html
 DIAS = 90             # dias del resumen ligero que usa el seguimiento
 SEGUIR_DIAS = 30      # dias de los que se vigila el estado actual de cada accion
@@ -89,10 +90,12 @@ def excluida(a):
 
 
 def puntuar(acciones, ctx):
-    """Ejecuta docs/puntuacion.js con node y devuelve {ticker: puntuacion}."""
+    """Ejecuta docs/puntuacion.js con node y devuelve {ticker: {total, sinPenalizar, extendida}}."""
+    if not acciones:
+        return {}
     entrada = json.dumps({"acciones": acciones, "ctx": ctx}, ensure_ascii=False)
     out = subprocess.run(["node", str(R / "puntuar.js")], input=entrada, capture_output=True, text=True, check=True)
-    return {x["ticker"]: x["total"] for x in json.loads(out.stdout)}
+    return {x["ticker"]: x for x in json.loads(out.stdout)}
 
 
 def cumple(a):
@@ -146,7 +149,13 @@ def main():
     spy = next((m for m in mercado if m["ticker"] == "SPY"), {})
     ctx = {"fecha": hoy, "spy": {"tres": spy.get("tres"), "seis": spy.get("seis")}, "sectores": ref["sectores"]}
     puntos = puntuar(candidatas, ctx)
-    acciones = sorted(candidatas, key=lambda a: puntos.get(a["ticker"]) or 0, reverse=True)[:GUARDAR]
+    nota = lambda a: (puntos.get(a["ticker"]) or {}).get("total") or 0
+    acciones = sorted(candidatas, key=nota, reverse=True)[:GUARDAR]
+    # Cumplen todos los requisitos pero estan muy extendidas: no son entrada temprana, van aparte.
+    elegidas = {a["ticker"] for a in acciones}
+    en_marcha = sorted([a for a in candidatas if a["ticker"] not in elegidas
+                        and (puntos.get(a["ticker"]) or {}).get("extendida")],
+                       key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
     previos = [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
     if previos:
         ant = leer(previos[-1])["acciones"]
@@ -155,7 +164,7 @@ def main():
             acciones = None
     if acciones is not None:
         (DATOS / f"{hoy}.json").write_text(json.dumps(
-            {"acciones": acciones, "mercado": mercado, "referencia": ref,
+            {"acciones": acciones, "enMarcha": en_marcha, "mercado": mercado, "referencia": ref,
              "universo": len(universo), "candidatas": len(candidatas)},
             ensure_ascii=False))
     todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
@@ -169,13 +178,13 @@ def main():
         pts = puntuar(d["acciones"], {"fecha": f, "spy": {"tres": spy_d.get("tres"), "seis": spy_d.get("seis")},
                                       "sectores": (d.get("referencia") or {}).get("sectores", {})})
         historico[f] = {"acciones": [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
-                                      "sc": pts.get(a["ticker"]) if d.get("referencia") else None,
+                                      "sc": (pts.get(a["ticker"]) or {}).get("total") if d.get("referencia") else None,
                                       "n": a.get("empresa")} for a in d["acciones"]],
                         "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
     # Estado de HOY de todas las acciones que han pasado por el top ultimamente: permite saber en el
     # seguimiento si siguen cumpliendo los requisitos aunque hayan salido del top.
     recientes = sorted({a["simbolo"] for f, d in list(todos.items())[-SEGUIR_DIAS:]
-                        for a in d["acciones"] if a.get("simbolo")})
+                        for a in d["acciones"] + d.get("enMarcha", []) if a.get("simbolo")})
     actual = {}
     for i in range(0, len(recientes), 300):
         for fila in filas(scan({"columns": list(C), "symbols": {"tickers": recientes[i:i + 300]}})):
@@ -194,7 +203,7 @@ def main():
     (WEB / "index.html").write_text(html)
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
           "guardadas:", "-" if acciones is None else len(acciones),
-          "seguidas con datos de hoy:", len(actual), "con solo precio:", len(antiguos))
+          "ya en marcha:", len(en_marcha), "seguidas con datos de hoy:", len(actual))
 
 
 if __name__ == "__main__":

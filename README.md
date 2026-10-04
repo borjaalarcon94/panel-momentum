@@ -61,12 +61,20 @@ suma 0 y se avisa.
 Se excluyen antes de puntuar: navieras, petroleras, mineras, químicas, utilities, REITs y gestoras de fondos. Su
 crecimiento viene del precio de una materia prima o de los mercados, no de ganar clientes.
 
+## «Ya en marcha»
+
+Debajo del top, plegada, una lista corta (5) con las que cumplen todos los requisitos pero están muy extendidas
+(penalización ≥ 10 puntos): ya se han disparado. Pueden seguir subiendo, pero comprarlas tan lejos de sus medias
+suele salir caro; lo habitual es que consoliden y vuelvan a arrancar desde una base, y entonces reaparecen en el top.
+Se guardan en `enMarcha` dentro del fichero del día y también se les hace seguimiento.
+
 ## Seguimiento
 
 Sigue a todas las acciones que han pasado por el top 10 y responde a si la compra sigue siendo viable. Cada día
 recomprueba los 8 requisitos obligatorios con los datos de hoy, aunque la acción ya no esté en el top:
 
-- **Sigue viable**: cumple los 8 requisitos y su puntuación aguanta.
+- **Sigue viable**: cumple los 8 requisitos, su puntuación aguanta y no está extendida.
+- **Muy extendida**: los cumple, pero está lejos de sus medias. Puede seguir subiendo; entrar ahí suele salir caro.
 - **Pierde fuerza**: los cumple, pero su puntuación ha caído más de 8 puntos desde su entrada.
 - **Ya no cumple**: ha roto algún requisito, y se indica cuál y con qué valor.
 

@@ -40,7 +40,11 @@ return [
  {t:'A menos del 20 % de su máximo',ok:dmax!=null&&dmax>=-20,v:pc(dmax,1)},
 ]};
 
+function conPuntuacion(f,lista){return (lista||[]).map(a=>{const p=window.PUNTUA?window.PUNTUA(a,ctxDia(f,a)):null;
+return {...a,pt:p,score:p?p.total:null,acel:p?p.acel:null,g:p?p.g:null,dmax:p?p.dmax:null,ext:p?p.extEma:null,racha:racha(a.ticker,f)}})}
+
 window.vista=function(){const todas=enriquece(S.dia).sort((x,y)=>(y[S.orden]??-1e18)-(x[S.orden]??-1e18));
 return {fecha:S.dia,fechaTxt:S.dia?fFecha(S.dia):'',todas,filas:todas.slice(0,S.top),
 orden:$('orden').selectedOptions[0].textContent,filtros:[],
+enMarcha:conPuntuacion(S.dia,(DD[S.dia]||{}).enMarcha).sort((x,y)=>((y.pt||{}).sinPenalizar??0)-((x.pt||{}).sinPenalizar??0)),
 universo:(DD[S.dia]||{}).universo||null,candidatas:(DD[S.dia]||{}).candidatas||null}};

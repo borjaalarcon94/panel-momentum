@@ -25,7 +25,21 @@ const g=[['ADR',n(a.adr,1)+' %'],['RSI',n(a.rsi,0)],['Vol. rel.',n(a.volrel)],['
 ['Resultados',a.resultados||'-']].map(([k,x])=>{const m=el('div','m',k);m.appendChild(el('span',null,x));return m});
 const gr=el('div','grid');g.forEach(x=>gr.appendChild(x));w.appendChild(gr);return w}
 
-function pinta(){mercado();const v=window.vista(),L=$('lista');L.replaceChildren();
+function marcha(v){const D=$('marcha'),L=$('lmarcha');L.replaceChildren();
+if(!v.enMarcha.length){D.hidden=true;return}D.hidden=false;
+$('nmarcha').textContent='('+v.enMarcha.length+')';
+v.enMarcha.forEach(a=>{const c=el('div','card mini'),top=el('div','top'),izq=el('div');
+const tk=el('a','tk',a.ticker);tk.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(a.simbolo||a.ticker);tk.target='_blank';tk.rel='noopener';
+izq.appendChild(tk);izq.appendChild(el('div','name',(a.empresa||'')+' · '+cap(a.cap)));
+const der=el('div','px');der.appendChild(el('b',null,n(a.precio)+' $'));
+der.appendChild(el('div','m','puntuación '+n(a.score,0)+' · sin penalizar '+n((a.pt||{}).sinPenalizar,0)));
+top.append(izq,der);c.appendChild(top);
+const g=el('div','grid');[['Ingresos',pc(a.g,0)],['1 mes',pc(a.mes,0)],['6 meses',pc(a.seis,0)],['Sobre EMA50',pc(a.ext,0)],['RSI',n(a.rsi,0)]]
+.forEach(([k,x])=>{const m=el('div','m',k);m.appendChild(el('span',null,x));g.appendChild(m)});c.appendChild(g);
+if(a.pt&&a.pt.penal.motivos.length)c.appendChild(el('div','pen','Muy extendida: '+a.pt.penal.motivos.join(' · ')));
+L.appendChild(c)})}
+
+function pinta(){mercado();const v=window.vista(),L=$('lista');L.replaceChildren();marcha(v);
 const top=v.filas,medio=top.length?top.reduce((s,a)=>s+(a.score||0),0)/top.length:0;
 $('stats').replaceChildren(stat('en el top mostrado',top.length),stat('puntuación media',n(medio,0)),
 stat('nuevas hoy',top.filter(a=>a.nueva).length));

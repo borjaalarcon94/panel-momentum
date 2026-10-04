@@ -46,3 +46,9 @@
 .segfila .m{font-size:12px}
 .ebad{background:var(--badbg);color:var(--down)}
 @media (max-width:620px){.card.seg .grid{grid-template-columns:repeat(2,1fr)}}
+details#marcha{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+details#marcha summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+details#marcha[open] summary{margin-bottom:6px}
+.card.mini{padding:12px}
+.card.mini .grid{grid-template-columns:repeat(5,1fr)}
+@media (max-width:620px){.card.mini .grid{grid-template-columns:repeat(3,1fr)}}
