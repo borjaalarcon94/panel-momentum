@@ -109,40 +109,36 @@
     t5.push(d(rupt === '3m' ? 'Rompe máximos de 3 meses' : rupt === '1m' ? 'Rompe máximos de 1 mes' : 'Sin ruptura reciente de máximos', !!rupt));
     partes.push({ id: 'vol', label: 'Volumen y ruptura', p: pVol + pAdr + pMax + pRup, max: 15, detalle: t5 });
 
-    // ── Penalizacion por sobreextension ───────────────────────────────────────
+    // ── Penalizacion: solo lo realmente extremo ──────────────────────────────
+    // Calibrado con 17.934 observaciones semanales de 185 empresas (2024-2026, herramientas/backtest.py):
+    // la zona de 20-50% sobre la EMA 50 y las subidas mensuales de 20-70% son las que mas multiplican.
+    // Solo a partir de ahi la mediana se vuelve negativa y las caidas fuertes se disparan.
     const motivos = [];
     let pen = 0;
-    if (rsi != null && rsi > 85) { pen += 10; motivos.push('RSI ' + rsi.toFixed(0) + ': muy sobrecomprada'); }
-    else if (rsi != null && rsi > 80) { pen += 6; motivos.push('RSI ' + rsi.toFixed(0) + ': sobrecomprada'); }
-    if (extEma != null && extEma > 40) { pen += 12; motivos.push('Precio ' + extEma.toFixed(0) + ' % por encima de la EMA 50'); }
-    else if (extEma != null && extEma > 30) { pen += 8; motivos.push('Precio ' + extEma.toFixed(0) + ' % por encima de la EMA 50'); }
-    else if (extEma != null && extEma > 20) { pen += 4; motivos.push('Precio ' + extEma.toFixed(0) + ' % por encima de la EMA 50'); }
-    if (extSma != null && extSma > 120) { pen += 10; motivos.push('Precio más del doble de su media de 200 días'); }
-    else if (extSma != null && extSma > 80) { pen += 6; motivos.push('Precio ' + extSma.toFixed(0) + ' % sobre su media de 200 días'); }
-    if (mes != null && mes > 70) { pen += 8; motivos.push('Ya sube ' + pc1(mes) + ' en un mes'); }
-    else if (mes != null && mes > 40) { pen += 4; motivos.push('Ya sube ' + pc1(mes) + ' en un mes'); }
-    // Negocio poco escalable: con margen bruto bajo, multiplicar por varias veces es muy difícil.
+    if (rsi != null && rsi > 85) { pen += 6; motivos.push('RSI ' + rsi.toFixed(0) + ': muy sobrecomprada'); }
+    else if (rsi != null && rsi > 80) { pen += 3; motivos.push('RSI ' + rsi.toFixed(0) + ': sobrecomprada'); }
+    if (extEma != null && extEma > 80) { pen += 10; motivos.push('Precio ' + extEma.toFixed(0) + ' % por encima de la EMA 50: vertical'); }
+    else if (extEma != null && extEma > 50) { pen += 5; motivos.push('Precio ' + extEma.toFixed(0) + ' % por encima de la EMA 50: muy estirada'); }
+    if (extSma != null && extSma > 150) { pen += 4; motivos.push('Precio ' + extSma.toFixed(0) + ' % sobre su media de 200 días'); }
+    if (mes != null && mes > 70) { pen += 5; motivos.push('Ya sube ' + pc1(mes) + ' en un mes'); }
+    // Negocio poco escalable: con margen bruto bajo, multiplicar por varias veces es muy dificil.
     if (mb != null && mb < 15) { pen += 8; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio de volumen, muy difícil que multiplique'); }
     else if (mb != null && mb < 25) { pen += 5; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio poco escalable'); }
     else if (mb != null && mb < 35) { pen += 2; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: margen ajustado'); }
-    // Recorrido ya hecho desde mínimos: cuanto más lleva multiplicado, menos queda por delante.
+    pen = Math.min(pen, 15);
+
+    // ── Bonus por impulso en la zona que mas multiplica ──────────────────────
     const min52 = num(a.min52), desdeMin = min52 && precio ? (precio / min52 - 1) * 100 : null;
-    if (desdeMin != null && desdeMin > 500) { pen += 8; motivos.push('Ya multiplica por ' + (desdeMin / 100 + 1).toFixed(1) + ' desde su mínimo del año'); }
-    else if (desdeMin != null && desdeMin > 300) { pen += 4; motivos.push('Ya sube ' + desdeMin.toFixed(0) + ' % desde su mínimo del año'); }
-    pen = Math.min(pen, 25);
+    let bon = 0;
+    const impulso = [];
+    if (extEma != null && extEma >= 20 && extEma <= 50) { bon += 3; impulso.push(extEma.toFixed(0) + ' % sobre su EMA 50'); }
+    if (mes != null && mes >= 20 && mes <= 70) { bon += 2; impulso.push('sube ' + pc1(mes) + ' en el mes'); }
+    const bonTxt = impulso.length ? 'Impulso en la zona que históricamente más multiplica: ' + impulso.join(' y ') : '';
 
     // ── Bonus por tamano: cuanto mas pequena, mas recorrido tiene para multiplicar ────
     const cap = num(a.cap);
     const pTam = cap == null ? 0 : cap < 1e9 ? 5 : cap < 3e9 ? 3.5 : cap < 6e9 ? 2 : 0.5;
     const tamTxt = cap == null ? '' : 'Capitalización ' + (cap >= 1e9 ? (cap / 1e9).toFixed(1).replace('.', ',') + ' B' : Math.round(cap / 1e6) + ' M') + (cap < 3e9 ? ': tamaño pequeño, mucho recorrido si acierta' : cap < 6e9 ? ': tamaño medio' : ': ya es grande, menos recorrido');
-
-    // ── Bonus por arranque temprano (no es una que ya se haya disparado) ──────
-    let bon = 0, bonTxt = '';
-    if (seis != null && mes != null && dmax != null && seis >= 0 && seis <= 50 && mes > 5 && dmax >= -15 && pen === 0) {
-      bon = 5; bonTxt = 'Arranque temprano: cerca de máximos y subiendo este mes sin estar extendida (6 meses ' + pc1(seis) + ')';
-    } else if (seis != null && seis <= 80 && pen <= 4 && dmax != null && dmax >= -15) {
-      bon = 2.5; bonTxt = 'Tendencia aún no extendida';
-    }
 
     const bruto = partes.reduce((s, x) => s + x.p, 0);
     const sinPenalizar = Math.max(0, Math.min(100, Math.round((bruto + bon + pTam) * 10) / 10));
@@ -158,7 +154,7 @@
     if (dmax != null && dmax >= -5) razones.push('A ' + Math.abs(dmax).toFixed(1).replace('.', ',') + ' % de su máximo de 52 semanas');
     if (r3 != null && r3 > 10) razones.push('Lo hace ' + pp(r3) + ' mejor que el S&P 500 en 3 meses');
     if (rs != null && rs > 10) razones.push('Mejor que su sector ' + pp(rs) + ' en 3 meses');
-    if (bon === 5) razones.push(bonTxt);
+    if (bonTxt) razones.push(bonTxt);
     if (pTam >= 3.5) razones.push(tamTxt);
     if (cap != null && cap >= 6e9) riesgos.push(tamTxt);
 
@@ -179,13 +175,14 @@
     }
     if (num(a.volmedio) != null && a.volmedio < 500000) riesgos.push('Volumen medio bajo (' + Math.round(a.volmedio / 1000) + ' mil acciones): menos liquidez');
     if (adr != null && adr > 12) riesgos.push('Muy volátil: se mueve ' + adr.toFixed(1).replace('.', ',') + ' % al día de media');
+    if (desdeMin != null && desdeMin > 300) riesgos.push('Ya sube ' + desdeMin.toFixed(0) + ' % desde su mínimo del año: más recorrido hecho y más volatilidad');
     if (adr != null && adr < 3) riesgos.push('Se mueve poco: ' + adr.toFixed(1).replace('.', ',') + ' % al día. Cuesta sacar partido en semanas');
     if (dudoso) riesgos.push(ingTot != null && ingTot < 25e6
       ? 'Crecimiento sobre una base de ingresos muy pequeña (' + Math.round(ingTot / 1e6) + ' M$): puede no repetirse'
       : 'Crecimiento de ' + Math.round(g) + ' %: probablemente un efecto puntual, no un ritmo sostenible');
     if (g == null) riesgos.push('Sin datos de crecimiento de ingresos');
 
-    return { total, sinPenalizar, extendida: pen >= 10, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },
+    return { total, sinPenalizar, extendida: pen >= 9, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },
              tamano: { puntos: pTam, texto: tamTxt }, desdeMin,
              razones, senales, fundamentales, riesgos,
              g, acel, acelBpa, dmax, extEma, extSma, rupt, r3, rs };

@@ -51,11 +51,28 @@ No se exige rentabilidad: entra *growth* en fase inicial y las pérdidas se mues
 
 Y dos bonus y una penalización:
 
-- **Penalización, hasta −25**: RSI > 80; precio muy por encima de su EMA 50 (> 20 / 30 / 40 %) o de su media de 200
-  días; subida mensual excesiva (> 40 / 70 %); **margen bruto bajo** (< 35 / 25 / 15 %, porque un negocio de volumen
-  difícilmente multiplica); y **recorrido ya hecho** desde el mínimo del año (> 300 / 500 %). Busca empresas que
-  empiezan a moverse, no las que ya se han disparado.
-- **Bonus por arranque temprano, hasta +5**: cerca de máximos y subiendo este mes, sin estar extendida.
+- **Penalización, hasta −15**, solo para lo realmente extremo: RSI > 80 / 85; más de un 50 / 80 % sobre su EMA 50;
+  más de un 150 % sobre su media de 200 días; más de un 70 % de subida en un mes; y **margen bruto bajo**
+  (< 35 / 25 / 15 %, porque un negocio de volumen difícilmente multiplica).
+- **Bonus por impulso, hasta +5**: entre un 20 y un 50 % sobre su EMA 50 (+3) y subida mensual de entre el 20 y el
+  70 % (+2). Es la zona que históricamente más multiplica.
+
+### De dónde salen estos umbrales
+
+`herramientas/backtest.py` mide, con precios reales de 185 empresas del universo elegible entre 2024 y 2026
+(17.934 observaciones semanales), qué pasó en los 3 meses siguientes a cada situación técnica:
+
+| Distancia sobre la EMA 50 | Media a 3 meses | Subieron ≥ 50 % | Cayeron ≥ 35 % |
+|---|---|---|---|
+| 0-10 % | +3,4 % | 3,1 % | 2,3 % |
+| 10-20 % | +5,8 % | 6,5 % | 4,0 % |
+| 20-30 % | +13,4 % | 12,5 % | 8,4 % |
+| 30-50 % | +25,0 % | 22,3 % | 7,1 % |
+| > 50 % | +11,6 % | 14,7 % | 19,9 % |
+
+Penalizar desde el 20 %, como se hacía antes, dejaba fuera justo a las que más multiplican. El estudio tiene sesgo
+de supervivencia y cubre un periodo alcista, así que conviene leerlo como una guía de calibración, no como una
+promesa: ver los límites al principio del script.
 - **Bonus por tamaño, hasta +5**: por debajo de 1.000 M suma 5; hasta 3.000 M, 3,5; hasta 6.000 M, 2. Cuanto más
   pequeña, más recorrido tiene para multiplicar.
 
