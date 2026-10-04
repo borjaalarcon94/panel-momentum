@@ -150,6 +150,28 @@ def regimen(mercado):
     return {"favorable": sobre200 and sobre50 >= 2, "spySobre200": sobre200, "indicesSobre50": sobre50}
 
 
+def comprueba(universo, candidatas, acciones, mercado, ref):
+    """Si la fuente devuelve algo raro, es mejor no publicar que publicar basura.
+    Al fallar, GitHub Actions marca el trabajo en rojo y avisa por correo; los datos de ayer siguen online."""
+    fallos = []
+    if len(universo) < 50:
+        fallos.append(f"el escáner solo devolvió {len(universo)} valores en el universo base")
+    if len(candidatas) < 3:
+        fallos.append(f"solo {len(candidatas)} candidatas: el filtro o la fuente han cambiado")
+    for a in acciones:
+        if not a.get("precio") or a["precio"] <= 0 or not a.get("cap"):
+            fallos.append(f"{a.get('ticker')} viene sin precio o sin capitalización")
+        if not a.get("sma200") or not a.get("ema50"):
+            fallos.append(f"{a.get('ticker')} viene sin medias móviles")
+    spy = next((m for m in mercado if m["ticker"] == "SPY"), None)
+    if not spy or not spy.get("precio") or not spy.get("sma200"):
+        fallos.append("sin datos del S&P 500 (SPY)")
+    if len(ref.get("sectores", {})) < 5:
+        fallos.append("sin medianas de sector suficientes para la fuerza relativa")
+    if fallos:
+        raise SystemExit("DATOS NO FIABLES, no se publica nada:\n - " + "\n - ".join(fallos[:8]))
+
+
 def leer(p):
     d = json.loads(p.read_text())
     return d if isinstance(d, dict) else {"acciones": d}
@@ -174,6 +196,7 @@ def main():
     en_marcha = sorted([a for a in candidatas if a["ticker"] not in elegidas
                         and (puntos.get(a["ticker"]) or {}).get("extendida")],
                        key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
+    comprueba(universo, candidatas, acciones, mercado, ref)
     previos = [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
     if previos:
         ant = leer(previos[-1])["acciones"]

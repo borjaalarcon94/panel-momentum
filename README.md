@@ -140,6 +140,26 @@ Además: puntuación de hoy frente a la de entrada, días en el top, mejor puest
 máxima subida alcanzada, distancia a su mejor cierre y diferencia con el S&P 500. El desplegable muestra los 8
 requisitos uno a uno y los riesgos actuales.
 
+## Resultados
+
+Tercera pestaña: compara lo que decía el panel con lo que luego hicieron las acciones. Cada entrada al top queda
+anotada con su puntuación y su precio de cierre, y se mide contra el precio actual. Muestra el resultado por tramo de
+puntuación (¿las de 85 van mejor que las de 65?), la comparación con el S&P 500 y si vender el día que salen del top
+habría sido mejor que aguantarlas. No usa espacio extra: se calcula con lo ya guardado. Hacen falta varias semanas y
+decenas de entradas para que signifique algo.
+
+## Si la fuente falla
+
+`comprueba()` valida antes de publicar: un mínimo de valores en el universo y de candidatas, precios y medias de cada
+acción guardada, datos del S&P y medianas de sector. Si algo no cuadra, el proceso aborta sin escribir nada: GitHub
+marca el trabajo en rojo, avisa por correo y la web se queda con los datos del día anterior en lugar de mostrar basura.
+
+## Qué se probó y se descartó
+
+`herramientas/backtest.py` también midió si romper máximos desde una base estrecha (volatilidad contraída) rinde más
+que subir en vertical: con 1.042 observaciones, las diferencias quedaron dentro del ruido (medianas incluso peores en
+las bases estrechas). No se implementó, para no añadir 40 llamadas diarias y complejidad sin provecho.
+
 ## Desarrollo
 
 ```bash

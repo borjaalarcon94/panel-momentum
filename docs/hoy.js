@@ -132,5 +132,9 @@ if(abrir)w.appendChild(f);return w}
 window.initHoy=function(){
 $('dia').onchange=e=>window.cambiarDia(e.target.value);
 $('orden').onchange=e=>{S.orden=e.target.value;window.pinta()};
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));$('vhoy').hidden=b.dataset.v!=='hoy';$('vseg').hidden=b.dataset.v!=='seg';if(b.dataset.v==='seg'&&window.seguimiento)window.seguimiento()});
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{const v=b.dataset.v;
+document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));
+$('vhoy').hidden=v!=='hoy';$('vseg').hidden=v!=='seg';$('vres').hidden=v!=='res';
+if(v==='seg'&&window.seguimiento)window.seguimiento();
+if(v==='res'&&window.resultados)window.resultados()});
 };
