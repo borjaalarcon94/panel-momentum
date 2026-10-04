@@ -9,7 +9,7 @@ const ppt=(v,d=1)=>v==null?'-':(v>=0?'+':'')+n(v,d)+' pp';
 const cap=v=>v==null?'-':(v>=1e9?n(v/1e9,1)+' B':n(v/1e6,0)+' M');
 const fFecha=f=>new Date(f+'T12:00:00Z').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
 function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
-const S={dia:F[0],q:'',orden:'score',acel:false,nuevas:false,result:false,g25:false,cerca:false,sinext:false,vol:false,cicl:false};
+const S={dia:F[0],q:'',orden:'score',acel:false,nuevas:false,result:false,g25:false,cerca:false,sinext:false,vol:false,cicl:true};
 // Negocios cuyo "crecimiento" suele venir del precio de una materia prima o de los fletes, no de mas clientes.
 const CICLICAS=['Energy Minerals','Non-Energy Minerals','Process Industries','Utilities'];
 const esCiclica=a=>CICLICAS.includes(a.sector)||/Marine Shipping|Oil|Gas|Coal|Steel|Mining|Metals|Chemicals/i.test(a.industria||'');
@@ -27,6 +27,10 @@ const d=a.resultados?Math.round((new Date(a.resultados+'T12:00:00Z')-new Date(f+
 return {...a,pt:p,score:p?p.total:null,acel:p?p.acel:null,g:p?p.g:null,dmax:p?p.dmax:null,ext:p?p.extEma:null,
 nueva:comparable&&!antes.has(a.ticker),racha:racha(a.ticker,f),proximos:d!=null&&d>=0&&d<=14,
 pierde:a.margen!=null&&a.margen<0,sinext:p?p.penal.total===0:true}})}
+
+window.puntuaDia=function(f,ticker){const a=(DIAS[f]||[]).find(x=>x.ticker===ticker||x.simbolo===ticker);
+return a&&window.PUNTUA?window.PUNTUA(a,ctxDia(f,a)):null};
+window.esCiclica=esCiclica;
 
 window.vista=function(){const q=S.q.trim().toLowerCase();
 let r=enriquece(S.dia).filter(a=>(!q||(a.ticker+' '+(a.empresa||'')).toLowerCase().includes(q))

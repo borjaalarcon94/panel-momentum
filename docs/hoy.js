@@ -53,7 +53,7 @@ const f=document.createElement('iframe');f.loading='lazy';f.title='Gráfico '+sy
 f.src='https://s.tradingview.com/widgetembed/?symbol='+encodeURIComponent(sym)+'&interval=D&style=1&theme='+osc+'&locale=es&hidesidetoolbar=1&hidetoptoolbar=1&saveimage=0&symboledit=0&withdateranges=1&studies=[]';
 if(abrir)w.appendChild(f);return w}
 
-function chip(id,k){const b=$(id);if(!b)return;b.onclick=()=>{S[k]=!S[k];b.setAttribute('aria-pressed',S[k]);pinta()}}
+function chip(id,k){const b=$(id);if(!b)return;b.setAttribute('aria-pressed',!!S[k]);b.onclick=()=>{S[k]=!S[k];b.setAttribute('aria-pressed',S[k]);pinta()}}
 F.forEach(f=>{const o=el('option',null,fFecha(f));o.value=f;$('dia').appendChild(o)});
 $('dia').onchange=e=>{S.dia=e.target.value;pinta()};$('orden').onchange=e=>{S.orden=e.target.value;pinta()};$('q').oninput=e=>{S.q=e.target.value;pinta()};
 [['c1','acel'],['c2','nuevas'],['c3','result'],['c4','g25'],['c5','cerca'],['c6','sinext'],['c7','vol'],['c8','cicl']].forEach(x=>chip(...x));

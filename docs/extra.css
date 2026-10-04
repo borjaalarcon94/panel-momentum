@@ -36,3 +36,8 @@
 .pen{margin-top:8px;font-size:12px;color:var(--warn);background:var(--warnbg);display:inline-block;padding:3px 8px;border-radius:999px}
 .det .grid{grid-template-columns:repeat(5,1fr);margin-top:12px}
 @media (max-width:620px){.bar{grid-template-columns:112px 1fr 40px}.det .grid{grid-template-columns:repeat(3,1fr)}}
+.est{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.eok{background:color-mix(in srgb,var(--up) 15%,var(--card));color:var(--up)}
+.ewarn{background:var(--warnbg);color:var(--warn)}
+.eoff{background:var(--line);color:var(--muted)}
+.tabla .name{font-size:11px;margin-top:2px}
