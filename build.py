@@ -18,7 +18,7 @@ SEGUIR_DIAS = 12      # dias de los que se vigila el estado actual de cada accio
 CAMPOS_SEGUIMIENTO = ("ticker", "empresa", "simbolo", "precio", "cambio", "cap", "volmedio", "volrel", "adr", "rsi",
                       "sma200", "ema9", "ema21", "ema50", "max52", "min52", "max1m", "max3m", "ingresos", "ingresosq", "ingresosfy",
                       "ingresostot", "bpa", "bpaq", "mbruto", "margen", "fcfm", "deudapat", "caja", "deuda",
-                      "semana", "mes", "tres", "seis", "sector", "industria", "resultados", "atr")
+                      "semana", "mes", "tres", "seis", "sector", "industria", "resultados", "atr", "acciones", "ingresosprev")
 
 # Negocios cuyo "crecimiento" suele venir del precio de una materia prima o de los fletes, no de mas clientes.
 SECTORES_CICLICOS = {"Energy Minerals", "Non-Energy Minerals", "Process Industries", "Utilities"}
@@ -58,7 +58,8 @@ C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "c
      "price_52_week_high": "max52", "price_52_week_low": "min52",
      "SMA50": "sma50", "SMA200": "sma200", "EMA9": "ema9", "EMA21": "ema21", "EMA50": "ema50",
      "High.1M": "max1m", "High.3M": "max3m",
-     "average_volume_10d_calc": "volmedio", "volume": "vol", "total_revenue_ttm": "ingresostot", "ATR": "atr"}
+     "average_volume_10d_calc": "volmedio", "volume": "vol", "total_revenue_ttm": "ingresostot", "ATR": "atr",
+     "total_shares_outstanding_fundamental": "acciones", "revenue_forecast_next_fy": "ingresosprev"}
 
 
 def scan(body):
@@ -141,6 +142,14 @@ def referencia():
             "mercado": {"tres": statistics.median(todos3 or [0]), "seis": statistics.median(todos6 or [0])}}
 
 
+def regimen(mercado):
+    """El momentum funciona mucho peor con el mercado por debajo de su media de 200 dias."""
+    spy = next((m for m in mercado if m["ticker"] == "SPY"), {})
+    sobre200 = bool(spy.get("precio") and spy.get("sma200") and spy["precio"] > spy["sma200"])
+    sobre50 = sum(1 for m in mercado if m.get("precio") and m.get("ema50") and m["precio"] > m["ema50"])
+    return {"favorable": sobre200 and sobre50 >= 2, "spySobre200": sobre200, "indicesSobre50": sobre50}
+
+
 def leer(p):
     d = json.loads(p.read_text())
     return d if isinstance(d, dict) else {"acciones": d}
@@ -187,6 +196,7 @@ def main():
                                       "sectores": (d.get("referencia") or {}).get("sectores", {})})
         historico[f] = {"acciones": [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
                                       "sc": (pts.get(a["ticker"]) or {}).get("total") if d.get("referencia") else None,
+                                      "ac": a.get("acciones"),   # para detectar dilucion con el tiempo
                                       "n": a.get("empresa")} for a in d["acciones"]],
                         "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
     # Estado de HOY de todas las acciones que han pasado por el top ultimamente: permite saber en el
@@ -208,6 +218,7 @@ def main():
              "criterios": {"precioMin": 2, "capMin": 300e6, "capMax": CAP_MAX, "volumenMin": 300000,
                            "liquidezMin": LIQUIDEZ_MIN, "rsiMin": 55, "crecimientoMin": CRECIMIENTO_MIN,
                            "maxDesdeMaximo": MAX_DESDE_MAXIMO},
+             "regimen": regimen(mercado),
              "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
     (WEB / "panel.json").write_text(json.dumps(panel, ensure_ascii=False))
     # index.html solo cambia cuando cambia la plantilla o el codigo de la web: los datos se cargan aparte.

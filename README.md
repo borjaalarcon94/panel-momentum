@@ -44,7 +44,7 @@ No se exige rentabilidad: entra *growth* en fase inicial y las pérdidas se mues
 | Bloque | Máx. | Qué mide |
 |---|---|---|
 | Momentum técnico | 25 | orden precio > EMA 9 > EMA 21 > EMA 50 > media 200 d, RSI en zona 60-72, subida en 1 y 3 meses |
-| Aceleración del crecimiento | 25 | nivel de crecimiento, aceleración de ingresos (trimestre vs 12 meses), BPA y consistencia con el ejercicio completo |
+| Aceleración del crecimiento | 25 | nivel de crecimiento, aceleración (trimestre vs 12 meses), BPA, consistencia con el ejercicio completo y **previsión de ingresos del próximo ejercicio** (estimación de analistas) |
 | Calidad fundamental | 20 | margen bruto, flujo de caja libre, margen neto, caja frente a deuda y regla del 40 |
 | Fuerza relativa | 15 | frente al S&P 500 a 3 y 6 meses y frente a la mediana de su sector |
 | Volumen y ruptura | 15 | volumen relativo, cercanía al máximo de 52 semanas, ruptura de máximos de 1 y 3 meses |
@@ -54,6 +54,11 @@ Y dos bonus y una penalización:
 - **Penalización, hasta −15**, solo para lo realmente extremo: RSI > 80 / 85; más de un 50 / 80 % sobre su EMA 50;
   más de un 150 % sobre su media de 200 días; más de un 70 % de subida en un mes; y **margen bruto bajo**
   (< 35 / 25 / 15 %, porque un negocio de volumen difícilmente multiplica).
+- **Dilución**: cada día se guarda el número de acciones en circulación. Cuando hay al menos 20 días de serie propia,
+  un ritmo de emisión superior al 15 % anual resta 4 puntos y entre el 8 y el 15 % aparece como riesgo. Es el agujero
+  clásico de un multibagger: la empresa crece y el accionista no.
+- **Modo defensivo**: si el S&P pierde su media de 200 días, la web lo avisa y muestra solo 5 candidatas en lugar de
+  10. El momentum es la estrategia que peor se comporta en mercados bajistas.
 - **Bonus por impulso, hasta +5**: entre un 20 y un 50 % sobre su EMA 50 (+3) y subida mensual de entre el 20 y el
   70 % (+2). Es la zona que históricamente más multiplica.
 
@@ -123,7 +128,10 @@ acciones vigiladas han dado señal de salida.
 Sigue a todas las acciones que han pasado por el top 10 y responde a si la compra sigue siendo viable. Cada día
 recomprueba los 8 requisitos obligatorios con los datos de hoy, aunque la acción ya no esté en el top:
 
-- **Sigue viable**: cumple los 8 requisitos, su puntuación aguanta y no está extendida.
+Cada acción lleva una línea de **qué hacer**: compra válida, compra arriesgada (el stop queda a más de un 15 %), no
+comprar aquí (demasiado estirada), esperar (lejos de máximos), vigilar o señal de salida.
+
+- **Sigue viable**: cumple los 9 requisitos, su puntuación aguanta y no está extendida.
 - **Muy extendida**: los cumple, pero está lejos de sus medias. Puede seguir subiendo; entrar ahí suele salir caro.
 - **Pierde fuerza**: los cumple, pero su puntuación ha caído más de 8 puntos desde su entrada.
 - **Ya no cumple**: ha roto algún requisito, y se indica cuál y con qué valor.

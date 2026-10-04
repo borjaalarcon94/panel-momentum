@@ -76,3 +76,9 @@ details.descartadas{margin-top:14px;border-top:1px solid var(--line);padding-top
 details.descartadas summary{cursor:pointer;font-size:13px;color:var(--muted)}
 details.descartadas .tw{margin-top:8px}
 .card .stop b{color:var(--text)}
+.quehacer{margin-top:10px;font-size:13px;padding:7px 10px;border-radius:9px}
+.qok{background:color-mix(in srgb,var(--up) 12%,var(--card));color:var(--text)}
+.qwarn{background:var(--warnbg);color:var(--text)}
+.qbad{background:var(--badbg);color:var(--text)}
+.quehacer b{margin-right:4px}
+.stop.riesgo{background:var(--warnbg);color:var(--text)}

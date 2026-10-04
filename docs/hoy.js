@@ -3,12 +3,12 @@ function stat(k,v){const s=el('div','stat',k);s.prepend(el('b',null,v));return s
 function mercado(v){const m=v.mercado||[],B=$('mercado');B.replaceChildren();if(!m.length){B.hidden=true;return}B.hidden=false;
 const nom={SPY:'S&P 500',QQQ:'Nasdaq 100',IWM:'Russell 2000'};let a50=0;
 m.forEach(x=>{if(x.precio>x.ema50)a50++});
-const bien=a50>=2;B.className='banner linea '+(bien?'okb':'warnb');
-B.appendChild(el('span','bt',bien?'Mercado a favor':'Mercado flojo'));
+const bien=REGIMEN.favorable;B.className='banner linea '+(bien?'okb':'warnb');
+B.appendChild(el('span','bt',bien?'Mercado a favor':'Modo defensivo'));
 m.forEach(x=>{const s2=el('span','mki2');s2.appendChild(el('b',null,nom[x.ticker]||x.ticker));
 s2.appendChild(el('span',x.cambio>=0?'up':'down',' '+pc(x.cambio,2)));
 s2.appendChild(el('span','m',' · '+(x.precio>x.ema50?'✓':'✗')+' media 50 d'));B.appendChild(s2)});
-B.appendChild(el('span','m',bien?'La mayoría de índices está sobre su media de 50 días.':'La mayoría está por debajo de su media de 50 días: el momentum funciona peor.'))}
+B.appendChild(el('span','m',bien?'El S&P está sobre su media de 200 días y la mayoría de índices sobre la de 50.':'El S&P ha perdido su media de 200 días. El momentum funciona mucho peor así: se muestran solo 5 candidatas y conviene reducir el tamaño de cada posición.'))}
 
 /* Que ha cambiado respecto al dia anterior: entradas, salidas y senales de salida en las vigiladas. */
 function cambios(v){
@@ -101,9 +101,10 @@ const r=el('div','resumen');
 c.appendChild(r);
 if(a.pt&&a.pt.razones.length)c.appendChild(el('div','clave','➜ '+a.pt.razones[0]));
 const sal=window.SALIDA(a);
-if(sal.opciones.length){const st=el('div','stop');
+if(sal.opciones.length){const lejos=sal.opciones[0].d<-15,st=el('div','stop'+(lejos?' riesgo':''));
 st.appendChild(el('b',null,'Stop técnico '+n(sal.opciones[0].v)+' $'));
 st.appendChild(el('span',null,' ('+pc(sal.opciones[0].d,0)+', cierre bajo la EMA 21)'+(sal.opciones[1]?' · holgado '+n(sal.opciones[1].v)+' $ ('+pc(sal.opciones[1].d,0)+')':'')));
+if(lejos)st.appendChild(el('span','m',' · el stop queda lejos: media posición o esperar un retroceso'));
 c.appendChild(st)}
 const nr=a.pt?a.pt.riesgos.length:0;
 

@@ -26,6 +26,7 @@ function historial(lim) {
   return Object.entries(reg).map(([k, r]) => {
     const h = estadoHoy(k), ahora = (h ? h.a.precio : P[k]) ?? null;
     const dScore = h && h.score != null && r.scoreEntrada != null ? h.score - r.scoreEntrada : null;
+    const dmax = h && h.a.precio && h.a.max52 ? (h.a.precio / h.a.max52 - 1) * 100 : null;
     const puestoHoy = hoyPuesto[k] || null, puestoAyer = ayerPuesto[k] || null, enTop = !!puestoHoy;
       const estado = !h ? 'sindatos' : h.fallos.length ? 'nocumple'
       : h.pt && h.pt.extendida ? 'extendida'
@@ -35,12 +36,24 @@ function historial(lim) {
     const devuelto = maxGan != null && gan != null && maxGan > 0 ? (1 - gan / maxGan) * 100 : null;
     const salida = h ? window.SALIDA(h.a, { devuelto, maxGanancia: maxGan, ganancia: gan }) : null;
     return { ...r, clave: k, ahora, enTop, puestoHoy, puestoAyer, estado, dScore, score: h ? h.score : null, req: h ? h.req : null,
-      fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [], salida, devuelto,
+      fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [], salida, devuelto, dmax,
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
       desdeMax: ahora != null && r.maxCierre ? (ahora / r.maxCierre - 1) * 100 : null,
       sp: r.spyEntrada && spyHoy ? (spyHoy / r.spyEntrada - 1) * 100 : null };
   }).filter(a => a.ret != null && a.entrada !== hoyF);   // las que entran hoy aun no tienen evolucion
+}
+
+/* Que hacer con cada posicion, segun su estado de hoy. Orientativo: la decision es del usuario. */
+function quehacer(a) {
+  const stop = a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : null;
+  if (a.salida && a.salida.senales.length) return { t: 'Señal de salida', d: 'ha roto su guía técnica: ' + a.salida.senales[0].toLowerCase() + '. Si la tienes, toca decidir.', cls: 'qbad' };
+  if (a.estado === 'extendida') return { t: 'No comprar aquí', d: 'está demasiado estirada; si ya la tienes, dejarla correr con el stop en ' + (stop || '—') + '.', cls: 'qwarn' };
+  if (a.estado === 'flojea') return { t: 'Vigilar', d: 'sigue cumpliendo, pero ha perdido fuerza. Mantener con stop en ' + (stop || '—') + '.', cls: 'qwarn' };
+  if (a.dmax != null && a.dmax < -10) return { t: 'Esperar', d: 'está a ' + pc(a.dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn' };
+  const lejos = a.salida && a.salida.opciones[0] && a.salida.opciones[0].d < -15;
+  if (lejos) return { t: 'Compra arriesgada', d: 'cumple todo, pero el stop técnico queda a ' + pc(a.salida.opciones[0].d, 0) + ': entrar con media posición o esperar un retroceso a su EMA 21.', cls: 'qwarn' };
+  return { t: a.enTop ? 'Sigue siendo compra válida' : 'Compra válida', d: 'cumple todo y el stop queda cerca, en ' + (stop || '—') + '.', cls: 'qok' };
 }
 
 const ETIQUETA = {
@@ -102,6 +115,12 @@ window.seguimiento = function () {
     else if (a.estado === 'viable') fila.appendChild(el('span', 'm', 'cumple los 9 requisitos' + (a.dScore != null ? ' · puntuación ' + (a.dScore >= 0 ? '+' : '') + n(a.dScore, 0) + ' desde su entrada' : '')));
     c.appendChild(fila);
 
+    // Linea accionable: el objetivo es entrar bien, dejar correr y salir con ganancias.
+    const q = quehacer(a);
+    const qd = el('div', 'quehacer ' + q.cls);
+    qd.appendChild(el('b', null, q.t));
+    if (q.d) qd.appendChild(el('span', null, ' ' + q.d));
+    c.appendChild(qd);
     if (a.salida && a.salida.senales.length) {
       const v = el('div', 'venta');
       v.appendChild(el('div', 'blt', 'Señales de salida'));

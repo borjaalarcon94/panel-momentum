@@ -52,18 +52,23 @@
     const ingTot = num(a.ingresostot);
     const dudoso = (ingTot != null && ingTot < 25e6) || (g != null && g > 300);
     const gFy = num(a.ingresosfy);
-    const pNivel = tramo(g, [[40, 7], [25, 5], [20, 3]]);
-    let pAcel = acel == null ? 0 : acel >= 10 ? 8 : acel >= 3 ? 5.5 : acel > 0 ? 3 : 0;
-    if (dudoso) pAcel = Math.min(pAcel, 3.5);
-    const pBpa = eQ != null && eT != null && eQ > 0 && acelBpa > 0 ? 6 : eQ != null && eQ > 0 ? 4
-      : eT != null && eT > 0 ? 2.5 : eQ == null && eT == null ? 1.5 : 0;
+    const pNivel = tramo(g, [[40, 6], [25, 4.5], [20, 3]]);
+    let pAcel = acel == null ? 0 : acel >= 10 ? 7 : acel >= 3 ? 5 : acel > 0 ? 2.5 : 0;
+    if (dudoso) pAcel = Math.min(pAcel, 3);
+    const pBpa = eQ != null && eT != null && eQ > 0 && acelBpa > 0 ? 5 : eQ != null && eQ > 0 ? 3.5
+      : eT != null && eT > 0 ? 2 : eQ == null && eT == null ? 1 : 0;
+    // Lo que se espera del proximo ejercicio (estimacion de analistas, no un hecho).
+    const prev = num(a.ingresosprev);
+    const gPrev = prev != null && ingTot ? (prev / ingTot - 1) * 100 : null;
+    const pPrev = tramo(gPrev, [[30, 4], [20, 3], [10, 1.5], [0, 0.5]]);
     // Consistencia: que no dependa de un solo trimestre. Mira el ejercicio completo y los 12 meses.
-    const pCons = gFy == null ? 0 : gFy >= 25 && gT != null && gT >= 20 ? 4 : gFy >= 20 || (gT != null && gT >= 20) ? 2.5 : gFy >= 10 ? 1 : 0;
+    const pCons = gFy == null ? 0 : gFy >= 25 && gT != null && gT >= 20 ? 3 : gFy >= 20 || (gT != null && gT >= 20) ? 2 : gFy >= 10 ? 1 : 0;
     t2.push(d('Ingresos ' + (g == null ? 'sin dato' : pc1(g)) + ' interanual', pNivel >= 4));
     t2.push(d((acel == null ? 'Aceleración de ingresos: sin dato trimestral' : 'Crecimiento ' + (acel > 0 ? 'acelerando' : 'desacelerando') + ' ' + pp(acel) + ' (trimestre vs 12 meses)') + (dudoso ? ' — poco representativo' : ''), pAcel >= 3));
     t2.push(d(eQ == null && eT == null ? 'Beneficio por acción: sin dato' : 'BPA ' + (eQ != null ? pc1(eQ) + ' trimestral' : pc1(eT) + ' TTM') + (acelBpa > 0 ? ', acelerando' : ''), pBpa >= 4));
     t2.push(d(gFy == null ? 'Crecimiento del último ejercicio: sin dato' : 'Crece también en el ejercicio completo: ' + pc1(gFy), pCons >= 2.5));
-    partes.push({ id: 'ace', label: 'Aceleración del crecimiento', p: pNivel + pAcel + pBpa + pCons, max: 25, detalle: t2 });
+    t2.push(d(gPrev == null ? 'Previsión del próximo ejercicio: sin dato' : 'Para el próximo ejercicio se esperan ' + pc1(gPrev) + ' de ingresos (estimación de analistas)', pPrev >= 3));
+    partes.push({ id: 'ace', label: 'Aceleración del crecimiento', p: pNivel + pAcel + pBpa + pCons + pPrev, max: 25, detalle: t2 });
 
     // ── 3. Calidad fundamental (20) ───────────────────────────────────────────
     const t3 = [];
@@ -122,6 +127,11 @@
     if (extSma != null && extSma > 150) { pen += 4; motivos.push('Precio ' + extSma.toFixed(0) + ' % sobre su media de 200 días'); }
     if (mes != null && mes > 70) { pen += 5; motivos.push('Ya sube ' + pc1(mes) + ' en un mes'); }
     // Negocio poco escalable: con margen bruto bajo, multiplicar por varias veces es muy dificil.
+    // Dilucion: comparamos las acciones en circulacion de hoy con las de hace unas semanas (serie propia).
+    const acHoy = num(a.acciones), acAntes = num((ctx.dilucion || {}).acciones), dias = (ctx.dilucion || {}).dias;
+    const dil = acHoy && acAntes && dias >= 20 ? (acHoy / acAntes - 1) * 100 : null;
+    const dilAnual = dil != null ? dil * 365 / dias : null;
+    if (dilAnual != null && dilAnual > 15) { pen += 4; motivos.push('Emite acciones a buen ritmo: ' + pc1(dil) + ' en ' + dias + ' días'); }
     if (mb != null && mb < 15) { pen += 8; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio de volumen, muy difícil que multiplique'); }
     else if (mb != null && mb < 25) { pen += 5; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio poco escalable'); }
     else if (mb != null && mb < 35) { pen += 2; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: margen ajustado'); }
@@ -146,6 +156,7 @@
 
     // ── Explicacion ───────────────────────────────────────────────────────────
     if (mb != null && mb >= 60 && (fcfm == null || fcfm > 0)) razones.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio escalable, cada euro nuevo de ventas deja mucho');
+    if (gPrev != null && gPrev >= 25) razones.push('Para el próximo ejercicio se esperan ' + pc1(gPrev) + ' de ingresos (estimación de analistas)');
     if (r40 != null && r40 >= 40) razones.push('Regla del 40 en ' + r40.toFixed(0) + ': crece y genera caja a la vez');
     if (g != null && g >= 20) razones.push('Ingresos ' + pc1(g) + ' interanual' + (acel != null && acel > 0 ? ' y acelerando (' + pp(acel) + ' en el último trimestre)' : ''));
     if (acel != null && acel >= 10) razones.push('Aceleración fuerte del crecimiento: el último trimestre crece ' + pp(acel) + ' más que los 12 meses');
@@ -175,6 +186,8 @@
     }
     if (num(a.volmedio) != null && a.volmedio < 500000) riesgos.push('Volumen medio bajo (' + Math.round(a.volmedio / 1000) + ' mil acciones): menos liquidez');
     if (adr != null && adr > 12) riesgos.push('Muy volátil: se mueve ' + adr.toFixed(1).replace('.', ',') + ' % al día de media');
+    if (dilAnual != null && dilAnual > 8 && dilAnual <= 15) riesgos.push('Las acciones en circulación crecen ' + pc1(dil) + ' en ' + dias + ' días: diluye al accionista');
+    if (gPrev != null && gPrev < 10 && g != null && g >= 20) riesgos.push('Para el próximo ejercicio solo se esperan ' + pc1(gPrev) + ' de ingresos: el mercado no cuenta con que mantenga este ritmo');
     if (desdeMin != null && desdeMin > 300) riesgos.push('Ya sube ' + desdeMin.toFixed(0) + ' % desde su mínimo del año: más recorrido hecho y más volatilidad');
     if (adr != null && adr < 3) riesgos.push('Se mueve poco: ' + adr.toFixed(1).replace('.', ',') + ' % al día. Cuesta sacar partido en semanas');
     if (dudoso) riesgos.push(ingTot != null && ingTot < 25e6
@@ -183,7 +196,7 @@
     if (g == null) riesgos.push('Sin datos de crecimiento de ingresos');
 
     return { total, sinPenalizar, extendida: pen >= 9, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },
-             tamano: { puntos: pTam, texto: tamTxt }, desdeMin,
+             tamano: { puntos: pTam, texto: tamTxt }, desdeMin, gPrev, dilAnual,
              razones, senales, fundamentales, riesgos,
              g, acel, acelBpa, dmax, extEma, extSma, rupt, r3, rs };
   }

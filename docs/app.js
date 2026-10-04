@@ -4,6 +4,7 @@
 let T = {}, HIST = {}, FH = [], ACT = {}, CRIT = {}, MHOY = {}, REFHOY = {};
 const CACHE = {};                       // ficheros de dia ya descargados
 const S = { dia: null, orden: 'score', top: 10 };
+let REGIMEN = { favorable: true };
 const $ = id => document.getElementById(id);
 const n = (v, d = 2) => v == null ? '-' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pc = (v, d = 1) => v == null ? '-' : (v >= 0 ? '+' : '') + n(v, d) + ' %';
@@ -56,9 +57,19 @@ window.SALIDA = function (a, extra) {
   return { opciones, senales, caidaMes: caida };
 };
 
+/* Acciones en circulacion mas antiguas que conozcamos de ese valor: base para medir la dilucion. */
+function dilucionDe(ticker, hasta) {
+  const fechas = FH.filter(f => f <= hasta).sort();
+  for (const f of fechas) {
+    const x = ((HIST[f] || {}).acciones || []).find(y => y.t === ticker);
+    if (x && x.ac) return { acciones: x.ac, dias: Math.round((new Date(hasta + 'T12:00:00Z') - new Date(f + 'T12:00:00Z')) / 864e5) };
+  }
+  return null;
+}
 function ctxDia(f, a, d) {
   const m = ((d || {}).mercado || []).find(x => x.ticker === 'SPY') || {};
-  return { fecha: f, spy: { tres: m.tres, seis: m.seis }, sector: (((d || {}).referencia || {}).sectores || {})[a.sector] || null };
+  return { fecha: f, spy: { tres: m.tres, seis: m.seis }, sector: (((d || {}).referencia || {}).sectores || {})[a.sector] || null,
+    dilucion: dilucionDe(a.ticker, f) };
 }
 function puntua(f, d, lista, conNueva) {
   const fprev = FH[FH.indexOf(f) + 1], prev = (HIST[fprev] || {}).acciones;
@@ -88,6 +99,9 @@ async function iniciar() {
     return;
   }
   HIST = T.historico || {}; FH = Object.keys(HIST).sort().reverse(); ACT = T.actual || {}; CRIT = T.criterios || {};
+  REGIMEN = T.regimen || { favorable: true };
+  // Con el mercado en contra el momentum falla mucho mas: se muestran menos candidatas.
+  if (!REGIMEN.favorable) S.top = 5;
   MHOY = (T.mercadoHoy || []).find(x => x.ticker === 'SPY') || {}; REFHOY = (T.referenciaHoy || {}).sectores || {};
   const fechas = (T.dias || []).slice().sort().reverse();
   S.dia = fechas[0];
