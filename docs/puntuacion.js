@@ -51,28 +51,36 @@
     // Crecimiento poco representativo: base de ingresos diminuta o salto puntual (hitos, licencias, una compra).
     const ingTot = num(a.ingresostot);
     const dudoso = (ingTot != null && ingTot < 25e6) || (g != null && g > 300);
-    const pNivel = tramo(g, [[40, 8], [25, 6], [20, 4]]);
-    let pAcel = acel == null ? 0 : acel >= 10 ? 9 : acel >= 3 ? 6 : acel > 0 ? 3 : 0;
-    if (dudoso) pAcel = Math.min(pAcel, 4);
-    const pBpa = eQ != null && eT != null && eQ > 0 && acelBpa > 0 ? 8 : eQ != null && eQ > 0 ? 5
-      : eT != null && eT > 0 ? 3 : eQ == null && eT == null ? 2 : 0;
+    const gFy = num(a.ingresosfy);
+    const pNivel = tramo(g, [[40, 7], [25, 5], [20, 3]]);
+    let pAcel = acel == null ? 0 : acel >= 10 ? 8 : acel >= 3 ? 5.5 : acel > 0 ? 3 : 0;
+    if (dudoso) pAcel = Math.min(pAcel, 3.5);
+    const pBpa = eQ != null && eT != null && eQ > 0 && acelBpa > 0 ? 6 : eQ != null && eQ > 0 ? 4
+      : eT != null && eT > 0 ? 2.5 : eQ == null && eT == null ? 1.5 : 0;
+    // Consistencia: que no dependa de un solo trimestre. Mira el ejercicio completo y los 12 meses.
+    const pCons = gFy == null ? 0 : gFy >= 25 && gT != null && gT >= 20 ? 4 : gFy >= 20 || (gT != null && gT >= 20) ? 2.5 : gFy >= 10 ? 1 : 0;
     t2.push(d('Ingresos ' + (g == null ? 'sin dato' : pc1(g)) + ' interanual', pNivel >= 4));
     t2.push(d((acel == null ? 'Aceleración de ingresos: sin dato trimestral' : 'Crecimiento ' + (acel > 0 ? 'acelerando' : 'desacelerando') + ' ' + pp(acel) + ' (trimestre vs 12 meses)') + (dudoso ? ' — poco representativo' : ''), pAcel >= 3));
-    t2.push(d(eQ == null && eT == null ? 'Beneficio por acción: sin dato' : 'BPA ' + (eQ != null ? pc1(eQ) + ' trimestral' : pc1(eT) + ' TTM') + (acelBpa > 0 ? ', acelerando' : ''), pBpa >= 5));
-    partes.push({ id: 'ace', label: 'Aceleración del crecimiento', p: pNivel + pAcel + pBpa, max: 25, detalle: t2 });
+    t2.push(d(eQ == null && eT == null ? 'Beneficio por acción: sin dato' : 'BPA ' + (eQ != null ? pc1(eQ) + ' trimestral' : pc1(eT) + ' TTM') + (acelBpa > 0 ? ', acelerando' : ''), pBpa >= 4));
+    t2.push(d(gFy == null ? 'Crecimiento del último ejercicio: sin dato' : 'Crece también en el ejercicio completo: ' + pc1(gFy), pCons >= 2.5));
+    partes.push({ id: 'ace', label: 'Aceleración del crecimiento', p: pNivel + pAcel + pBpa + pCons, max: 25, detalle: t2 });
 
     // ── 3. Calidad fundamental (20) ───────────────────────────────────────────
     const t3 = [];
     const mb = num(a.mbruto), fcfm = num(a.fcfm), mn = num(a.margen), dp = num(a.deudapat);
-    const pMb = tramo(mb, [[70, 6], [50, 4], [35, 2]]);
-    const pFcf = tramo(fcfm, [[10, 5], [0, 3], [-10, 1]]);
-    const pMn = mn == null ? 0 : mn > 0 ? 4 : mn > -20 ? 2 : 0;
-    const pDeuda = caja != null && deuda != null && caja > deuda ? 5 : dp == null ? 0 : dp < 1 ? 3 : dp < 2 ? 1 : 0;
+    const pMb = tramo(mb, [[70, 5], [50, 3.5], [35, 2]]);
+    const pFcf = tramo(fcfm, [[10, 4], [0, 2.5], [-10, 1]]);
+    const pMn = mn == null ? 0 : mn > 0 ? 3 : mn > -20 ? 1.5 : 0;
+    const pDeuda = caja != null && deuda != null && caja > deuda ? 4 : dp == null ? 0 : dp < 1 ? 2.5 : dp < 2 ? 1 : 0;
+    // Regla del 40: crecer rapido o ganar dinero; lo ideal es que la suma pase de 40.
+    const r40 = gT != null && fcfm != null ? gT + fcfm : null;
+    const pR40 = tramo(r40, [[60, 4], [40, 3], [25, 1.5]]);
     t3.push(d('Margen bruto ' + (mb == null ? 'sin dato' : mb.toFixed(0) + ' %'), pMb >= 4));
     t3.push(d('Flujo de caja libre ' + (fcfm == null ? 'sin dato' : fcfm.toFixed(0) + ' % de ventas'), pFcf >= 3));
     t3.push(d('Margen neto ' + (mn == null ? 'sin dato' : mn.toFixed(0) + ' %'), pMn >= 4));
-    t3.push(d(caja != null && deuda != null ? (caja > deuda ? 'Más caja que deuda' : 'Deuda superior a la caja') + (dp != null ? ' · deuda/patrimonio ' + dp.toFixed(1) : '') : 'Deuda: sin dato', pDeuda >= 3));
-    partes.push({ id: 'fun', label: 'Calidad fundamental', p: pMb + pFcf + pMn + pDeuda, max: 20, detalle: t3 });
+    t3.push(d(caja != null && deuda != null ? (caja > deuda ? 'Más caja que deuda' : 'Deuda superior a la caja') + (dp != null ? ' · deuda/patrimonio ' + dp.toFixed(1) : '') : 'Deuda: sin dato', pDeuda >= 2.5));
+    t3.push(d(r40 == null ? 'Regla del 40: sin dato' : 'Regla del 40: ' + r40.toFixed(0) + ' (crecimiento ' + pc1(gT) + ' + margen FCF ' + fcfm.toFixed(0) + ' %)', pR40 >= 3));
+    partes.push({ id: 'fun', label: 'Calidad fundamental', p: pMb + pFcf + pMn + pDeuda + pR40, max: 20, detalle: t3 });
 
     // ── 4. Fuerza relativa (15) ───────────────────────────────────────────────
     const t4 = [];
@@ -113,6 +121,14 @@
     else if (extSma != null && extSma > 80) { pen += 6; motivos.push('Precio ' + extSma.toFixed(0) + ' % sobre su media de 200 días'); }
     if (mes != null && mes > 70) { pen += 8; motivos.push('Ya sube ' + pc1(mes) + ' en un mes'); }
     else if (mes != null && mes > 40) { pen += 4; motivos.push('Ya sube ' + pc1(mes) + ' en un mes'); }
+    // Negocio poco escalable: con margen bruto bajo, multiplicar por varias veces es muy difícil.
+    if (mb != null && mb < 15) { pen += 8; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio de volumen, muy difícil que multiplique'); }
+    else if (mb != null && mb < 25) { pen += 5; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio poco escalable'); }
+    else if (mb != null && mb < 35) { pen += 2; motivos.push('Margen bruto ' + mb.toFixed(0) + ' %: margen ajustado'); }
+    // Recorrido ya hecho desde mínimos: cuanto más lleva multiplicado, menos queda por delante.
+    const min52 = num(a.min52), desdeMin = min52 && precio ? (precio / min52 - 1) * 100 : null;
+    if (desdeMin != null && desdeMin > 500) { pen += 8; motivos.push('Ya multiplica por ' + (desdeMin / 100 + 1).toFixed(1) + ' desde su mínimo del año'); }
+    else if (desdeMin != null && desdeMin > 300) { pen += 4; motivos.push('Ya sube ' + desdeMin.toFixed(0) + ' % desde su mínimo del año'); }
     pen = Math.min(pen, 25);
 
     // ── Bonus por tamano: cuanto mas pequena, mas recorrido tiene para multiplicar ────
@@ -133,6 +149,8 @@
     const total = Math.max(0, Math.min(100, Math.round((bruto - pen + bon + pTam) * 10) / 10));
 
     // ── Explicacion ───────────────────────────────────────────────────────────
+    if (mb != null && mb >= 60 && (fcfm == null || fcfm > 0)) razones.push('Margen bruto ' + mb.toFixed(0) + ' %: negocio escalable, cada euro nuevo de ventas deja mucho');
+    if (r40 != null && r40 >= 40) razones.push('Regla del 40 en ' + r40.toFixed(0) + ': crece y genera caja a la vez');
     if (g != null && g >= 20) razones.push('Ingresos ' + pc1(g) + ' interanual' + (acel != null && acel > 0 ? ' y acelerando (' + pp(acel) + ' en el último trimestre)' : ''));
     if (acel != null && acel >= 10) razones.push('Aceleración fuerte del crecimiento: el último trimestre crece ' + pp(acel) + ' más que los 12 meses');
     if (eQ != null && eQ > 0 && acelBpa > 0) razones.push('Beneficio por acción creciendo ' + pc1(eQ) + ' y acelerando');
@@ -168,7 +186,7 @@
     if (g == null) riesgos.push('Sin datos de crecimiento de ingresos');
 
     return { total, sinPenalizar, extendida: pen >= 10, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },
-             tamano: { puntos: pTam, texto: tamTxt },
+             tamano: { puntos: pTam, texto: tamTxt }, desdeMin,
              razones, senales, fundamentales, riesgos,
              g, acel, acelBpa, dmax, extEma, extSma, rupt, r3, rs };
   }

@@ -16,7 +16,7 @@ DIAS = 45             # dias del resumen ligero que usa el seguimiento
 SEGUIR_DIAS = 12      # dias de los que se vigila el estado actual de cada accion
 # Campos necesarios para recomprobar requisitos y repuntuar una accion seguida (el resto no se publica).
 CAMPOS_SEGUIMIENTO = ("ticker", "empresa", "simbolo", "precio", "cambio", "cap", "volmedio", "volrel", "adr", "rsi",
-                      "sma200", "ema9", "ema21", "ema50", "max52", "max1m", "max3m", "ingresos", "ingresosq",
+                      "sma200", "ema9", "ema21", "ema50", "max52", "min52", "max1m", "max3m", "ingresos", "ingresosq", "ingresosfy",
                       "ingresostot", "bpa", "bpaq", "mbruto", "margen", "fcfm", "deudapat", "caja", "deuda",
                       "semana", "mes", "tres", "seis", "sector", "industria", "resultados", "atr")
 
@@ -47,6 +47,7 @@ C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "c
      "relative_volume_10d_calc": "volrel", "market_cap_basic": "cap", "ADRP": "adr", "RSI": "rsi",
      "sector": "sector", "industry": "industria",
      "total_revenue_yoy_growth_ttm": "ingresos", "total_revenue_yoy_growth_fq": "ingresosq",
+     "total_revenue_yoy_growth_fy": "ingresosfy",
      "earnings_per_share_diluted_yoy_growth_ttm": "bpa", "earnings_per_share_diluted_yoy_growth_fq": "bpaq",
      "gross_margin_ttm": "mbruto", "net_margin_ttm": "margen", "operating_margin_ttm": "moperativo",
      "free_cash_flow_margin_ttm": "fcfm", "free_cash_flow_ttm": "fcf",

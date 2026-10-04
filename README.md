@@ -44,16 +44,17 @@ No se exige rentabilidad: entra *growth* en fase inicial y las pérdidas se mues
 | Bloque | Máx. | Qué mide |
 |---|---|---|
 | Momentum técnico | 25 | orden precio > EMA 9 > EMA 21 > EMA 50 > media 200 d, RSI en zona 60-72, subida en 1 y 3 meses |
-| Aceleración del crecimiento | 25 | nivel de crecimiento, aceleración de ingresos (trimestre vs 12 meses) y del BPA |
-| Calidad fundamental | 20 | margen bruto, flujo de caja libre, margen neto, caja frente a deuda |
+| Aceleración del crecimiento | 25 | nivel de crecimiento, aceleración de ingresos (trimestre vs 12 meses), BPA y consistencia con el ejercicio completo |
+| Calidad fundamental | 20 | margen bruto, flujo de caja libre, margen neto, caja frente a deuda y regla del 40 |
 | Fuerza relativa | 15 | frente al S&P 500 a 3 y 6 meses y frente a la mediana de su sector |
 | Volumen y ruptura | 15 | volumen relativo, cercanía al máximo de 52 semanas, ruptura de máximos de 1 y 3 meses |
 
 Y dos bonus y una penalización:
 
-- **Penalización por sobreextensión, hasta −25**: RSI > 80, precio muy por encima de su EMA 50 (> 20 / 30 / 40 %) o de
-  su media de 200 días, subida mensual excesiva (> 40 / 70 %). Busca empresas que empiezan a moverse, no las que ya se
-  han disparado.
+- **Penalización, hasta −25**: RSI > 80; precio muy por encima de su EMA 50 (> 20 / 30 / 40 %) o de su media de 200
+  días; subida mensual excesiva (> 40 / 70 %); **margen bruto bajo** (< 35 / 25 / 15 %, porque un negocio de volumen
+  difícilmente multiplica); y **recorrido ya hecho** desde el mínimo del año (> 300 / 500 %). Busca empresas que
+  empiezan a moverse, no las que ya se han disparado.
 - **Bonus por arranque temprano, hasta +5**: cerca de máximos y subiendo este mes, sin estar extendida.
 - **Bonus por tamaño, hasta +5**: por debajo de 1.000 M suma 5; hasta 3.000 M, 3,5; hasta 6.000 M, 2. Cuanto más
   pequeña, más recorrido tiene para multiplicar.
@@ -81,8 +82,8 @@ por qué aparece, señales fundamentales, riesgos, el stop técnico, quince mét
 La tarjeta compacta incluye el **stop técnico** sin necesidad de desplegarla.
 
 El seguimiento muestra por defecto solo **las que siguen siendo oportunidad** (viables, extendidas o flojeando),
-ordenadas por cuál comprarías antes. Las que dejan de cumplir algún requisito salen de la lista y quedan plegadas en
-«Descartadas», con el motivo y su resultado final, de modo que la lista no crece sin fin. El orden es: primero las que siguen cumpliendo y sin
+ordenadas por cuál comprarías antes. Las que dejan de cumplir algún requisito desaparecen de la lista: se consultan eligiendo
+«Solo las descartadas» en el desplegable, para que la vista principal solo tenga lo que merece la pena. El orden es: primero las que siguen cumpliendo y sin
 señales de salida, después las extendidas, las que pierden fuerza y las que ya no cumplen; dentro de cada grupo, por
 puntuación.
 
