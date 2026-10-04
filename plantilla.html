@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Acciones con momentum</title>
+<title>Growth con momentum</title>
 <link rel="stylesheet" href="estilos.css">
 <link rel="stylesheet" href="extra.css">
 </head>
 <body>
 <main>
-<h1>Acciones con momentum</h1>
-<p class="sub">Acciones de EE. UU. que cumplen el filtro al cierre del día · se actualiza cada día laborable por la noche</p>
+<h1>Growth con momentum</h1>
+<p class="sub">Empresas de EE. UU. que crecen deprisa y están empezando a despegar en bolsa · se actualiza cada día laborable por la noche</p>
 <p class="act" id="act"></p>
-<div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Lista del día</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button></div>
+<div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Oportunidades del día</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button></div>
 <section id="vhoy">
 <div class="banner" id="mercado" hidden></div>
-<div class="row"><select id="dia" aria-label="Día"></select><select id="orden" aria-label="Ordenar"><option value="cambio">Más subida del día</option><option value="checks">Más checks de calidad</option><option value="adr">Más ADR (más movida)</option><option value="rsi">Más RSI (más fuerza)</option><option value="volrel">Más volumen relativo</option><option value="semana">Más subida semanal</option><option value="mes">Más subida mensual</option><option value="dmax">Más cerca de máximos</option><option value="racha">Más días seguidos</option><option value="cap">Más capitalización</option></select></div>
+<div class="row"><select id="dia" aria-label="Día"></select><select id="orden" aria-label="Ordenar"><option value="score">Mejor puntuación</option><option value="acel">Más aceleración del crecimiento</option><option value="g">Más crecimiento de ingresos</option><option value="dmax">Más cerca de máximos</option><option value="volrel">Más volumen relativo</option><option value="cambio">Más subida del día</option><option value="tres">Más subida en 3 meses</option><option value="rsi">Más RSI</option><option value="adr">Más ADR (más movida)</option><option value="racha">Más días seguidos</option><option value="cap">Más capitalización</option></select></div>
 <div class="row"><input id="q" type="search" placeholder="Buscar ticker o empresa" aria-label="Buscar"></div>
-<div class="row"><button class="chip" id="c1" aria-pressed="false">Ocultar las que pierden dinero</button><button class="chip" id="c2" aria-pressed="false">Solo nuevas</button><button class="chip" id="c3" aria-pressed="false">Sin resultados próximos</button><button class="chip" id="c4" aria-pressed="false">Sobre media 200 días</button><button class="chip" id="c5" aria-pressed="false">Cerca de máximos</button><button class="chip" id="c6" aria-pressed="false">3+ checks</button></div>
+<div class="row"><button class="chip" id="c1" aria-pressed="false">Solo con aceleración</button><button class="chip" id="c4" aria-pressed="false">Crecimiento ≥ 25 %</button><button class="chip" id="c5" aria-pressed="false">A menos del 10 % del máximo</button><button class="chip" id="c7" aria-pressed="false">Volumen ≥ 1,5x</button><button class="chip" id="c6" aria-pressed="false">Sin sobreextensión</button><button class="chip" id="c8" aria-pressed="false">Sin cíclicas de materias primas</button><button class="chip" id="c2" aria-pressed="false">Solo nuevas</button><button class="chip" id="c3" aria-pressed="false">Sin resultados próximos</button></div>
 <div class="stats" id="stats"></div>
 <div class="row"><button class="main" id="bpdf">Descargar PDF</button><button id="bcsv">Descargar Excel (CSV)</button><span class="sub" id="cuenta" style="margin:auto 0"></span></div>
 <div id="lista"></div>
@@ -27,9 +27,14 @@
 <div class="row"><select id="per" aria-label="Periodo"><option value="5">Entradas de la última semana</option><option value="20">Entradas del último mes</option><option value="90" selected>Entradas de los últimos 3 meses</option></select></div>
 <div id="rseg"></div>
 </section>
-<footer>Filtro base: precio &gt; 3 $ · sube en el día · capitalización &gt; 300 M $ · por encima de EMA 9 y EMA 50 · volumen medio 10 d &gt; 500.000 · ADR &gt; 7 % · RSI 14 &gt; 60.<br>Checks de calidad (0 a 5): rentable · ingresos crecen · precio sobre su media de 200 días · a menos de un 15 % de su máximo de 52 semanas · volumen hoy 1,5 veces o más de lo normal.<br>Racha = días seguidos en la lista. Datos de TradingView. Solo información, no es una recomendación.</footer>
+<footer>
+<b>Requisitos obligatorios</b> (si falla uno, la empresa no aparece): precio &gt; 2 $ · capitalización &gt; 300 M $ · volumen medio 10 d &gt; 300.000 · precio por encima de su media de 200 días · EMA 9 por encima de EMA 50 · RSI 14 &gt; 55 · ingresos +20 % interanual o más (el mayor entre los últimos 12 meses y el último trimestre) · precio como máximo un 20 % por debajo de su máximo de 52 semanas.<br>
+<b>Puntuación 0-100</b>: momentum técnico (25) + aceleración del crecimiento (25) + calidad fundamental (20) + fuerza relativa frente al S&amp;P 500 y a su sector (15) + volumen y ruptura de máximos (15). Después se resta hasta 25 puntos si la acción está sobreextendida (RSI muy alto, precio muy por encima de su EMA 50 o de su media de 200 días, subida mensual excesiva) y se suman hasta 5 por arranque temprano. No se exige rentabilidad: se admite growth en fase inicial, y las pérdidas aparecen como riesgo.<br>
+<b>Objetivo</b>: detectar empresas que están empezando a despegar, no las que ya se han disparado. Datos de TradingView al cierre. Esto es un sistema de detección de oportunidades para estudiarlas una a una: <b>no es una recomendación de compra</b>.
+</footer>
 </main>
 <script>window.DIAS=/*DATOS*/null;</script>
+<script src="puntuacion.js"></script>
 <script src="app.js"></script>
 <script src="hoy.js"></script>
 <script src="seguimiento.js"></script>

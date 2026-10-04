@@ -5,16 +5,18 @@ function bajar(blob,nombre){const a=document.createElement('a');a.href=URL.creat
 async function pdf(){const b=document.getElementById('bpdf');b.disabled=true;b.textContent='Generando…';
 try{if(!window.jspdf){await cargar('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');await cargar('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')}
 const v=window.vista(),doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-doc.setFontSize(16);doc.text('Acciones con momentum - '+v.fechaTxt,14,16);
+doc.setFontSize(16);doc.text('Growth con momentum - '+v.fechaTxt,14,16);
 doc.setFontSize(9);doc.setTextColor(100);
 doc.text('Orden: '+v.orden+(v.filtros.length?' | Filtros: '+v.filtros.join(', '):'')+' | '+v.filas.length+' acciones',14,22);
-doc.text('Filtro base: precio > 3 $, sube en el día, capitalización > 300 M $, precio > EMA 9 y EMA 50, volumen medio 10 d > 500.000, ADR > 7 %, RSI 14 > 60. Datos de TradingView. Solo información, no es una recomendación.',14,27,{maxWidth:268});
-doc.autoTable({startY:34,head:[['Ticker','Empresa','Precio $','Cambio %','ADR %','RSI','Vol. rel.','Capitaliz.','Racha','Próx. resultados','Avisos']],
-body:v.filas.map(a=>[a.ticker+(a.nueva?' (nueva)':''),a.empresa||'',nn(a.precio),(a.cambio>=0?'+':'')+nn(a.cambio),nn(a.adr,1),nn(a.rsi,0),nn(a.volrel),capT(a.cap),a.racha+' d',a.resultados||'-',a.avisos.map(x=>x[0]).join(' · ')]),
-styles:{fontSize:8,cellPadding:1.8},headStyles:{fillColor:[20,23,28]},columnStyles:{1:{cellWidth:45},10:{cellWidth:60}}});
-doc.save('acciones-momentum-'+v.fecha+'.pdf')}catch(e){alert('No se pudo generar el PDF. Revisa tu conexión e inténtalo de nuevo.')}
+doc.text('Obligatorio: precio > 2 $, capitalización > 300 M $, volumen medio > 300.000, precio sobre media 200 d, EMA 9 > EMA 50, RSI > 55, ingresos +20 % interanual, a menos del 20 % de su máximo de 52 semanas. Puntuación 0-100 = momentum (25) + aceleración (25) + fundamentales (20) + fuerza relativa (15) + volumen y ruptura (15), menos penalización por sobreextensión. Datos de TradingView. Detección de oportunidades, no es una recomendación de compra.',14,27,{maxWidth:268});
+doc.autoTable({startY:38,head:[['#','Ticker','Empresa','Punt.','Precio $','Ingresos %','Acel. pp','RSI','Vol. rel.','Desde máx. %','Por qué','Riesgos']],
+body:v.filas.map((a,i)=>[i+1,a.ticker+(a.nueva?' (nueva)':''),a.empresa||'',a.score==null?'-':nn(a.score,0),nn(a.precio),nn(a.g,0),a.acel==null?'-':nn(a.acel,0),nn(a.rsi,0),nn(a.volrel),nn(a.dmax,1),(a.pt?a.pt.razones:[]).join(' · '),(a.pt?a.pt.riesgos:[]).join(' · ')]),
+styles:{fontSize:7,cellPadding:1.5},headStyles:{fillColor:[20,23,28]},columnStyles:{2:{cellWidth:32},10:{cellWidth:72},11:{cellWidth:55}}});
+doc.save('growth-momentum-'+v.fecha+'.pdf')}catch(e){alert('No se pudo generar el PDF. Revisa tu conexión e inténtalo de nuevo.')}
 b.disabled=false;b.textContent='Descargar PDF'}
 function csv(){const v=window.vista(),q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
-const filas=[['Ticker','Empresa','Precio','Cambio %','ADR %','RSI','Vol. relativo','Capitalización','Sector','Ingresos % anual','Margen neto %','Próx. resultados','Racha días','Nueva']].concat(v.filas.map(a=>[a.ticker,a.empresa,nn(a.precio),nn(a.cambio),nn(a.adr),nn(a.rsi),nn(a.volrel),a.cap,a.sector,nn(a.ingresos),nn(a.margen),a.resultados,a.racha,a.nueva?'Sí':'No']));
-bajar(new Blob(['\ufeff'+filas.map(r=>r.map(q).join(';')).join('\n')],{type:'text/csv;charset=utf-8'}),'acciones-momentum-'+v.fecha+'.csv')}
+const cab=['Puesto','Ticker','Empresa','Puntuación','Momentum','Aceleración','Fundamental','Fuerza relativa','Volumen/ruptura','Penalización','Precio','Cambio %','Ingresos % anual','Ingresos % trim.','Aceleración pp','BPA % trim.','Margen bruto %','Margen neto %','FCF % ventas','Deuda/patrimonio','ADR %','RSI','Vol. relativo','Desde máx. 52s %','Sobre EMA50 %','3 meses %','Capitalización','Sector','Próx. resultados','Racha días','Nueva','Por qué','Riesgos'];
+const b=(a,id)=>{const p=a.pt&&a.pt.partes.find(x=>x.id===id);return p?nn(p.p,1):''};
+const filas=[cab].concat(v.filas.map((a,i)=>[i+1,a.ticker,a.empresa,a.score==null?'':nn(a.score,1),b(a,'tec'),b(a,'ace'),b(a,'fun'),b(a,'rel'),b(a,'vol'),a.pt?nn(a.pt.penal.total,0):'',nn(a.precio),nn(a.cambio),nn(a.ingresos),nn(a.ingresosq),nn(a.acel),nn(a.bpaq),nn(a.mbruto),nn(a.margen),nn(a.fcfm),nn(a.deudapat),nn(a.adr),nn(a.rsi),nn(a.volrel),nn(a.dmax),nn(a.ext),nn(a.tres),a.cap,a.sector,a.resultados,a.racha,a.nueva?'Sí':'No',(a.pt?a.pt.razones:[]).join(' · '),(a.pt?a.pt.riesgos:[]).join(' · ')]));
+bajar(new Blob(['\ufeff'+filas.map(r=>r.map(q).join(';')).join('\n')],{type:'text/csv;charset=utf-8'}),'growth-momentum-'+v.fecha+'.csv')}
 document.getElementById('bpdf').onclick=pdf;document.getElementById('bcsv').onclick=csv;
