@@ -41,3 +41,8 @@
 .ewarn{background:var(--warnbg);color:var(--warn)}
 .eoff{background:var(--line);color:var(--muted)}
 .tabla .name{font-size:11px;margin-top:2px}
+.card.seg .grid{grid-template-columns:repeat(5,1fr)}
+.segfila{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.segfila .m{font-size:12px}
+.ebad{background:var(--badbg);color:var(--down)}
+@media (max-width:620px){.card.seg .grid{grid-template-columns:repeat(2,1fr)}}

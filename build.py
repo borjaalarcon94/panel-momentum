@@ -9,13 +9,16 @@ import json, statistics, subprocess, urllib.request, datetime, pathlib
 
 R = pathlib.Path(__file__).parent
 DATOS, WEB = R / "data", R / "docs"
-GUARDAR = 25          # acciones que se guardan cada dia (el panel muestra el top 10/20)
+GUARDAR = 10          # top que se guarda y se sigue cada dia
 DIAS_COMPLETOS = 10   # dias con todos los datos dentro de index.html
 DIAS = 90             # dias del resumen ligero que usa el seguimiento
+SEGUIR_DIAS = 30      # dias de los que se vigila el estado actual de cada accion
 
 # Negocios cuyo "crecimiento" suele venir del precio de una materia prima o de los fletes, no de mas clientes.
 SECTORES_CICLICOS = {"Energy Minerals", "Non-Energy Minerals", "Process Industries", "Utilities"}
 INDUSTRIAS_CICLICAS = ("Marine Shipping", "Oil", "Gas", "Coal", "Steel", "Mining", "Metals", "Chemicals")
+# Vehiculos que reparten rentas o cotizan por su patrimonio: no son candidatos a multiplicar varias veces.
+INDUSTRIAS_EXCLUIDAS = ("Real Estate Investment Trusts", "Investment Trusts/Mutual Funds", "Investment Managers")
 
 # Requisitos obligatorios (reducen el universo a empresas en tendencia alcista con crecimiento real).
 # ADR, volumen relativo, aceleracion, margenes y ruptura NO son obligatorios: puntuan (docs/puntuacion.js).
@@ -23,7 +26,7 @@ FILTROS = [
     {"left": "type", "operation": "equal", "right": "stock"},
     {"left": "exchange", "operation": "in_range", "right": ["NASDAQ", "NYSE", "AMEX"]},
     {"left": "close", "operation": "greater", "right": 2},
-    {"left": "market_cap_basic", "operation": "greater", "right": 300e6},
+    {"left": "market_cap_basic", "operation": "in_range", "right": [300e6, 10e9]},
     {"left": "average_volume_10d_calc", "operation": "greater", "right": 300000},
     {"left": "SMA200", "operation": "less", "right": "close"},   # precio sobre media 200
     {"left": "EMA50", "operation": "less", "right": "EMA9"},     # EMA9 > EMA50
@@ -31,6 +34,7 @@ FILTROS = [
 ]
 CRECIMIENTO_MIN = 20     # % interanual, el mayor entre TTM y ultimo trimestre
 MAX_DESDE_MAXIMO = 20    # % por debajo del maximo de 52 semanas
+CAP_MAX = 10e9           # techo de capitalizacion: buscamos empresas que puedan multiplicar, no megacaps
 
 C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "cambio",
      "relative_volume_10d_calc": "volrel", "market_cap_basic": "cap", "ADRP": "adr", "RSI": "rsi",
@@ -77,9 +81,11 @@ def filas(datos):
     return out
 
 
-def ciclica(a):
+def excluida(a):
+    ind = (a.get("industria") or "").lower()
     return (a.get("sector") in SECTORES_CICLICOS
-            or any(x.lower() in (a.get("industria") or "").lower() for x in INDUSTRIAS_CICLICAS))
+            or any(x.lower() in ind for x in INDUSTRIAS_CICLICAS)
+            or any(x.lower() in ind for x in INDUSTRIAS_EXCLUIDAS))
 
 
 def puntuar(acciones, ctx):
@@ -134,7 +140,7 @@ def main():
     hoy = datetime.datetime.utcnow().strftime("%Y-%m-%d")
     universo = filas(scan({"columns": list(C), "filter": FILTROS, "range": [0, 3000],
                            "sort": {"sortBy": "market_cap_basic", "sortOrder": "desc"}}))
-    candidatas = [a for a in universo if cumple(a) and not ciclica(a)]
+    candidatas = [a for a in universo if cumple(a) and not excluida(a)]
     mercado = filas(scan({"columns": list(C), "symbols": {"tickers": ["AMEX:SPY", "NASDAQ:QQQ", "AMEX:IWM"]}}))
     ref = referencia()
     spy = next((m for m in mercado if m["ticker"] == "SPY"), {})
@@ -166,18 +172,29 @@ def main():
                                       "sc": pts.get(a["ticker"]) if d.get("referencia") else None,
                                       "n": a.get("empresa")} for a in d["acciones"]],
                         "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
-    simbolos = sorted({a["simbolo"] for d in todos.values() for a in d["acciones"] if a.get("simbolo")})
-    precios = {}
-    for i in range(0, len(simbolos), 400):
-        for it in scan({"columns": ["close"], "symbols": {"tickers": simbolos[i:i + 400]}}):
-            precios[it["s"]] = it["d"][0]
-    todo = {"dias": dias, "historico": historico, "precios": precios,
+    # Estado de HOY de todas las acciones que han pasado por el top ultimamente: permite saber en el
+    # seguimiento si siguen cumpliendo los requisitos aunque hayan salido del top.
+    recientes = sorted({a["simbolo"] for f, d in list(todos.items())[-SEGUIR_DIAS:]
+                        for a in d["acciones"] if a.get("simbolo")})
+    actual = {}
+    for i in range(0, len(recientes), 300):
+        for fila in filas(scan({"columns": list(C), "symbols": {"tickers": recientes[i:i + 300]}})):
+            actual[fila["simbolo"]] = fila
+    antiguos = sorted({a["simbolo"] for d in todos.values() for a in d["acciones"]
+                       if a.get("simbolo") and a["simbolo"] not in actual})
+    precios = {s: a["precio"] for s, a in actual.items()}
+    for i in range(0, len(antiguos), 400):
+        for it in scan({"columns": ["close"], "symbols": {"tickers": antiguos[i:i + 400]}}):
+            precios[it["s"]] = redondea(it["d"][0])
+    todo = {"dias": dias, "historico": historico, "precios": precios, "actual": actual,
+            "mercadoHoy": mercado, "referenciaHoy": ref,
             "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
     html = (R / "plantilla.html").read_text().replace(
         "/*DATOS*/null", json.dumps(todo, ensure_ascii=False).replace("</", "<\\/"))
     (WEB / "index.html").write_text(html)
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
-          "guardadas:", "-" if acciones is None else len(acciones), "seguimiento:", len(precios))
+          "guardadas:", "-" if acciones is None else len(acciones),
+          "seguidas con datos de hoy:", len(actual), "con solo precio:", len(antiguos))
 
 
 if __name__ == "__main__":

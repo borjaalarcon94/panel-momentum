@@ -25,6 +25,21 @@ const d=a.resultados?Math.round((new Date(a.resultados+'T12:00:00Z')-new Date(f+
 return {...a,pt:p,score:p?p.total:null,acel:p?p.acel:null,g:p?p.g:null,dmax:p?p.dmax:null,ext:p?p.extEma:null,
 nueva:comparable&&!antes.has(a.ticker),racha:racha(a.ticker,f),proximos:d!=null&&d>=0&&d<=14}})}
 
+/* Requisitos obligatorios comprobados sobre los datos de hoy: dicen si la compra sigue siendo viable. */
+const CAP_MAX=10e9;
+window.REQUISITOS=function(a){const g=Math.max(a.ingresos??-1e9,a.ingresosq??-1e9);
+const dmax=a.precio&&a.max52?(a.precio/a.max52-1)*100:null;
+return [
+ {t:'Precio > 2 $',ok:a.precio>2,v:n(a.precio)+' $'},
+ {t:'Capitalización entre 300 M y 10 B',ok:a.cap>300e6&&a.cap<=CAP_MAX,v:cap(a.cap)},
+ {t:'Volumen medio > 300.000',ok:a.volmedio>3e5,v:a.volmedio==null?'-':Math.round(a.volmedio/1000)+' mil'},
+ {t:'Precio sobre la media de 200 días',ok:a.sma200!=null&&a.precio>a.sma200,v:a.sma200==null?'-':pc((a.precio/a.sma200-1)*100,0)},
+ {t:'EMA 9 sobre EMA 50',ok:a.ema9!=null&&a.ema50!=null&&a.ema9>a.ema50,v:a.ema9==null?'-':pc((a.ema9/a.ema50-1)*100,1)},
+ {t:'RSI > 55',ok:a.rsi>55,v:n(a.rsi,0)},
+ {t:'Ingresos +20 % o más',ok:g>=20,v:g<-1e8?'sin dato':pc(g,0)},
+ {t:'A menos del 20 % de su máximo',ok:dmax!=null&&dmax>=-20,v:pc(dmax,1)},
+]};
+
 window.vista=function(){const todas=enriquece(S.dia).sort((x,y)=>(y[S.orden]??-1e18)-(x[S.orden]??-1e18));
 return {fecha:S.dia,fechaTxt:S.dia?fFecha(S.dia):'',todas,filas:todas.slice(0,S.top),
 orden:$('orden').selectedOptions[0].textContent,filtros:[],

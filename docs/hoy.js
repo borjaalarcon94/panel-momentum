@@ -55,7 +55,7 @@ if(abrir)w.appendChild(f);return w}
 
 F.forEach(f=>{const o=el('option',null,fFecha(f));o.value=f;$('dia').appendChild(o)});
 $('dia').onchange=e=>{S.dia=e.target.value;pinta()};$('orden').onchange=e=>{S.orden=e.target.value;pinta()};
-$('top').onchange=e=>{S.top=+e.target.value;pinta()};
+
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));$('vhoy').hidden=b.dataset.v!=='hoy';$('vseg').hidden=b.dataset.v!=='seg';if(b.dataset.v==='seg'&&window.seguimiento)window.seguimiento()});
 if(T.actualizado)$('act').textContent='Última actualización: '+new Date(T.actualizado.replace('Z',':00Z')).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'});
 if(F.length)pinta();else $('lista').appendChild(el('div','empty','Aún no hay datos.'));

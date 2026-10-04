@@ -108,6 +108,11 @@
     else if (mes != null && mes > 40) { pen += 4; motivos.push('Ya sube ' + pc1(mes) + ' en un mes'); }
     pen = Math.min(pen, 25);
 
+    // ── Bonus por tamano: cuanto mas pequena, mas recorrido tiene para multiplicar ────
+    const cap = num(a.cap);
+    const pTam = cap == null ? 0 : cap < 1e9 ? 5 : cap < 3e9 ? 3.5 : cap < 6e9 ? 2 : 0.5;
+    const tamTxt = cap == null ? '' : 'Capitalización ' + (cap >= 1e9 ? (cap / 1e9).toFixed(1).replace('.', ',') + ' B' : Math.round(cap / 1e6) + ' M') + (cap < 3e9 ? ': tamaño pequeño, mucho recorrido si acierta' : cap < 6e9 ? ': tamaño medio' : ': ya es grande, menos recorrido');
+
     // ── Bonus por arranque temprano (no es una que ya se haya disparado) ──────
     let bon = 0, bonTxt = '';
     if (seis != null && mes != null && dmax != null && seis >= 0 && seis <= 50 && mes > 5 && dmax >= -15 && pen === 0) {
@@ -117,7 +122,7 @@
     }
 
     const bruto = partes.reduce((s, x) => s + x.p, 0);
-    const total = Math.max(0, Math.min(100, Math.round((bruto - pen + bon) * 10) / 10));
+    const total = Math.max(0, Math.min(100, Math.round((bruto - pen + bon + pTam) * 10) / 10));
 
     // ── Explicacion ───────────────────────────────────────────────────────────
     if (g != null && g >= 20) razones.push('Ingresos ' + pc1(g) + ' interanual' + (acel != null && acel > 0 ? ' y acelerando (' + pp(acel) + ' en el último trimestre)' : ''));
@@ -128,6 +133,8 @@
     if (r3 != null && r3 > 10) razones.push('Lo hace ' + pp(r3) + ' mejor que el S&P 500 en 3 meses');
     if (rs != null && rs > 10) razones.push('Mejor que su sector ' + pp(rs) + ' en 3 meses');
     if (bon === 5) razones.push(bonTxt);
+    if (pTam >= 3.5) razones.push(tamTxt);
+    if (cap != null && cap >= 6e9) riesgos.push(tamTxt);
 
     senales.push(...partes[0].detalle.filter(x => x.ok).map(x => x.t), ...partes[4].detalle.filter(x => x.ok).map(x => x.t));
     fundamentales.push(...partes[1].detalle.concat(partes[2].detalle).filter(x => x.ok).map(x => x.t));
@@ -147,6 +154,7 @@
     if (g == null) riesgos.push('Sin datos de crecimiento de ingresos');
 
     return { total, partes, penal: { total: pen, motivos }, bonus: { total: bon, texto: bonTxt },
+             tamano: { puntos: pTam, texto: tamTxt },
              razones, senales, fundamentales, riesgos,
              g, acel, acelBpa, dmax, extEma, extSma, rupt, r3, rs };
   }
