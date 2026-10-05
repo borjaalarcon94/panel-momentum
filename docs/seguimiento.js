@@ -57,18 +57,6 @@ function historial(lim) {
   }).filter(a => a.ret != null && a.entrada !== hoyF);   // las que entran hoy aun no tienen evolucion
 }
 
-/* Que hacer con cada posicion, segun su estado de hoy. Orientativo: la decision es del usuario. */
-function quehacer(a) {
-  const stop = a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : null;
-  if (a.salida && a.salida.senales.length) return { t: 'Señal de salida', d: 'ha roto su guía técnica: ' + a.salida.senales[0].toLowerCase() + '. Si la tienes, toca decidir.', cls: 'qbad' };
-  if (a.estado === 'extendida') return { t: 'No comprar aquí', d: 'está demasiado estirada; si ya la tienes, dejarla correr con el stop en ' + (stop || '—') + '.', cls: 'qwarn' };
-  if (a.estado === 'flojea') return { t: 'Vigilar', d: 'sigue cumpliendo, pero ha perdido fuerza. Mantener con stop en ' + (stop || '—') + '.', cls: 'qwarn' };
-  if (a.dmax != null && a.dmax < -10) return { t: 'Esperar', d: 'está a ' + pc(a.dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn' };
-  const lejos = a.salida && a.salida.opciones[0] && a.salida.opciones[0].d < -15;
-  if (lejos) return { t: 'Compra arriesgada', d: 'cumple todo, pero el stop técnico queda a ' + pc(a.salida.opciones[0].d, 0) + ': entrar con media posición o esperar un retroceso a su EMA 21.', cls: 'qwarn' };
-  return { t: a.enTop ? 'Sigue siendo compra válida' : 'Compra válida', d: 'cumple todo y el stop queda cerca, en ' + (stop || '—') + '.', cls: 'qok' };
-}
-
 const ETIQUETA = {
   viable: ['Sigue viable', 'eok'], extendida: ['Muy extendida', 'ewarn'], flojea: ['Pierde fuerza', 'ewarn'],
   nocumple: ['Ya no cumple', 'ebad'], sindatos: ['Sin datos de hoy', 'eoff'],
@@ -135,7 +123,10 @@ window.seguimiento = function () {
     c.appendChild(fila);
 
     // Linea accionable: el objetivo es entrar bien, dejar correr y salir con ganancias.
-    const q = quehacer(a);
+    const datos = ACT[a.clave];
+    const q = datos ? window.VEREDICTO(datos, { extendida: a.estado === 'extendida', flojea: a.estado === 'flojea', fallos: a.fallos,
+      devuelto: a.devuelto, maxGanancia: a.max, ganancia: a.ret })
+      : { t: 'Sin datos de hoy', d: '', cls: 'qwarn' };
     const qd = el('div', 'quehacer ' + q.cls);
     qd.appendChild(el('b', null, q.t));
     if (q.d) qd.appendChild(el('span', null, ' ' + q.d));

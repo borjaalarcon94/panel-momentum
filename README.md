@@ -128,8 +128,21 @@ acciones vigiladas han dado señal de salida.
 Sigue a todas las acciones que han pasado por el top 10 y responde a si la compra sigue siendo viable. Cada día
 recomprueba los 8 requisitos obligatorios con los datos de hoy, aunque la acción ya no esté en el top:
 
-Cada acción lleva una línea de **qué hacer**: compra válida, compra arriesgada (el stop queda a más de un 15 %), no
-comprar aquí (demasiado estirada), esperar (lejos de máximos), vigilar o señal de salida.
+## Veredicto de compra
+
+Las dos pestañas usan la misma función (`window.VEREDICTO` en `docs/app.js`), de modo que una acción nunca puede
+aparecer como compra en una vista y como espera en la otra. Es lo primero que se lee en cada tarjeta:
+
+| Veredicto | Cuándo |
+|---|---|
+| **COMPRA** | cumple todo, no está estirada y el stop queda a menos de un 15 % |
+| Compra arriesgada | cumple, pero el stop técnico queda más lejos del 15 % |
+| Esperar | está a más de un 10 % de su máximo de 52 semanas |
+| No comprar aquí | demasiado estirada (penalización ≥ 9) o ha dado una señal de salida |
+| Vigilar | cumple, pero su puntuación ha caído más de 8 puntos |
+| Ya no cumple | ha roto algún requisito obligatorio (solo en seguimiento) |
+
+Siempre con el precio concreto del stop. Es orientativo y se calcula con el cierre: la decisión es tuya.
 
 - **Sigue viable**: cumple los 9 requisitos, su puntuación aguanta y no está extendida.
 - **Muy extendida**: los cumple, pero está lejos de sus medias. Puede seguir subiendo; entrar ahí suele salir caro.

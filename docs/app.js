@@ -57,6 +57,23 @@ window.SALIDA = function (a, extra) {
   return { opciones, senales, caidaMes: caida };
 };
 
+/* Veredicto de compra, unico para las dos pestanas: ¿es buen punto de entrada AHORA y donde va el stop?
+   Orientativo y calculado con los datos del cierre: la decision es del usuario. */
+window.VEREDICTO = function (a, extra) {
+  extra = extra || {};
+  const sal = window.SALIDA(a, extra), o = sal.opciones[0];
+  const stop = o ? n(o.v) + ' $ (' + pc(o.d, 0) + ')' : '—';
+  const dmax = a.precio && a.max52 ? (a.precio / a.max52 - 1) * 100 : null;
+  const extendida = extra.extendida != null ? extra.extendida : false;
+  if (extra.fallos && extra.fallos.length) return { t: 'Ya no cumple', d: extra.fallos.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', '), cls: 'qbad', stop };
+  if (sal.senales.length) return { t: 'No comprar', d: sal.senales[0].toLowerCase() + '.', cls: 'qbad', stop };
+  if (extendida) return { t: 'No comprar aquí', d: 'está muy estirada: esperar a que consolide. Si ya la tienes, dejarla correr con el stop en ' + stop + '.', cls: 'qwarn', stop };
+  if (extra.flojea) return { t: 'Vigilar', d: 'sigue cumpliendo, pero ha perdido fuerza. Mantener con stop en ' + stop + '.', cls: 'qwarn', stop };
+  if (dmax != null && dmax < -10) return { t: 'Esperar', d: 'está a ' + pc(dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn', stop };
+  if (o && o.d < -15) return { t: 'Compra arriesgada', d: 'el stop técnico queda lejos, en ' + stop + ': media posición o esperar un retroceso a su EMA 21.', cls: 'qwarn', stop };
+  return { t: 'COMPRA', d: 'buen punto de entrada: stop en ' + stop + '.', cls: 'qok', stop };
+};
+
 /* Acciones en circulacion mas antiguas que conozcamos de ese valor: base para medir la dilucion. */
 function dilucionDe(ticker, hasta) {
   const fechas = FH.filter(f => f <= hasta).sort();

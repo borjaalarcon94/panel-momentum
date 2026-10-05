@@ -100,13 +100,12 @@ const r=el('div','resumen');
  ['RSI',n(a.rsi,0)],['Vol.',a.volrel==null?'-':n(a.volrel,1)+'x'],['ADR',a.adr==null?'-':n(a.adr,1)+' %']]
 .forEach(([k,x])=>{const m=el('span','rz');m.appendChild(el('i',null,k));m.appendChild(el('b',null,x));r.appendChild(m)});
 c.appendChild(r);
+// Veredicto de compra, lo primero que se lee
+const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false});
+const vd=el('div','quehacer '+v.cls);vd.appendChild(el('b',null,v.t));vd.appendChild(el('span',null,' · '+v.d));
+c.appendChild(vd);
 if(a.pt&&a.pt.razones.length)c.appendChild(el('div','clave','➜ '+a.pt.razones[0]));
 const sal=window.SALIDA(a);
-if(sal.opciones.length){const lejos=sal.opciones[0].d<-15,st=el('div','stop'+(lejos?' riesgo':''));
-st.appendChild(el('b',null,'Stop técnico '+n(sal.opciones[0].v)+' $'));
-st.appendChild(el('span',null,' ('+pc(sal.opciones[0].d,0)+', cierre bajo la EMA 21)'+(sal.opciones[1]?' · holgado '+n(sal.opciones[1].v)+' $ ('+pc(sal.opciones[1].d,0)+')':'')));
-if(lejos)st.appendChild(el('span','m',' · el stop queda lejos: media posición o esperar un retroceso'));
-c.appendChild(st)}
 const nr=a.pt?a.pt.riesgos.length:0;
 
 const b=el('button','chip','Ver análisis completo'+(nr?' · '+nr+(nr===1?' riesgo':' riesgos'):''));b.style.marginTop='10px';
