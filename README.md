@@ -163,8 +163,8 @@ requisitos uno a uno y los riesgos actuales.
 ## Interfaz, detalles
 
 Dos columnas de tarjetas en pantallas anchas, borde de color según la puntuación (verde ≥ 75, azul 55-75, gris por
-debajo), pestañas fijas al desplazar, rejilla fija de métricas en móvil, aviso mientras carga otro día, icono propio
-y `manifest.json` para añadirla a la pantalla de inicio del móvil. En el seguimiento, un mini gráfico muestra la
+debajo), pestañas fijas al desplazar, rejilla fija de métricas en móvil, aviso mientras carga otro día, icono propio (PNG: iOS y Android no
+admiten SVG en la pantalla de inicio y ponían la inicial del título) y `manifest.json` para instalarla en el móvil. En el seguimiento, un mini gráfico muestra la
 evolución de la puntuación de cada acción día a día.
 
 ## Mis posiciones
