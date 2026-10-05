@@ -118,6 +118,12 @@ window.seguimiento = function () {
     const der = el('div', 'px');
     der.appendChild(el('b', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
     der.appendChild(el('div', 'm', n(a.precioEntrada) + ' $ → ' + n(a.ahora) + ' $'));
+    if (a.score != null) {
+      const sc = el('div', 'score' + (a.score >= 75 ? ' s3' : a.score >= 55 ? ' s2' : ' s1'));
+      sc.appendChild(el('b', null, n(a.score, 0)));
+      sc.appendChild(el('span', null, '/100 momentum' + (a.dScore != null ? ' · ' + (a.dScore >= 0 ? '+' : '') + n(a.dScore, 0) : '')));
+      der.appendChild(sc);
+    }
     top.append(izq, der); c.appendChild(top);
 
     const [txt, cls] = ETIQUETA[a.estado], fila = el('div', 'segfila');

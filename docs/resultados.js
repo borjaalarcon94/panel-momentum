@@ -21,6 +21,41 @@ function entradas() {
   }).filter(a => a.ret != null && a.score != null && a.entrada !== hoyF);
 }
 
+/* Los tres objetivos que tiene que cumplir el sistema para merecer la pena. Si fallan, hay que cambiar criterios. */
+function objetivos(xs) {
+  const media = v => v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+  const cs = xs.filter(a => a.sp != null);
+  const vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
+  const altas = xs.filter(a => a.score >= 75).map(a => a.ret), bajas = xs.filter(a => a.score < 75).map(a => a.ret);
+  const difTramos = altas.length >= 10 && bajas.length >= 10 ? media(altas) - media(bajas) : null;
+  const fuera = xs.filter(a => a.fuera && a.retAlSalir != null);
+  const difSalida = fuera.length >= 10 ? media(fuera.map(a => a.retAlSalir)) - media(fuera.map(a => a.ret)) : null;
+  const filas = [
+    ['Batir al S&P 500', vsSp, cs.length, 30, 'de media, cada entrada frente al índice en los mismos días'],
+    ['Que la puntuación discrimine', difTramos, Math.min(altas.length, bajas.length), 10, 'las de 75 o más deberían rendir más que las de menos de 75'],
+    ['Que salir a tiempo compense', difSalida, fuera.length, 10, 'vender el día que salen del top frente a aguantarlas'],
+  ];
+  const d = el('div', 'blk');
+  d.appendChild(el('div', 'blt', '¿Se están cumpliendo los objetivos?'));
+  const t = el('table', 'tabla'), h = el('tr');
+  ['Objetivo', 'Resultado', 'Casos', 'Estado'].forEach(x => h.appendChild(el('th', null, x)));
+  t.appendChild(h);
+  filas.forEach(([nom, val, n0, min, ayuda]) => {
+    const tr = el('tr');
+    const td = el('td'); td.appendChild(el('b', null, nom)); td.appendChild(el('div', 'name', ayuda)); tr.appendChild(td);
+    tr.appendChild(el('td', val == null ? null : val >= 0 ? 'up' : 'down', val == null ? '—' : (val >= 0 ? '+' : '') + n(val, 1) + ' pt'));
+    tr.appendChild(el('td', null, n0 + (n0 < min ? ' de ' + min : '')));
+    const est = el('td');
+    est.appendChild(el('span', 'est ' + (n0 < min ? 'eoff' : val >= 0 ? 'eok' : 'ebad'),
+      n0 < min ? 'sin datos suficientes' : val >= 0 ? 'se cumple' : 'no se cumple'));
+    tr.appendChild(est);
+    t.appendChild(tr);
+  });
+  const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  d.appendChild(el('p', 'nota', 'Si pasadas unas semanas con casos suficientes algún objetivo no se cumple, toca cambiar los criterios: ese es el propósito de esta pestaña. Mientras ponga «sin datos suficientes», cualquier conclusión sería casualidad.'));
+  return d;
+}
+
 window.resultados = function () {
   const R = $('rres'); R.replaceChildren();
   const xs = entradas();
@@ -66,5 +101,6 @@ window.resultados = function () {
     B.appendChild(el('div', 'bt', '¿Sirve salirse cuando dejan de cumplir? De las ' + fuera.length + ' que salieron del top, vender el día que salieron habría dado ' + pc(alSalir) + ' de media; aguantarlas hasta hoy, ' + pc(hastaHoy) + '. Diferencia: ' + (d >= 0 ? '+' : '') + n(d, 1) + ' puntos a favor de ' + (d >= 0 ? 'vender al salir' : 'aguantar') + '.'));
     R.appendChild(B);
   }
+  R.appendChild(objetivos(xs));
   R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, al precio de cierre de ese día, con la puntuación que tenía. El resultado se mide contra el precio de hoy, sin comisiones ni dividendos. Con pocas entradas estos números no significan nada: hacen falta semanas y varias decenas de casos para sacar conclusiones.'));
 };

@@ -30,7 +30,7 @@ Si falla uno, la empresa no aparece:
 |---|---|
 | Precio | > 2 $ |
 | Capitalización | entre 300 M y 10.000 M $ (buscamos empresas que puedan multiplicar, no gigantes) |
-| Volumen medio 10 d | > 300.000 acciones |
+| Volumen medio 10 d | > 300.000 acciones y más de 2 M$ negociados al día |
 | Tendencia | precio por encima de la media de 200 días |
 | Tendencia | EMA 9 por encima de EMA 50 |
 | RSI 14 | > 55 |
@@ -151,8 +151,18 @@ evolución de la puntuación de cada acción día a día.
 
 Tercera pestaña: compara lo que decía el panel con lo que luego hicieron las acciones. Cada entrada al top queda
 anotada con su puntuación y su precio de cierre, y se mide contra el precio actual. Muestra el resultado por tramo de
-puntuación (¿las de 85 van mejor que las de 65?), la comparación con el S&P 500 y si vender el día que salen del top
-habría sido mejor que aguantarlas. No usa espacio extra: se calcula con lo ya guardado. Hacen falta varias semanas y
+puntuación, la comparación con el S&P 500 y si vender el día que salen del top habría sido mejor que aguantarlas.
+
+Incluye un cuadro de **objetivos**, que es el criterio para decidir si hay que cambiar el sistema:
+
+| Objetivo | Se considera cumplido si | Casos mínimos |
+|---|---|---|
+| Batir al S&P 500 | la media de las entradas supera al índice en los mismos días | 30 |
+| Que la puntuación discrimine | las de 75 o más rinden más que las de menos de 75 | 10 por grupo |
+| Que salir a tiempo compense | vender al salir del top gana a aguantar | 10 |
+
+Hasta llegar a esos mínimos, cada objetivo aparece como «sin datos suficientes»: con menos casos, cualquier
+conclusión sería casualidad. No usa espacio extra: se calcula con lo ya guardado. Hacen falta varias semanas y
 decenas de entradas para que signifique algo.
 
 ## Si la fuente falla
