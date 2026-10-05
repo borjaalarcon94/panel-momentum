@@ -96,7 +96,10 @@ Se guardan en `enMarcha` dentro del fichero del día y también se les hace segu
 
 ## Interfaz
 
-La pestaña del día muestra una tarjeta compacta por acción: puesto, ticker, empresa, capitalización, precio,
+La pestaña del día muestra las **5 mejores** (3 si el mercado está en contra), con un botón para desplegar las 10
+guardadas. Se guardan 10 aunque se enseñen 5 por dos motivos: entre la quinta y la décima suele haber 4 puntos de
+diferencia, con empates frecuentes, así que cortar en cinco sería arbitrario; y con el doble de entradas la pestaña
+de Resultados tarda la mitad en poder decir algo. Cada tarjeta es compacta: puesto, ticker, empresa, capitalización, precio,
 puntuación y seis cifras clave (ingresos, aceleración, distancia al máximo, RSI, volumen relativo y ADR), más el
 motivo principal por el que aparece. El botón «Ver análisis completo» despliega las cinco barras de la puntuación,
 por qué aparece, señales fundamentales, riesgos, el stop técnico, quince métricas y el gráfico.

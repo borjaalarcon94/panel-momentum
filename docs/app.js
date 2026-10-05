@@ -3,7 +3,7 @@
    datos/<fecha>.json: el detalle de un dia, que se descarga solo cuando se mira ese dia. */
 let T = {}, HIST = {}, FH = [], ACT = {}, CRIT = {}, MHOY = {}, REFHOY = {};
 const CACHE = {};                       // ficheros de dia ya descargados
-const S = { dia: null, orden: 'score', top: 10 };
+const S = { dia: null, orden: 'score', top: 5 };   // se muestran 5; las 10 guardadas están a un clic
 let REGIMEN = { favorable: true };
 const $ = id => document.getElementById(id);
 const n = (v, d = 2) => v == null ? '-' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -137,7 +137,7 @@ async function iniciar() {
   HIST = T.historico || {}; FH = Object.keys(HIST).sort().reverse(); ACT = T.actual || {}; CRIT = T.criterios || {};
   REGIMEN = T.regimen || { favorable: true };
   // Con el mercado en contra el momentum falla mucho mas: se muestran menos candidatas.
-  if (!REGIMEN.favorable) S.top = 5;
+  if (!REGIMEN.favorable) S.top = 3;   // con el mercado en contra, aún menos
   MHOY = (T.mercadoHoy || []).find(x => x.ticker === 'SPY') || {}; REFHOY = (T.referenciaHoy || {}).sectores || {};
   const fechas = (T.dias || []).slice().sort().reverse();
   S.dia = fechas[0];

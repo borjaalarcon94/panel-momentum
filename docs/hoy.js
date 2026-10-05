@@ -83,7 +83,10 @@ $('stats').replaceChildren(el('span',null,'Top '+top.length+' · puntuación med
 (v.candidatas?' · '+v.candidatas+' cumplían los requisitos de '+(v.universo||'?')+' analizadas':'')));
 $('cuenta').textContent='';
 if(!top.length){L.appendChild(el('div','empty','Ese día ninguna acción cumplió los requisitos.'));return}
-top.forEach((a,i)=>L.appendChild(tarjeta(a,i)))};
+top.forEach((a,i)=>L.appendChild(tarjeta(a,i)));
+// Botón para ver el resto de las guardadas sin salir de la vista
+if(v.todas.length>top.length||S.top>5){const b=el('button','chip ver-mas',S.top>5?'Ver solo las 5 mejores':'Ver las '+v.todas.length+' guardadas');
+b.onclick=()=>{S.top=S.top>5?5:99;window.pinta()};L.appendChild(b)}};
 
 /* Tarjeta compacta: lo justo para decidir si merece abrirla. El detalle va dentro del desplegable. */
 function tarjeta(a,i){const nivel=a.score>=75?' n3':a.score>=55?' n2':' n1';
