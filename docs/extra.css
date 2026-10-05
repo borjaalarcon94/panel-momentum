@@ -83,7 +83,9 @@ details.descartadas .tw{margin-top:8px}
 .quehacer b{margin-right:4px}
 .stop.riesgo{background:var(--warnbg);color:var(--text)}
 /* Pestañas siempre accesibles al desplazar */
-.tabs{position:sticky;top:0;z-index:6;background:var(--bg);padding-top:6px}
+.tabs{position:sticky;top:0;z-index:6;background:var(--bg);padding-top:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{white-space:nowrap;flex:0 0 auto}
 /* Color del borde según la puntuación: permite barrer la lista de un vistazo */
 .card.n3{border-left:3px solid var(--up)}
 .card.n2{border-left:3px solid var(--info)}
@@ -98,3 +100,16 @@ details.descartadas .tw{margin-top:8px}
   h1{font-size:20px}
 }
 .ver-mas{grid-column:1/-1;justify-self:center;margin-top:4px}
+/* Nada debe desbordar a lo ancho en pantallas estrechas */
+@media (max-width:620px){
+  .tab{padding:10px 9px;font-size:14px}
+  .quehacer,.clave,.stop{font-size:12.5px}
+  .banner.linea{gap:4px 10px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .row{gap:6px}
+  select,input,button{max-width:100%}
+  .card .top{flex-wrap:wrap}
+  .px{text-align:right;margin-left:auto}
+}
+.tw{max-width:100%}
+.name,.m,.clave,.quehacer span{overflow-wrap:anywhere}
