@@ -135,6 +135,13 @@ async function iniciar() {
     $('lista').appendChild(el('div', 'empty', 'No se han podido cargar los datos. Recarga la página en unos minutos.'));
     return;
   }
+  /* GitHub sirve el HTML con 10 minutos de caché: si el navegador tiene una versión antigua del código,
+     los datos vienen de una versión y los scripts de otra. Al detectarlo, se recarga una sola vez. */
+  if (T.version && window.VERSION && T.version !== window.VERSION && !sessionStorage.getItem('refrescado-' + T.version)) {
+    try { sessionStorage.setItem('refrescado-' + T.version, '1') } catch (e) {}
+    location.replace(location.pathname + '?v=' + T.version);
+    return;
+  }
   HIST = T.historico || {}; FH = Object.keys(HIST).sort().reverse(); ACT = T.actual || {}; CRIT = T.criterios || {};
   REGIMEN = T.regimen || { favorable: true };
   // Con el mercado en contra el momentum falla mucho mas: se muestran menos candidatas.

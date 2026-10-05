@@ -178,7 +178,9 @@ requisitos uno a uno y los riesgos actuales.
 ## Interfaz, detalles
 
 Dos columnas de tarjetas en pantallas anchas, borde de color según la puntuación (verde ≥ 75, azul 55-75, gris por
-debajo), pestañas fijas al desplazar, rejilla fija de métricas en móvil, aviso mientras carga otro día, icono propio (PNG: iOS y Android no
+debajo), pestañas fijas al desplazar, rejilla fija de métricas en móvil, aviso mientras carga otro día, Si GitHub sirve un `index.html` cacheado (manda 10 minutos de caducidad) el navegador podría quedarse con código
+antiguo mientras los datos ya son nuevos. La versión viaja también dentro de `panel.json`: al detectar que no
+coincide con la del HTML cargado, la web se recarga sola una vez. Icono propio (PNG: iOS y Android no
 admiten SVG en la pantalla de inicio y ponían la inicial del título) y `manifest.json` para instalarla en el móvil. En el seguimiento, un mini gráfico muestra la
 evolución de la puntuación de cada acción día a día.
 

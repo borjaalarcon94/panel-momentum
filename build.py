@@ -237,7 +237,9 @@ def main():
     for i in range(0, len(antiguos), 400):
         for it in scan({"columns": ["close"], "symbols": {"tickers": antiguos[i:i + 400]}}):
             precios[it["s"]] = redondea(it["d"][0])
-    panel = {"dias": sorted(todos), "historico": historico, "precios": precios, "actual": actual,
+    estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css"))
+    version = hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
+    panel = {"version": version, "dias": sorted(todos), "historico": historico, "precios": precios, "actual": actual,
              "mercadoHoy": mercado, "referenciaHoy": ref,
              "criterios": {"precioMin": 2, "capMin": 300e6, "capMax": CAP_MAX, "volumenMin": 300000,
                            "liquidezMin": LIQUIDEZ_MIN, "rsiMin": 55, "crecimientoMin": CRECIMIENTO_MIN,
@@ -246,10 +248,9 @@ def main():
              "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
     (WEB / "panel.json").write_text(json.dumps(panel, ensure_ascii=False))
     # index.html solo cambia cuando cambia la plantilla o el codigo de la web: los datos se cargan aparte.
-    # La version en las URLs de css/js evita que el navegador sirva una version antigua tras un despliegue.
-    estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css"))
-    version = hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
-    html = (R / "plantilla.html").read_text().replace("VERSION", version)
+    # La version viaja tambien dentro de panel.json: si el navegador sirve un index.html viejo desde su cache,
+    # la web lo detecta al cargar los datos y se refresca sola (ver iniciar() en docs/app.js).
+    html = (R / "plantilla.html").read_text().replace("__VER__", version)
     if not (WEB / "index.html").exists() or (WEB / "index.html").read_text() != html:
         (WEB / "index.html").write_text(html)
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
