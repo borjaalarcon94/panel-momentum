@@ -190,7 +190,8 @@ def main():
     ctx = {"fecha": hoy, "spy": {"tres": spy.get("tres"), "seis": spy.get("seis")}, "sectores": ref["sectores"]}
     puntos = puntuar(candidatas, ctx)
     nota = lambda a: (puntos.get(a["ticker"]) or {}).get("total") or 0
-    acciones = sorted(candidatas, key=nota, reverse=True)[:GUARDAR]
+    # A igualdad de puntuacion, primero la de menor capitalizacion: mas recorrido para multiplicar.
+    acciones = sorted(candidatas, key=lambda a: (-nota(a), a.get("cap") or 0))[:GUARDAR]
     # Cumplen todos los requisitos pero estan muy extendidas: no son entrada temprana, van aparte.
     elegidas = {a["ticker"] for a in acciones}
     en_marcha = sorted([a for a in candidatas if a["ticker"] not in elegidas

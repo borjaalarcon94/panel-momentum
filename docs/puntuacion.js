@@ -107,11 +107,17 @@
     // ADR: cuanto se mueve al dia. Sin movimiento no hay recorrido que capturar a corto plazo.
     const pAdr = tramo(adr, [[7, 2.5], [5, 2], [3.5, 1], [2.5, 0.5]]);
     const pMax = dmax == null ? 0 : dmax >= -5 ? 4.5 : dmax >= -10 ? 3 : dmax >= -20 ? 1.5 : 0;
-    const pRup = rupt === '3m' ? 4 : rupt === '1m' ? 2.5 : 0;
+    /* Una ruptura solo vale si viene con volumen. Medido sobre 1.333 observaciones (herramientas/backtest.py):
+       romper máximos con volumen < 1x su media dio +2,4% de media a 3 meses y mediana NEGATIVA (−2,4%), peor que
+       no romper (+7,9%); con volumen ≥ 1,5x, +11,2% y mediana +3,6%. */
+    const confirma = vr == null ? 0.4 : vr >= 1.5 ? 1 : vr >= 1 ? 0.35 : 0;
+    const pRup = (rupt === '3m' ? 4 : rupt === '1m' ? 2.5 : 0) * confirma;
     t5.push(d('Volumen ' + (vr == null ? 'sin dato' : vr.toFixed(1).replace('.', ',') + 'x su media'), pVol >= 2));
     t5.push(d(adr == null ? 'ADR: sin dato' : 'Se mueve ' + adr.toFixed(1).replace('.', ',') + ' % al día de media (ADR)', pAdr >= 1));
     t5.push(d(dmax == null ? 'Distancia al máximo de 52 semanas: sin dato' : 'A ' + Math.abs(dmax).toFixed(1).replace('.', ',') + ' % de su máximo de 52 semanas', pMax >= 3));
-    t5.push(d(rupt === '3m' ? 'Rompe máximos de 3 meses' : rupt === '1m' ? 'Rompe máximos de 1 mes' : 'Sin ruptura reciente de máximos', !!rupt));
+    t5.push(d(!rupt ? 'Sin ruptura reciente de máximos'
+      : (rupt === '3m' ? 'Rompe máximos de 3 meses' : 'Rompe máximos de 1 mes')
+        + (confirma === 1 ? ' con volumen que lo confirma' : confirma === 0 ? ', pero sin volumen: poco fiable' : ', con volumen justo'), pRup >= 2.5));
     partes.push({ id: 'vol', label: 'Volumen y ruptura', p: pVol + pAdr + pMax + pRup, max: 15, detalle: t5 });
 
     // ── Penalizacion: solo lo realmente extremo ──────────────────────────────
@@ -161,7 +167,7 @@
     if (g != null && g >= 20) razones.push('Ingresos ' + pc1(g) + ' interanual' + (acel != null && acel > 0 ? ' y acelerando (' + pp(acel) + ' en el último trimestre)' : ''));
     if (acel != null && acel >= 10) razones.push('Aceleración fuerte del crecimiento: el último trimestre crece ' + pp(acel) + ' más que los 12 meses');
     if (eQ != null && eQ > 0 && acelBpa > 0) razones.push('Beneficio por acción creciendo ' + pc1(eQ) + ' y acelerando');
-    if (rupt) razones.push((rupt === '3m' ? 'Rompe máximos de 3 meses' : 'Rompe máximos de 1 mes') + (vr != null && vr >= 1.2 ? ' con volumen ' + vr.toFixed(1).replace('.', ',') + 'x' : ''));
+    if (rupt && confirma === 1) razones.push((rupt === '3m' ? 'Rompe máximos de 3 meses' : 'Rompe máximos de 1 mes') + ' con volumen ' + vr.toFixed(1).replace('.', ',') + 'x: la ruptura está confirmada');
     if (dmax != null && dmax >= -5) razones.push('A ' + Math.abs(dmax).toFixed(1).replace('.', ',') + ' % de su máximo de 52 semanas');
     if (r3 != null && r3 > 10) razones.push('Lo hace ' + pp(r3) + ' mejor que el S&P 500 en 3 meses');
     if (rs != null && rs > 10) razones.push('Mejor que su sector ' + pp(rs) + ' en 3 meses');
@@ -189,6 +195,7 @@
     if (dilAnual != null && dilAnual > 8 && dilAnual <= 15) riesgos.push('Las acciones en circulación crecen ' + pc1(dil) + ' en ' + dias + ' días: diluye al accionista');
     if (gPrev != null && gPrev < 10 && g != null && g >= 20) riesgos.push('Para el próximo ejercicio solo se esperan ' + pc1(gPrev) + ' de ingresos: el mercado no cuenta con que mantenga este ritmo');
     if (desdeMin != null && desdeMin > 300) riesgos.push('Ya sube ' + desdeMin.toFixed(0) + ' % desde su mínimo del año: más recorrido hecho y más volatilidad');
+    if (rupt && confirma < 1) riesgos.push('Rompe máximos con volumen ' + (vr == null ? 'desconocido' : vr.toFixed(1).replace('.', ',') + 'x') + ': las rupturas sin volumen detrás fallan más de lo normal');
     if (adr != null && adr < 3) riesgos.push('Se mueve poco: ' + adr.toFixed(1).replace('.', ',') + ' % al día. Cuesta sacar partido en semanas');
     if (dudoso) riesgos.push(ingTot != null && ingTot < 25e6
       ? 'Crecimiento sobre una base de ingresos muy pequeña (' + Math.round(ingTot / 1e6) + ' M$): puede no repetirse'

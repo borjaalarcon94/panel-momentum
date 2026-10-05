@@ -120,7 +120,8 @@ function puntua(f, d, lista, conNueva) {
 
 window.vista = function () {
   const d = CACHE[S.dia] || {};
-  const todas = puntua(S.dia, d, d.acciones, true).sort((x, y) => (y[S.orden] ?? -1e18) - (x[S.orden] ?? -1e18));
+  const todas = puntua(S.dia, d, d.acciones, true)
+    .sort((x, y) => ((y[S.orden] ?? -1e18) - (x[S.orden] ?? -1e18)) || ((x.cap ?? 0) - (y.cap ?? 0)));
   return { fecha: S.dia, fechaTxt: S.dia ? fFecha(S.dia) : '', todas, filas: todas.slice(0, S.top),
     enMarcha: puntua(S.dia, d, d.enMarcha, false).sort((x, y) => ((y.pt || {}).sinPenalizar ?? 0) - ((x.pt || {}).sinPenalizar ?? 0)),
     orden: $('orden').selectedOptions[0].textContent, filtros: [],

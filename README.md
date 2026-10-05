@@ -47,7 +47,7 @@ No se exige rentabilidad: entra *growth* en fase inicial y las pérdidas se mues
 | Aceleración del crecimiento | 25 | nivel de crecimiento, aceleración (trimestre vs 12 meses), BPA, consistencia con el ejercicio completo y **previsión de ingresos del próximo ejercicio** (estimación de analistas) |
 | Calidad fundamental | 20 | margen bruto, flujo de caja libre, margen neto, caja frente a deuda y regla del 40 |
 | Fuerza relativa | 15 | frente al S&P 500 a 3 y 6 meses y frente a la mediana de su sector |
-| Volumen y ruptura | 15 | volumen relativo, cercanía al máximo de 52 semanas, ruptura de máximos de 1 y 3 meses |
+| Volumen y ruptura | 15 | volumen relativo, ADR, cercanía al máximo de 52 semanas y ruptura de máximos **confirmada por volumen** |
 
 Y dos bonus y una penalización:
 
@@ -61,6 +61,21 @@ Y dos bonus y una penalización:
   10. El momentum es la estrategia que peor se comporta en mercados bajistas.
 - **Bonus por impulso, hasta +5**: entre un 20 y un 50 % sobre su EMA 50 (+3) y subida mensual de entre el 20 y el
   70 % (+2). Es la zona que históricamente más multiplica.
+
+Los puntos por romper máximos dependen del volumen de ese día: se dan enteros con volumen ≥ 1,5x su media, un tercio
+entre 1x y 1,5x, y ninguno por debajo de 1x. Medido sobre 1.333 observaciones:
+
+| Situación | Media a 3 meses | Mediana |
+|---|---|---|
+| No rompe máximos | +7,9 % | +2,9 % |
+| Rompe sin volumen (< 1x) | +2,4 % | **−2,4 %** |
+| Rompe con volumen normal (1-1,5x) | +2,2 % | +0,2 % |
+| Rompe con volumen alto (≥ 1,5x) | **+11,2 %** | +3,6 % |
+
+Romper máximos sin volumen detrás es peor que no romperlos: la ruptura sin participación suele ser falsa.
+
+A igualdad de puntuación, primero la de **menor capitalización**: antes el desempate lo decidía el orden del escaneo,
+que iba por tamaño y favorecía a la más grande, justo lo contrario de lo que se busca.
 
 ### De dónde salen estos umbrales
 
