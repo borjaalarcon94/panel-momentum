@@ -106,7 +106,11 @@ por qué aparece, señales fundamentales, riesgos, el stop técnico, quince mét
 
 La tarjeta compacta incluye el **stop técnico** sin necesidad de desplegarla.
 
-El seguimiento muestra por defecto solo **las que siguen siendo oportunidad** (viables, extendidas o flojeando),
+El seguimiento muestra **las 5 mejores**, con un botón para ver todas las que siguen vivas. Nunca oculta dos tipos de
+acción, aunque queden fuera de esas cinco: las que tienes compradas y las que han dado señal de salida. Son justo las
+que hay que mirar cada día.
+
+Por defecto solo aparecen **las que siguen siendo oportunidad** (viables, extendidas o flojeando),
 ordenadas por cuál comprarías antes. Las que dejan de cumplir algún requisito desaparecen de la lista: se consultan eligiendo
 «Solo las descartadas» en el desplegable, para que la vista principal solo tenga lo que merece la pena. El orden es: primero las que siguen cumpliendo y sin
 señales de salida, después las extendidas, las que pierden fuerza y las que ya no cumplen; dentro de cada grupo, por

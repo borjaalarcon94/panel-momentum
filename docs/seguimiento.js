@@ -1,6 +1,7 @@
 /* Pestana "Seguimiento": de las que han pasado por el top 10, si la compra sigue siendo viable y como va.
    Usa el resumen ligero de cada dia (historico) y los datos de HOY de cada accion (actual). */
 const CAIDA_SCORE = 8;            // puntos de caida que consideramos "pierde fuerza"
+let VER_TODAS = false;            // por defecto se muestran las 5 mejores
 
 function estadoHoy(sim) {
   const a = ACT[sim];
@@ -74,6 +75,12 @@ window.seguimiento = function () {
     reco: a => -(ORDEN_ESTADO[a.estado] * 1000 + (a.salida && a.salida.senales.length ? 300 : 0) - (a.score ?? 0)),
     score: a => a.score ?? -1e9, ret: a => a.ret, entrada: a => -FH.indexOf(a.entrada), max: a => a.max };
   r.sort((x, y) => (clave[orden](y) ?? -1e18) - (clave[orden](x) ?? -1e18));
+  /* Se muestran 5, pero nunca se ocultan las que tienes compradas ni las que han dado señal de salida:
+     justo esas son las que hay que mirar todos los días. */
+  const imprescindible = a => (window.tengoPosicion && window.tengoPosicion(a.ticker)) || (a.salida && a.salida.senales.length);
+  const completa = r;
+  if (!VER_TODAS) r = r.filter((a, i) => i < 5 || imprescindible(a));
+  const ocultas = completa.length - r.length;
   const R = $('rseg'); R.replaceChildren();
   if (!r.length) {
     R.appendChild(el('div', 'empty', todo.length
@@ -179,7 +186,13 @@ window.seguimiento = function () {
     }
     R.appendChild(c);
   });
-  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Las que dejan de cumplir desaparecen de la lista (puedes verlas eligiendo «Solo las descartadas»). Las que entran hoy aparecen mañana. El stop y las señales de salida son referencias técnicas calculadas con los datos de hoy, no órdenes: decide tú.'));
+  if (ocultas > 0 || VER_TODAS) {
+    const b = el('button', 'chip', VER_TODAS ? 'Ver solo las 5 mejores' : 'Ver las ' + completa.length + ' que siguen vivas');
+    b.style.margin = '6px 0';
+    b.onclick = () => { VER_TODAS = !VER_TODAS; window.seguimiento() };
+    R.appendChild(b);
+  }
+  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Se muestran las 5 mejores, más las que tengas compradas o hayan dado señal de salida, que nunca se ocultan. Las que dejan de cumplir desaparecen (puedes verlas eligiendo «Solo las descartadas»). Las que entran hoy aparecen mañana. El stop y las señales de salida son referencias técnicas calculadas con los datos de hoy, no órdenes: decide tú.'));
 };
 window.initSeguimiento = function () {
   $('per').onchange = () => window.seguimiento();
