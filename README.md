@@ -13,6 +13,10 @@ Web: https://borjaalarcon94.github.io/panel-momentum/
 - `docs/puntuacion.js` tiene la lógica de puntuación. Es la única copia: `build.py` la ejecuta con node
   (`puntuar.js`) para ordenar el día, y el navegador la usa para mostrar el detalle. Si cambian los criterios,
   los días guardados se vuelven a puntuar solos.
+- Las posiciones abiertas se vigilan hasta **90 días** aunque la acción lleve meses fuera del top. Los datos de las
+  que han pasado por el top en el último mes van en `panel.json`; los del resto, en `docs/extra.json`, que la web solo
+  descarga si tienes una posición que no está en el primero. Así la carga normal no engorda por algo que casi nunca
+  se usa.
 - Los datos **no se incrustan en el HTML**: `docs/index.html` es estático y la web descarga `docs/panel.json`
   (días disponibles, resumen de 60 días para el seguimiento, datos de hoy de las acciones vigiladas y los umbrales de
   los requisitos) y, solo del día que estás mirando, su `docs/datos/<fecha>.json`. Así el repositorio crece unos

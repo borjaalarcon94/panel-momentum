@@ -12,8 +12,10 @@ WEB = R / "docs"
 DATOS = WEB / "datos"      # los ficheros de cada dia se sirven tal cual: no se incrustan en el HTML
 GUARDAR = 10          # top que se guarda y se sigue cada dia
 EN_MARCHA = 5         # cumplen todo pero estan muy extendidas: se guardan aparte, no son entrada temprana
-DIAS = 45             # dias del resumen ligero que usa el seguimiento
-SEGUIR_DIAS = 30      # dias de los que se vigila el estado actual (cubre posiciones abiertas un mes)
+DIAS = 90             # dias del resumen ligero que usa el seguimiento
+SEGUIR_DIAS = 30      # dias cuyos datos frescos van en panel.json (lo que usa el seguimiento normal)
+SEGUIR_EXTRA = 90     # hasta aqui se siguen descargando datos, pero van en extra.json: la web solo lo
+                      # descarga si tienes una posicion abierta que ya no esta en panel.json
 # Campos necesarios para recomprobar requisitos y repuntuar una accion seguida (el resto no se publica).
 CAMPOS_SEGUIMIENTO = ("ticker", "empresa", "simbolo", "precio", "cambio", "cap", "volmedio", "volrel", "adr", "rsi",
                       "sma200", "ema9", "ema21", "ema50", "max52", "min52", "max1m", "max3m", "ingresos", "ingresosq", "ingresosfy",
@@ -225,15 +227,23 @@ def main():
                         "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
     # Estado de HOY de todas las acciones que han pasado por el top ultimamente: permite saber en el
     # seguimiento si siguen cumpliendo los requisitos aunque hayan salido del top.
-    recientes = sorted({a["simbolo"] for f, d in list(todos.items())[-SEGUIR_DIAS:]
-                        for a in d["acciones"] + d.get("enMarcha", []) if a.get("simbolo")})
-    actual = {}
-    for i in range(0, len(recientes), 300):
-        for fila in filas(scan({"columns": list(C), "symbols": {"tickers": recientes[i:i + 300]}})):
-            actual[fila["simbolo"]] = {k: v for k, v in fila.items() if k in CAMPOS_SEGUIMIENTO and v is not None}
+    def simbolos_de(dias_atras):
+        return {a["simbolo"] for f, d in list(todos.items())[-dias_atras:]
+                for a in d["acciones"] + d.get("enMarcha", []) if a.get("simbolo")}
+
+    recientes = sorted(simbolos_de(SEGUIR_DIAS))
+    antiguos_seguidos = sorted(simbolos_de(SEGUIR_EXTRA) - set(recientes))
+    frescos = {}
+    for lista in (recientes, antiguos_seguidos):
+        for i in range(0, len(lista), 300):
+            for fila in filas(scan({"columns": list(C), "symbols": {"tickers": lista[i:i + 300]}})):
+                frescos[fila["simbolo"]] = {k: v for k, v in fila.items() if k in CAMPOS_SEGUIMIENTO and v is not None}
+    actual = {s: v for s, v in frescos.items() if s in set(recientes)}
+    extra = {s: v for s, v in frescos.items() if s in set(antiguos_seguidos)}
+    (WEB / "extra.json").write_text(json.dumps({"actual": extra}, ensure_ascii=False))
     antiguos = sorted({a["simbolo"] for d in todos.values() for a in d["acciones"]
-                       if a.get("simbolo") and a["simbolo"] not in actual})
-    precios = {s: a["precio"] for s, a in actual.items()}
+                       if a.get("simbolo") and a["simbolo"] not in frescos})
+    precios = {s: a["precio"] for s, a in frescos.items()}
     for i in range(0, len(antiguos), 400):
         for it in scan({"columns": ["close"], "symbols": {"tickers": antiguos[i:i + 400]}}):
             precios[it["s"]] = redondea(it["d"][0])
@@ -255,7 +265,7 @@ def main():
         (WEB / "index.html").write_text(html)
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
           "guardadas:", "-" if acciones is None else len(acciones),
-          "ya en marcha:", len(en_marcha), "seguidas con datos de hoy:", len(actual))
+          "ya en marcha:", len(en_marcha), "vigiladas:", len(actual), "+", len(extra), "en extra.json")
 
 
 if __name__ == "__main__":

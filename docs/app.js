@@ -151,6 +151,15 @@ async function iniciar() {
   // Con el mercado en contra el momentum falla mucho mas: se muestran menos candidatas.
   if (!REGIMEN.favorable) S.top = 3;   // con el mercado en contra, aún menos
   MHOY = (T.mercadoHoy || []).find(x => x.ticker === 'SPY') || {}; REFHOY = (T.referenciaHoy || {}).sectores || {};
+  /* Si tienes posiciones abiertas de acciones que llevan más de un mes fuera del top, sus datos de hoy
+     están en extra.json. Solo se descarga en ese caso: a casi nadie le hace falta. */
+  try {
+    const pos = JSON.parse(localStorage.getItem('posiciones-v1') || '[]').filter(p => !p.cerrada);
+    if (pos.some(p => !ACT[p.simbolo])) {
+      const ex = await (await fetch('extra.json', { cache: 'no-cache' })).json();
+      Object.assign(ACT, ex.actual || {});
+    }
+  } catch (e) {}
   const fechas = (T.dias || []).slice().sort().reverse();
   S.dia = fechas[0];
   fechas.forEach(f => { const o = el('option', null, fFecha(f)); o.value = f; $('dia').appendChild(o) });
