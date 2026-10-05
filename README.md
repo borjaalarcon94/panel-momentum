@@ -160,6 +160,24 @@ debajo), pestañas fijas al desplazar, rejilla fija de métricas en móvil, avis
 y `manifest.json` para añadirla a la pantalla de inicio del móvil. En el seguimiento, un mini gráfico muestra la
 evolución de la puntuación de cada acción día a día.
 
+## Mis posiciones
+
+Cuarta pestaña, para las acciones que has comprado de verdad. Se anotan con el botón «La tengo» de cada tarjeta y se
+guardan **solo en el navegador** (`localStorage`): no viajan a ningún servidor, no ocupan espacio en el repositorio y
+no generan llamadas. Si borras los datos del navegador o entras desde otro dispositivo, no estarán.
+
+Protocolo de salida, pensado para aguantar la subida y no vender por un 5 %:
+
+| Situación | Qué dice |
+|---|---|
+| La tendencia aguanta | **MANTENER**, con el stop del día |
+| Primeras grietas (pierde la EMA 21, devuelve ≥ 30 % de la ganancia, falla un requisito) | **VIGILAR** |
+| Cierra bajo la EMA 50, pierde el stop, RSI < 45, devuelve ≥ 50 % de lo ganado o rompe dos requisitos | **VENDER** |
+
+El stop se recalcula cada día: manda la EMA 50, nunca se arriesga más de un 15 % desde tu precio de compra y, en
+cuanto la ganancia pasa del 20 %, sube a tu precio de compra para que la operación no pueda acabar en pérdidas.
+Al cerrar una posición queda guardada con su resultado.
+
 ## Resultados
 
 Tercera pestaña: compara lo que decía el panel con lo que luego hicieron las acciones. Cada entrada al top queda

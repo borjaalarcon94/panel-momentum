@@ -13,7 +13,7 @@ DATOS = WEB / "datos"      # los ficheros de cada dia se sirven tal cual: no se 
 GUARDAR = 10          # top que se guarda y se sigue cada dia
 EN_MARCHA = 5         # cumplen todo pero estan muy extendidas: se guardan aparte, no son entrada temprana
 DIAS = 45             # dias del resumen ligero que usa el seguimiento
-SEGUIR_DIAS = 12      # dias de los que se vigila el estado actual de cada accion
+SEGUIR_DIAS = 30      # dias de los que se vigila el estado actual (cubre posiciones abiertas un mes)
 # Campos necesarios para recomprobar requisitos y repuntuar una accion seguida (el resto no se publica).
 CAMPOS_SEGUIMIENTO = ("ticker", "empresa", "simbolo", "precio", "cambio", "cap", "volmedio", "volrel", "adr", "rsi",
                       "sma200", "ema9", "ema21", "ema50", "max52", "min52", "max1m", "max3m", "ingresos", "ingresosq", "ingresosfy",

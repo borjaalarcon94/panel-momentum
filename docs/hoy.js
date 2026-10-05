@@ -108,6 +108,9 @@ if(a.pt&&a.pt.razones.length)c.appendChild(el('div','clave','➜ '+a.pt.razones[
 const sal=window.SALIDA(a);
 const nr=a.pt?a.pt.riesgos.length:0;
 
+const bc=el('button','chip',window.tengoPosicion(a.ticker)?'✓ La tienes':'La tengo');bc.style.marginTop='10px';bc.style.marginRight='6px';
+bc.onclick=()=>window.anotarCompra(a,()=>{bc.textContent='✓ La tienes'});
+c.appendChild(bc);
 const b=el('button','chip','Ver análisis completo'+(nr?' · '+nr+(nr===1?' riesgo':' riesgos'):''));b.style.marginTop='10px';
 let abierto=null;
 b.onclick=()=>{if(abierto){abierto.remove();abierto=null;b.textContent='Ver análisis completo'+(nr?' · '+nr+(nr===1?' riesgo':' riesgos'):'');return}
@@ -134,7 +137,8 @@ $('dia').onchange=e=>window.cambiarDia(e.target.value);
 $('orden').onchange=e=>{S.orden=e.target.value;window.pinta()};
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{const v=b.dataset.v;
 document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));
-$('vhoy').hidden=v!=='hoy';$('vseg').hidden=v!=='seg';$('vres').hidden=v!=='res';
+$('vhoy').hidden=v!=='hoy';$('vseg').hidden=v!=='seg';$('vres').hidden=v!=='res';$('vpos').hidden=v!=='pos';
 if(v==='seg'&&window.seguimiento)window.seguimiento();
+if(v==='pos'&&window.posiciones)window.posiciones();
 if(v==='res'&&window.resultados)window.resultados()});
 };

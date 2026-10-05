@@ -16,7 +16,7 @@
 <h1>Growth con momentum</h1>
 <p class="sub">Las 10 empresas pequeñas y medianas de EE. UU. con más momentum que además crecen deprisa · se actualiza cada día laborable por la noche</p>
 <p class="act" id="act"></p>
-<div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Top del día</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button><button class="tab" data-v="res" aria-selected="false">Resultados</button></div>
+<div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Top del día</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button><button class="tab" data-v="pos" aria-selected="false">Mis posiciones</button><button class="tab" data-v="res" aria-selected="false">Resultados</button></div>
 <section id="vhoy">
 <div class="banner" id="mercado" hidden></div>
 <details id="dsectores"><summary>Sectores con más fuerza</summary><div class="blk" id="sectores" hidden></div></details>
@@ -34,6 +34,10 @@
 <div class="row"><select id="per" aria-label="Periodo"><option value="5">Entradas de la última semana</option><option value="20">Entradas del último mes</option><option value="90" selected>Entradas de los últimos 3 meses</option></select><select id="segest" aria-label="Estado"><option value="" selected>Las que siguen siendo oportunidad</option><option value="top">Solo las del top de hoy</option><option value="fuera">Solo las descartadas</option><option value="todas">Todas</option></select><select id="segorden" aria-label="Ordenar"><option value="reco" selected>Las más recomendables ahora</option><option value="score">Más momentum ahora</option><option value="ret">Mejor resultado</option><option value="entrada">Entrada más reciente</option><option value="max">Mayor subida alcanzada</option></select></div>
 <div id="rseg"></div>
 </section>
+<section id="vpos" hidden>
+<p class="nota">Las acciones que has comprado de verdad. Se guardan <b>solo en tu navegador</b>. Cada día te digo si mantener o vender y dónde está el stop.</p>
+<div id="rpos"></div>
+</section>
 <section id="vres" hidden>
 <p class="nota">¿Funciona esto? Aquí se compara lo que el panel decía con lo que después hicieron las acciones. Se llena solo con el tiempo.</p>
 <div id="rres"></div>
@@ -48,6 +52,7 @@ Datos de TradingView al cierre. Detección de oportunidades para estudiarlas una
 <script src="app.js?v=VERSION"></script>
 <script src="hoy.js?v=VERSION"></script>
 <script src="seguimiento.js?v=VERSION"></script>
+<script src="posiciones.js?v=VERSION"></script>
 <script src="resultados.js?v=VERSION"></script>
 <script src="export.js?v=VERSION"></script>
 </body>
