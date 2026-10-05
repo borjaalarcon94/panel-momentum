@@ -188,7 +188,10 @@ los próximos 10 días, se avisa en la tarjeta: un hueco al abrir se salta cualq
 
 El stop se recalcula cada día: manda la EMA 50, nunca se arriesga más de un 15 % desde tu precio de compra y, en
 cuanto la ganancia pasa del 20 %, sube a tu precio de compra para que la operación no pueda acabar en pérdidas.
-Al cerrar una posición queda guardada con su resultado.
+Cada posición tiene tres botones: **Marcar como vendida** (pregunta el precio de venta y la pasa al histórico
+plegado, donde se puede borrar), **Editar compra** (corrige precio medio, fecha y número de acciones, o elimina la
+posición si te equivocaste al anotarla) y **He comprado más** (pide precio y acciones de la nueva compra y recalcula
+el precio medio ponderado).
 
 ## Resultados
 

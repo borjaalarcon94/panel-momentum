@@ -14,6 +14,49 @@ function leerPos() { try { return JSON.parse(localStorage.getItem(CLAVE) || '[]'
 function guardarPos(p) { try { localStorage.setItem(CLAVE, JSON.stringify(p)) } catch (e) {} }
 window.tengoPosicion = t => leerPos().some(p => p.ticker === t && !p.cerrada);
 
+/* Formulario para corregir una compra: precio medio, fecha y, si quieres, nº de acciones. */
+function editor(p, alCerrar) {
+  const d = el('div', 'editor');
+  const iP = document.createElement('input'); iP.type = 'number'; iP.step = 'any'; iP.min = '0'; iP.value = p.precio; iP.style.maxWidth = '120px';
+  const iF = document.createElement('input'); iF.type = 'date'; iF.value = p.fecha; iF.style.maxWidth = '160px';
+  const iN = document.createElement('input'); iN.type = 'number'; iN.step = 'any'; iN.min = '0'; iN.placeholder = 'nº acciones (opcional)'; iN.style.maxWidth = '150px';
+  if (p.acciones) iN.value = p.acciones;
+  const fila = el('div', 'row');
+  fila.append(el('span', 'm', 'Precio medio'), iP, el('span', 'm', 'Fecha'), iF, iN);
+  const guardar = el('button', 'chip', 'Guardar cambios');
+  guardar.onclick = () => {
+    const precio = Number(iP.value);
+    if (!precio || precio <= 0) return alert('Precio no válido.');
+    guardarPos(leerPos().map(x => (x.ticker === p.ticker && !x.cerrada
+      ? { ...x, precio, fecha: iF.value || x.fecha, acciones: Number(iN.value) || undefined, maxVisto: Math.max(x.maxVisto || precio, precio) } : x)));
+    alCerrar();
+  };
+  const borrar = el('button', 'chip', 'Eliminar posición');
+  borrar.onclick = () => {
+    if (!confirm('¿Eliminar ' + p.ticker + ' de tus posiciones? No queda registrada como venta.')) return;
+    guardarPos(leerPos().filter(x => !(x.ticker === p.ticker && !x.cerrada)));
+    alCerrar();
+  };
+  const cancelar = el('button', 'chip', 'Cancelar');
+  cancelar.onclick = alCerrar;
+  const fila2 = el('div', 'row'); fila2.append(guardar, cancelar, borrar);
+  d.append(fila, fila2);
+  return d;
+}
+
+/* Comprar mas de la misma: recalcula el precio medio ponderado por numero de acciones. */
+window.ampliarCompra = function (p, alCerrar) {
+  const precio = Number(String(prompt('¿A qué precio has comprado ahora ' + p.ticker + '?', '') || '').replace(',', '.'));
+  if (!precio || precio <= 0) return;
+  const nuevas = Number(String(prompt('¿Cuántas acciones has comprado ahora?', '') || '').replace(',', '.'));
+  if (!nuevas || nuevas <= 0) return alert('Para calcular el precio medio necesito el número de acciones.');
+  const previas = Number(p.acciones) || Number(String(prompt('¿Cuántas acciones tenías antes, a ' + n(p.precio) + ' $?', '') || '').replace(',', '.'));
+  if (!previas || previas <= 0) return alert('Sin el número de acciones anterior no puedo calcular el precio medio.');
+  const total = previas + nuevas, medio = (p.precio * previas + precio * nuevas) / total;
+  guardarPos(leerPos().map(x => (x.ticker === p.ticker && !x.cerrada ? { ...x, precio: medio, acciones: total } : x)));
+  alCerrar();
+};
+
 window.anotarCompra = function (a, alGuardar) {
   const precio = prompt('¿A qué precio compraste ' + a.ticker + '?', n(a.precio).replace('.', ','));
   if (precio === null) return;
@@ -124,13 +167,26 @@ window.posiciones = function () {
         .forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
       c.appendChild(g);
     }
-    const b = el('button', 'chip', 'Marcar como vendida'); b.style.marginTop = '10px';
-    b.onclick = () => {
-      if (!confirm('¿Marcar ' + r.p.ticker + ' como vendida? Se guarda el resultado y desaparece de la lista.')) return;
-      guardarPos(leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada ? { ...p, cerrada: FH[0], precioSalida: r.ahora } : p)));
+    const acciones = el('div', 'row'); acciones.style.marginTop = '10px';
+    const bv = el('button', 'chip', 'Marcar como vendida');
+    bv.onclick = () => {
+      const precio = prompt('¿A qué precio has vendido ' + r.p.ticker + '?', r.ahora != null ? n(r.ahora).replace('.', ',') : '');
+      if (precio === null) return;
+      const v = Number(String(precio).replace(',', '.').replace(/[^\d.]/g, '')) || r.ahora;
+      guardarPos(leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada ? { ...p, cerrada: FH[0], precioSalida: v } : p)));
       window.posiciones();
     };
-    c.appendChild(b);
+    const be = el('button', 'chip', 'Editar compra');
+    const ba = el('button', 'chip', 'He comprado más');
+    ba.onclick = () => window.ampliarCompra(r.p, window.posiciones);
+    let abierto = null;
+    be.onclick = () => {
+      if (abierto) { abierto.remove(); abierto = null; return }
+      abierto = editor(r.p, window.posiciones);
+      c.appendChild(abierto);
+    };
+    acciones.append(bv, be, ba);
+    c.appendChild(acciones);
     R.appendChild(c);
   });
 
@@ -138,17 +194,20 @@ window.posiciones = function () {
     const d = document.createElement('details');
     d.appendChild(Object.assign(document.createElement('summary'), { textContent: 'Posiciones cerradas (' + cerradas.length + ')' }));
     const t = el('table', 'tabla'), h = el('tr');
-    ['Acción', 'Comprada', 'Precio compra', 'Vendida', 'Precio venta', 'Resultado'].forEach(x => h.appendChild(el('th', null, x)));
+    ['Acción', 'Comprada', 'Precio compra', 'Vendida', 'Precio venta', 'Resultado', ''].forEach(x => h.appendChild(el('th', null, x)));
     t.appendChild(h);
     cerradas.forEach(p => {
       const ret = p.precioSalida ? (p.precioSalida / p.precio - 1) * 100 : null;
       const tr = el('tr');
       [p.ticker, fFecha(p.fecha), n(p.precio) + ' $', fFecha(p.cerrada), p.precioSalida ? n(p.precioSalida) + ' $' : '—'].forEach(x => tr.appendChild(el('td', null, x)));
       tr.appendChild(el('td', ret == null ? null : ret >= 0 ? 'up' : 'down', ret == null ? '—' : pc(ret)));
+      const tb = el('td'); const bb = el('button', 'chip', 'Borrar');
+      bb.onclick = () => { if (confirm('¿Borrar ' + p.ticker + ' del histórico?')) { guardarPos(leerPos().filter(x => !(x.ticker === p.ticker && x.cerrada === p.cerrada))); window.posiciones() } };
+      tb.appendChild(bb); tr.appendChild(tb);
       t.appendChild(tr);
     });
     const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
     R.appendChild(d);
   }
-  R.appendChild(el('p', 'nota', 'Tus posiciones se guardan solo en este navegador: no viajan a ningún servidor ni se comparten. Si borras los datos del navegador o entras desde otro dispositivo, no estarán. Mantener mientras respete su EMA 50, sin arriesgar nunca más de un ' + PERDIDA_MAXIMA + ' % desde tu precio de compra; cuando la ganancia pasa del ' + GANANCIA_PROTEGER + ' %, el stop sube a tu precio de compra para que la operación no pueda dar pérdidas. Son referencias técnicas, no recomendaciones: la decisión es tuya.'));
+  R.appendChild(el('p', 'nota', 'Puedes corregir el precio medio o la fecha con «Editar compra», promediar con «He comprado más» y registrar la venta con «Marcar como vendida», que la pasa al histórico de abajo. Tus posiciones se guardan solo en este navegador: no viajan a ningún servidor ni se comparten. Si borras los datos del navegador o entras desde otro dispositivo, no estarán. Mantener mientras respete su EMA 50, sin arriesgar nunca más de un ' + PERDIDA_MAXIMA + ' % desde tu precio de compra; cuando la ganancia pasa del ' + GANANCIA_PROTEGER + ' %, el stop sube a tu precio de compra para que la operación no pueda dar pérdidas. Son referencias técnicas, no recomendaciones: la decisión es tuya.'));
 };

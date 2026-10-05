@@ -113,3 +113,5 @@ details.descartadas .tw{margin-top:8px}
 }
 .tw{max-width:100%}
 .name,.m,.clave,.quehacer span{overflow-wrap:anywhere}
+.editor{margin-top:10px;padding:10px;border:1px dashed var(--line);border-radius:10px}
+.editor .row{margin-bottom:6px;align-items:center}
