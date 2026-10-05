@@ -198,6 +198,10 @@ Protocolo de salida, pensado para aguantar la subida y no vender por un 5 %:
 | Primeras grietas (pierde la EMA 21, devuelve ≥ 30 % de la ganancia, falla un requisito) | **VIGILAR** |
 | Cierra bajo la EMA 50, pierde el stop, RSI < 45, devuelve ≥ 50 % de lo ganado o rompe dos requisitos | **VENDER** |
 
+**No hay ninguna regla que venda por haber ganado mucho.** Los requisitos de entrada (capitalización máxima y precio
+mínimo) se marcan con `entrada: true` y no cuentan como incumplimiento mientras tengas la acción: que una ganadora
+supere el techo de 10.000 M significa que lo ha hecho bien, no que haya que venderla. Se avisa, nada más.
+
 En «Mis posiciones» puedes guardar el tamaño de tu cartera y el porcentaje que arriesgas por operación (1 % por
 defecto). Con eso, cada tarjeta de compra indica **cuánto comprar**: si arriesgas el 1 % y el stop está a un 8 %, la
 posición es un 12,5 % de la cartera, con un tope del 25 % para no concentrar. Y si una acción publica resultados en

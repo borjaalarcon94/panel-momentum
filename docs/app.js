@@ -24,8 +24,10 @@ window.REQUISITOS = function (a) {
   const C = CRIT, g = Math.max(a.ingresos ?? -1e9, a.ingresosq ?? -1e9);
   const dmax = a.precio && a.max52 ? (a.precio / a.max52 - 1) * 100 : null;
   return [
-    { t: 'Precio > ' + C.precioMin + ' $', ok: a.precio > C.precioMin, v: n(a.precio) + ' $' },
-    { t: 'Capitalización entre ' + cap(C.capMin) + ' y ' + cap(C.capMax), ok: a.cap > C.capMin && a.cap <= C.capMax, v: cap(a.cap) },
+    /* Requisito SOLO de entrada: que una ganadora supere el techo de capitalización no es motivo para vender,
+       faltaría más. Se marca con entrada:true y no cuenta como incumplimiento mientras la tengas. */
+    { t: 'Capitalización entre ' + cap(C.capMin) + ' y ' + cap(C.capMax), ok: a.cap > C.capMin && a.cap <= C.capMax, v: cap(a.cap), entrada: true },
+    { t: 'Precio > ' + C.precioMin + ' $', ok: a.precio > C.precioMin, v: n(a.precio) + ' $', entrada: true },
     { t: 'Volumen medio > ' + n(C.volumenMin / 1000, 0) + ' mil acciones', ok: a.volmedio > C.volumenMin, v: a.volmedio == null ? '-' : Math.round(a.volmedio / 1000) + ' mil' },
     { t: 'Se negocian > ' + n(C.liquidezMin / 1e6, 0) + ' M$ al día', ok: (a.volmedio || 0) * (a.precio || 0) > C.liquidezMin, v: a.volmedio == null ? '-' : n(a.volmedio * a.precio / 1e6, 1) + ' M$' },
     { t: 'Precio sobre la media de 200 días', ok: a.sma200 != null && a.precio > a.sma200, v: a.sma200 == null ? '-' : pc((a.precio / a.sma200 - 1) * 100, 0) },
@@ -84,7 +86,8 @@ window.VEREDICTO = function (a, extra) {
   const stop = o ? n(o.v) + ' $ (' + pc(o.d, 0) + ')' : '—';
   const dmax = a.precio && a.max52 ? (a.precio / a.max52 - 1) * 100 : null;
   const extendida = extra.extendida != null ? extra.extendida : false;
-  if (extra.fallos && extra.fallos.length) return { t: 'Ya no cumple', d: extra.fallos.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', '), cls: 'qbad', stop };
+  const fallosReales = (extra.fallos || []).filter(f => !f.entrada);
+  if (fallosReales.length) return { t: 'Ya no cumple', d: fallosReales.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', '), cls: 'qbad', stop };
   if (sal.senales.length) return { t: 'No comprar', d: sal.senales[0].toLowerCase() + '.', cls: 'qbad', stop };
   if (extendida) return { t: 'No comprar aquí', d: 'está muy estirada: esperar a que consolide. Si ya la tienes, dejarla correr con el stop en ' + stop + '.', cls: 'qwarn', stop };
   if (extra.flojea) return { t: 'Vigilar', d: 'sigue cumpliendo, pero ha perdido fuerza. Mantener con stop en ' + stop + '.', cls: 'qwarn', stop };
@@ -144,6 +147,7 @@ async function iniciar() {
   }
   HIST = T.historico || {}; FH = Object.keys(HIST).sort().reverse(); ACT = T.actual || {}; CRIT = T.criterios || {};
   REGIMEN = T.regimen || { favorable: true };
+  window.CRITERIOS_CAPMAX = CRIT.capMax;
   // Con el mercado en contra el momentum falla mucho mas: se muestran menos candidatas.
   if (!REGIMEN.favorable) S.top = 3;   // con el mercado en contra, aún menos
   MHOY = (T.mercadoHoy || []).find(x => x.ticker === 'SPY') || {}; REFHOY = (T.referenciaHoy || {}).sectores || {};

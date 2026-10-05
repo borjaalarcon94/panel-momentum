@@ -6,7 +6,7 @@ let VER_TODAS = false;            // por defecto se muestran las 5 mejores
 function estadoHoy(sim) {
   const a = ACT[sim];
   if (!a) return null;
-  const req = window.REQUISITOS(a), fallos = req.filter(x => !x.ok);
+  const req = window.REQUISITOS(a), fallos = req.filter(x => !x.ok && !x.entrada);
   const p = window.PUNTUA ? window.PUNTUA(a, { fecha: FH[0], spy: { tres: MHOY.tres, seis: MHOY.seis }, sector: REFHOY[a.sector] || null }) : null;
   return { a, req, fallos, score: p ? p.total : null, pt: p };
 }

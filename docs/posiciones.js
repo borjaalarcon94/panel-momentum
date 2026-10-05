@@ -83,7 +83,9 @@ function revision(p) {
   const suelo = p.precio * (1 - PERDIDA_MAXIMA / 100);
   const stop = gan >= GANANCIA_PROTEGER ? Math.max(base || 0, p.precio) : Math.max(base || 0, suelo);
   const req = a ? window.REQUISITOS(a) : [];
-  const fallos = req.filter(x => !x.ok);
+  // Los requisitos de entrada (tamaño, precio mínimo) no son motivo de venta: si crece y supera el techo, mejor.
+  const fallos = req.filter(x => !x.ok && !x.entrada);
+  const crecida = req.find(x => !x.ok && x.entrada && /Capitalización/.test(x.t));
   const motivos = [];
   if (base && ahora < base) motivos.push('ha cerrado por debajo de su EMA 50 (' + n(base) + ' $): la tendencia se ha roto');
   if (stop && ahora < stop) motivos.push('ha perdido el stop (' + n(stop) + ' $)');
@@ -91,6 +93,7 @@ function revision(p) {
   if (devuelto >= 50 && ganMax >= 15) motivos.push('ha devuelto el ' + n(devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(ganMax) + ' a ' + pc(gan) + ')');
   if (fallos.length >= 2) motivos.push('ya no cumple ' + fallos.length + ' requisitos: ' + fallos.map(f => f.t.toLowerCase()).join(', '));
   const avisos = [];
+  if (crecida) avisos.push('ha superado el techo de ' + cap(window.CRITERIOS_CAPMAX || 10e9) + ': ya no entraría como nueva, pero eso no es motivo para vender');
   if (!motivos.length) {
     if (fallos.length === 1) avisos.push('ha dejado de cumplir: ' + fallos[0].t.toLowerCase() + ' (' + fallos[0].v + ')');
     if (devuelto >= 30 && ganMax >= 15) avisos.push('ha devuelto el ' + n(devuelto, 0) + ' % de su ganancia máxima');
