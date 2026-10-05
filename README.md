@@ -174,6 +174,11 @@ Protocolo de salida, pensado para aguantar la subida y no vender por un 5 %:
 | Primeras grietas (pierde la EMA 21, devuelve ≥ 30 % de la ganancia, falla un requisito) | **VIGILAR** |
 | Cierra bajo la EMA 50, pierde el stop, RSI < 45, devuelve ≥ 50 % de lo ganado o rompe dos requisitos | **VENDER** |
 
+En «Mis posiciones» puedes guardar el tamaño de tu cartera y el porcentaje que arriesgas por operación (1 % por
+defecto). Con eso, cada tarjeta de compra indica **cuánto comprar**: si arriesgas el 1 % y el stop está a un 8 %, la
+posición es un 12,5 % de la cartera, con un tope del 25 % para no concentrar. Y si una acción publica resultados en
+los próximos 10 días, se avisa en la tarjeta: un hueco al abrir se salta cualquier stop.
+
 El stop se recalcula cada día: manda la EMA 50, nunca se arriesga más de un 15 % desde tu precio de compra y, en
 cuanto la ganancia pasa del 20 %, sube a tu precio de compra para que la operación no pueda acabar en pérdidas.
 Al cerrar una posición queda guardada con su resultado.
@@ -183,6 +188,10 @@ Al cerrar una posición queda guardada con su resultado.
 Tercera pestaña: compara lo que decía el panel con lo que luego hicieron las acciones. Cada entrada al top queda
 anotada con su puntuación y su precio de cierre, y se mide contra el precio actual. Muestra el resultado por tramo de
 puntuación, la comparación con el S&P 500 y si vender el día que salen del top habría sido mejor que aguantarlas.
+
+También simula **las mismas entradas operadas de tres formas** (aguantar sin vender, vender el día que salen del top y
+aplicar nuestras reglas de stop y salida), para ver si las reglas de salida aportan o estorban. Usa los cierres de los
+días que cada acción estuvo en el top y el precio actual: si una salió del top y siguió cayendo, esa caída no se ve.
 
 Incluye un cuadro de **objetivos**, que es el criterio para decidir si hay que cambiar el sistema:
 

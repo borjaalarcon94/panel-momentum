@@ -13,7 +13,7 @@ function entradas() {
   return Object.entries(reg).map(([k, r]) => {
     const ahora = (ACT[k] || {}).precio ?? P[k] ?? null;
     const fuera = r.ultimo !== hoyF;
-    return { ...r, ahora,
+    return { ...r, ahora, clave: k, ticker: r.ticker,
       ret: ahora != null && r.precio ? (ahora / r.precio - 1) * 100 : null,
       retAlSalir: r.precioUltimo && r.precio ? (r.precioUltimo / r.precio - 1) * 100 : null,
       sp: r.spy && spyHoy ? (spyHoy / r.spy - 1) * 100 : null, fuera,
@@ -53,6 +53,61 @@ function objetivos(xs) {
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
   d.appendChild(el('p', 'nota', 'Si pasadas unas semanas con casos suficientes algún objetivo no se cumple, toca cambiar los criterios: ese es el propósito de esta pestaña. Mientras ponga «sin datos suficientes», cualquier conclusión sería casualidad.'));
+  return d;
+}
+
+/* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice,
+   usando los cierres de los dias que tenemos (los que estuvo en el top) y el precio de hoy.
+   Compara tres formas de operar la misma lista para ver si las reglas de salida aportan. */
+function simula(xs) {
+  const PERDIDA_MAXIMA = 15, GANANCIA_PROTEGER = 20;
+  const res = xs.map(x => {
+    const dias = FH.filter(f => f >= x.entrada).sort();
+    let maxVisto = x.precio, salida = null, motivo = null;
+    for (const f of dias.slice(1)) {
+      const fila = ((HIST[f] || {}).acciones || []).find(y => (y.s || y.t) === x.clave);
+      if (!fila || !fila.p) continue;           // ese dia salio del top: no tenemos su cierre
+      maxVisto = Math.max(maxVisto, fila.p);
+      const gan = (fila.p / x.precio - 1) * 100;
+      const ganMax = (maxVisto / x.precio - 1) * 100;
+      const suelo = x.precio * (1 - PERDIDA_MAXIMA / 100);
+      const stop = gan >= GANANCIA_PROTEGER ? x.precio : suelo;
+      if (fila.p < stop) { salida = fila.p; motivo = 'stop'; break }
+      if (ganMax >= 15 && gan < ganMax / 2) { salida = fila.p; motivo = 'devolvió la mitad'; break }
+    }
+    return { ...x, conReglas: salida != null ? (salida / x.precio - 1) * 100 : x.ret, motivo,
+      alSalirDelTop: x.retAlSalir != null ? x.retAlSalir : x.ret };
+  });
+  return res;
+}
+
+function tablaSimulacion(xs) {
+  const r = simula(xs);
+  const med = v => v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+  const filas = [
+    ['Comprar y aguantar hasta hoy', r.map(x => x.ret), 'sin vender nunca'],
+    ['Vender el día que sale del top', r.map(x => x.alSalirDelTop), 'disciplina máxima'],
+    ['Con nuestras reglas de salida', r.map(x => x.conReglas), 'stop del 15 %, sube al coste con +20 % y vender si devuelve la mitad'],
+  ];
+  const d = el('div', 'blk');
+  d.appendChild(el('div', 'blt', 'Las mismas entradas, tres formas de operarlas'));
+  const t = el('table', 'tabla'), h = el('tr');
+  ['Forma de operar', 'Media', 'Mediana', 'En positivo', 'Peor caso'].forEach(x => h.appendChild(el('th', null, x)));
+  t.appendChild(h);
+  filas.forEach(([nom, v, ayuda]) => {
+    const tr = el('tr'), ord = [...v].sort((a, b) => a - b);
+    const td = el('td'); td.appendChild(el('b', null, nom)); td.appendChild(el('div', 'name', ayuda)); tr.appendChild(td);
+    tr.appendChild(el('td', med(v) >= 0 ? 'up' : 'down', pc(med(v))));
+    tr.appendChild(el('td', null, pc(ord[Math.floor(ord.length / 2)])));
+    tr.appendChild(el('td', null, Math.round(100 * v.filter(x => x > 0).length / v.length) + ' %'));
+    tr.appendChild(el('td', 'down', pc(ord[0])));
+    t.appendChild(tr);
+  });
+  const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  const vendidas = r.filter(x => x.motivo);
+  d.appendChild(el('p', 'nota', 'Las reglas habrían vendido ' + vendidas.length + ' de ' + r.length + ' posiciones' +
+    (vendidas.length ? ' (' + vendidas.map(x => x.ticker + ' por ' + x.motivo).slice(0, 6).join(', ') + ')' : '') +
+    '. La simulación usa los cierres de los días que cada acción estuvo en el top y el precio actual: si una salió del top y siguió cayendo, la caída posterior no se ve. Sin comisiones.'));
   return d;
 }
 
@@ -101,6 +156,7 @@ window.resultados = function () {
     B.appendChild(el('div', 'bt', '¿Sirve salirse cuando dejan de cumplir? De las ' + fuera.length + ' que salieron del top, vender el día que salieron habría dado ' + pc(alSalir) + ' de media; aguantarlas hasta hoy, ' + pc(hastaHoy) + '. Diferencia: ' + (d >= 0 ? '+' : '') + n(d, 1) + ' puntos a favor de ' + (d >= 0 ? 'vender al salir' : 'aguantar') + '.'));
     R.appendChild(B);
   }
+  R.appendChild(tablaSimulacion(xs));
   R.appendChild(objetivos(xs));
   R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, al precio de cierre de ese día, con la puntuación que tenía. El resultado se mide contra el precio de hoy, sin comisiones ni dividendos. Con pocas entradas estos números no significan nada: hacen falta semanas y varias decenas de casos para sacar conclusiones.'));
 };

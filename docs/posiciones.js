@@ -53,6 +53,8 @@ function revision(p) {
     if (devuelto >= 30 && ganMax >= 15) avisos.push('ha devuelto el ' + n(devuelto, 0) + ' % de su ganancia máxima');
     if (a && a.ema21 && ahora < a.ema21) avisos.push('ha perdido la EMA 21 (' + n(a.ema21) + ' $): primera señal de debilidad');
   }
+  const dR = window.DIAS_RESULTADOS(a);
+  if (dR != null && dR >= 0 && dR <= 10) avisos.unshift('publica resultados en ' + dR + ' día' + (dR === 1 ? '' : 's') + ': puede abrir con un hueco que el stop no evita');
   const estado = motivos.length ? 'vender' : avisos.length ? 'vigilar' : 'mantener';
   return { p, a, ahora, gan, ganMax, devuelto, stop, maxVisto, req, fallos, motivos, avisos, estado,
     t: estado === 'vender' ? 'VENDER' : estado === 'vigilar' ? 'VIGILAR' : 'MANTENER',
@@ -63,8 +65,25 @@ function revision(p) {
     cls: estado === 'vender' ? 'qbad' : estado === 'vigilar' ? 'qwarn' : 'qok' };
 }
 
+function cajaCartera() {
+  const c = window.CARTERA.leer() || {};
+  const d = el('div', 'blk');
+  const fila = el('div', 'row');
+  const i1 = document.createElement('input'); i1.type = 'number'; i1.min = '0'; i1.placeholder = 'Tamaño de tu cartera'; i1.style.maxWidth = '200px';
+  if (c.total) i1.value = c.total;
+  const i2 = document.createElement('input'); i2.type = 'number'; i2.min = '0.1'; i2.max = '5'; i2.step = '0.1'; i2.style.maxWidth = '140px';
+  i2.value = c.riesgo || 1;
+  const b = el('button', 'chip', 'Guardar');
+  b.onclick = () => { window.CARTERA.guardar({ total: Number(i1.value) || 0, riesgo: Number(i2.value) || 1 }); window.posiciones() };
+  fila.append(el('span', 'm', 'Cartera'), i1, el('span', 'm', '% que arriesgas por operación'), i2, b);
+  d.appendChild(fila);
+  d.appendChild(el('p', 'nota', 'Con estos dos datos el panel calcula cuánto comprar de cada acción: si arriesgas el ' + (c.riesgo || 1) + ' % y el stop está a un 8 %, la posición es un ' + ((c.riesgo || 1) / 8 * 100).toFixed(0) + ' % de la cartera. Nunca sugiere más de un 25 % en una sola. Se guarda en tu navegador.'));
+  return d;
+}
+
 window.posiciones = function () {
   const R = $('rpos'); R.replaceChildren();
+  R.appendChild(cajaCartera());
   const abiertas = leerPos().filter(p => !p.cerrada), cerradas = leerPos().filter(p => p.cerrada);
   if (!abiertas.length) {
     R.appendChild(el('div', 'empty', 'Aún no has anotado ninguna compra. En cada acción del top o del seguimiento tienes el botón «La tengo»: anota el precio al que compraste y aquí te diré si mantener o vender, con el stop actualizado cada día.'));

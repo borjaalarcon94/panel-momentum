@@ -59,6 +59,25 @@ window.SALIDA = function (a, extra) {
 
 /* Veredicto de compra, unico para las dos pestanas: ¿es buen punto de entrada AHORA y donde va el stop?
    Orientativo y calculado con los datos del cierre: la decision es del usuario. */
+/* Cartera y riesgo por operacion: guardados solo en el navegador. Con ellos se calcula cuanto comprar. */
+window.CARTERA = { leer() { try { return JSON.parse(localStorage.getItem('cartera-v1') || 'null') } catch (e) { return null } },
+  guardar(v) { try { localStorage.setItem('cartera-v1', JSON.stringify(v)) } catch (e) {} } };
+
+/* Cuanto comprar: si arriesgas un % fijo de la cartera y el stop esta a X% del precio, la posicion sale sola. */
+window.TAMANO = function (distanciaStop) {
+  const c = window.CARTERA.leer();
+  if (!c || !c.total || distanciaStop == null || distanciaStop >= 0) return null;
+  const riesgo = c.riesgo || 1;
+  const pctCartera = Math.min(riesgo / Math.abs(distanciaStop) * 100, 25);   // nunca más de un cuarto en una sola
+  return { importe: c.total * pctCartera / 100, pct: pctCartera, riesgo, tope: pctCartera >= 25 };
+};
+
+/* Dias hasta la publicacion de resultados (hueco de precio: el stop no protege de un salto al abrir). */
+window.DIAS_RESULTADOS = function (a, hoy) {
+  if (!a || !a.resultados) return null;
+  return Math.round((new Date(a.resultados + 'T12:00:00Z') - new Date((hoy || FH[0]) + 'T12:00:00Z')) / 864e5);
+};
+
 window.VEREDICTO = function (a, extra) {
   extra = extra || {};
   const sal = window.SALIDA(a, extra), o = sal.opciones[0];
