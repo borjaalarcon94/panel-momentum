@@ -8,16 +8,6 @@
 const MADUREZ = 15;   // sesiones que tiene que vivir una entrada para contar
 const MINIMO = 30;    // entradas maduras para poder concluir algo
 
-/* Un push de codigo en fin de semana hacia que el proceso guardara un dia con el cierre del viernes
-   repetido. Ya no ocurre (build.py lo corta), pero los que hay guardados no son sesiones de bolsa y
-   no pueden contar como recorrido. */
-const esSesion = f => { const d = new Date(f + 'T12:00:00Z').getUTCDay(); return d !== 0 && d !== 6 };
-/* El precio de un archivo de fin de semana es el cierre del viernes, asi que la entrada se apunta en
-   el viernes: poner "entro el domingo" al lado de un precio de viernes solo confunde. */
-const sesionDe = f => { const d = new Date(f + 'T12:00:00Z');
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10) };
-
 function entradas() {
   const P = T.precios || {}, hoyF = FH[0], spyHoy = (HIST[hoyF] || {}).spy;
   const reg = {};

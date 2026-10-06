@@ -32,9 +32,9 @@ function historial(lim) {
   const reg = {};
   [...fechas].reverse().forEach(f => ((HIST[f] || {}).acciones || []).forEach((a, i) => {
     const k = a.s || a.t;
-    if (!reg[k]) reg[k] = { ticker: a.t, empresa: a.n, entrada: f, precioEntrada: a.p, scoreEntrada: a.sc, spyEntrada: (HIST[f] || {}).spy, dias: 0, maxCierre: a.p || 0, mejorPuesto: 99, ultimo: f, puestoHoy: null, serie: [] };
+    if (!reg[k]) reg[k] = { ticker: a.t, empresa: a.n, entrada: sesionDe(f), precioEntrada: a.p, scoreEntrada: a.sc, spyEntrada: (HIST[f] || {}).spy, dias: 0, maxCierre: a.p || 0, mejorPuesto: 99, ultimo: f, puestoHoy: null, serie: [] };
     const r = reg[k];
-    r.dias++; r.ultimo = f; r.maxCierre = Math.max(r.maxCierre, a.p || 0); r.mejorPuesto = Math.min(r.mejorPuesto, i + 1);
+    if (esSesion(f)) r.dias++; r.ultimo = f; r.maxCierre = Math.max(r.maxCierre, a.p || 0); r.mejorPuesto = Math.min(r.mejorPuesto, i + 1);
     if (a.sc != null) r.serie.push(a.sc);   // puntuacion de cada dia que estuvo en el top
   }));
   return Object.entries(reg).map(([k, r]) => {
@@ -49,7 +49,15 @@ function historial(lim) {
     const gan = ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null;
     const devuelto = maxGan != null && gan != null && maxGan > 0 ? (1 - gan / maxGan) * 100 : null;
     const salida = h ? window.SALIDA(h.a, { devuelto, maxGanancia: maxGan, ganancia: gan }) : null;
-    return { ...r, clave: k, ahora, enTop, puestoHoy, puestoAyer, estado, dScore, score: h ? h.score : null, req: h ? h.req : null,
+    /* El veredicto se calcula aqui, una sola vez, y es el que manda tanto en el orden como en la
+       tarjeta. Antes la tarjeta lo calculaba al pintar y el orden miraba solo el estado y la nota:
+       una accion con 87 puntos y veredicto ESPERAR salia la primera de "cual compraria antes". */
+    const veredicto = h ? window.VEREDICTO(h.a, { extendida: estado === 'extendida', flojea: estado === 'flojea',
+      fallos: h.fallos, devuelto, maxGanancia: maxGan, ganancia: gan })
+      : { t: 'Sin datos de hoy', d: '', cls: 'qwarn' };
+    return { ...r, clave: k, ahora, enTop, puestoHoy, puestoAyer, estado, dScore, veredicto,
+      prioridad: { qok: 0, qwarn: 1, qbad: 2 }[veredicto.cls] ?? 2,
+      score: h ? h.score : null, req: h ? h.req : null,
       fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [], salida, devuelto, dmax,
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
@@ -69,10 +77,10 @@ window.seguimiento = function () {
   const viva = a => a.estado === 'viable' || a.estado === 'extendida' || a.estado === 'flojea';
   const descartadas = todo.filter(a => !viva(a));
   let r = filtro === 'todas' ? todo : filtro === 'top' ? todo.filter(a => a.enTop) : filtro === 'fuera' ? descartadas : todo.filter(viva);
-  // "Recomendables": primero las que siguen cumpliendo y sin señales de salida, y dentro de cada grupo, más momentum.
-  const ORDEN_ESTADO = { viable: 0, extendida: 1, flojea: 2, nocumple: 3, sindatos: 4 };
+  /* "Cual compraria antes" = el mismo criterio que la pestaña Hoy: manda el veredicto y la nota
+     desempata dentro de cada grupo. Si las dos pestañas ordenaran distinto se contradirian. */
   const clave = {
-    reco: a => -(ORDEN_ESTADO[a.estado] * 1000 + (a.salida && a.salida.senales.length ? 300 : 0) - (a.score ?? 0)),
+    reco: a => -(a.prioridad * 1000 + (a.salida && a.salida.senales.length ? 300 : 0) - (a.score ?? 0)),
     score: a => a.score ?? -1e9, ret: a => a.ret, entrada: a => -FH.indexOf(a.entrada), max: a => a.max };
   r.sort((x, y) => (clave[orden](y) ?? -1e18) - (clave[orden](x) ?? -1e18));
   /* Se muestran 5, pero nunca se ocultan las que tienes compradas ni las que han dado señal de salida:
@@ -107,7 +115,7 @@ window.seguimiento = function () {
     izq.appendChild(l);
     if (a.enTop) {
       const mov = a.puestoAyer ? a.puestoAyer - a.puestoHoy : null;
-      izq.appendChild(el('span', 'new', 'HOY #' + a.puestoHoy + (mov ? (mov > 0 ? ' ↑' + mov : ' ↓' + -mov) : mov === 0 ? ' =' : ' · entra')));
+      izq.appendChild(el('span', 'new', 'TOP #' + a.puestoHoy + (mov ? (mov > 0 ? ' ↑' + mov : ' ↓' + -mov) : mov === 0 ? ' =' : ' · entra')));
     } else if (a.ultimo !== FH[0]) izq.appendChild(el('span', 'm', 'fuera del top desde ' + fFecha(a.ultimo)));
     izq.appendChild(el('div', 'name', (a.empresa || '') + ' · entró ' + fFecha(a.entrada) + ' · ' + a.dias + (a.dias === 1 ? ' día' : ' días') + ' en el top · mejor puesto #' + a.mejorPuesto));
     const der = el('div', 'px');
@@ -129,11 +137,8 @@ window.seguimiento = function () {
     else if (a.estado === 'viable') fila.appendChild(el('span', 'm', 'cumple los 9 requisitos' + (a.dScore != null ? ' · puntuación ' + (a.dScore >= 0 ? '+' : '') + n(a.dScore, 0) + ' desde su entrada' : '')));
     c.appendChild(fila);
 
-    // Linea accionable: el objetivo es entrar bien, dejar correr y salir con ganancias.
-    const datos = ACT[a.clave];
-    const q = datos ? window.VEREDICTO(datos, { extendida: a.estado === 'extendida', flojea: a.estado === 'flojea', fallos: a.fallos,
-      devuelto: a.devuelto, maxGanancia: a.max, ganancia: a.ret })
-      : { t: 'Sin datos de hoy', d: '', cls: 'qwarn' };
+    // Linea accionable: el mismo veredicto que ha decidido el orden, no uno recalculado aparte.
+    const q = a.veredicto;
     const clase = q.cls === 'qok' ? 'v-compra' : q.cls === 'qbad' ? 'v-vender' : 'v-espera';
     const qd = el('div', 'veredicto ' + clase);
     qd.appendChild(el('span', 'vt', q.t.toUpperCase()));
@@ -150,12 +155,12 @@ window.seguimiento = function () {
     const g = el('div', 'grid');
     [['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
      ['Puntuación día a día', ''],
-     ['Puesto hoy', a.puestoHoy ? '#' + a.puestoHoy + (a.puestoAyer ? ' (ayer #' + a.puestoAyer + ')' : ' (nueva)') : 'fuera del top'],
+     ['Puesto por nota', a.puestoHoy ? '#' + a.puestoHoy + (a.puestoAyer ? ' (ayer #' + a.puestoAyer + ')' : ' (nueva)') : 'fuera del top'],
      ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
      ['Máx. alcanzado', pc(a.max)], ['Frente a su mejor cierre', pc(a.desdeMax)],
      ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt'],
-     ['Stop (EMA 21)', a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : '-'],
-     ['Devuelto del máximo', a.devuelto == null || a.devuelto <= 0 ? '—' : n(a.devuelto, 0) + ' %']]
+     ['Stop del sistema', a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : '-'],
+     ['Devuelto del máximo', a.devuelto == null || a.devuelto <= 0 ? '—' : a.ret <= 0 ? 'todo · por debajo de su entrada' : n(a.devuelto, 0) + ' %']]
       .forEach(([k, v]) => {
         const m = el('div', 'm', k);
         if (k === 'Puntuación día a día') { const sp = spark((a.serie || []).concat(a.score != null ? [a.score] : [])); m.appendChild(sp || el('span', null, '—')) }

@@ -10,6 +10,13 @@ const n = (v, d = 2) => v == null ? '-' : Number(v).toLocaleString('es-ES', { mi
 const pc = (v, d = 1) => v == null ? '-' : (v >= 0 ? '+' : '') + n(v, d) + ' %';
 const ppt = (v, d = 1) => v == null ? '-' : (v >= 0 ? '+' : '') + n(v, d) + ' pp';
 const cap = v => v == null ? '-' : (v >= 1e9 ? n(v / 1e9, 1) + ' B' : n(v / 1e6, 0) + ' M');
+/* Un push de codigo en fin de semana hacia que el proceso guardara un dia con el cierre del viernes
+   repetido. Ya no ocurre (build.py lo corta), pero los que hay guardados no son sesiones de bolsa:
+   ni cuentan como recorrido ni se enseñan con su fecha, porque su precio es el del viernes. */
+const esSesion = f => { const d = new Date(f + 'T12:00:00Z').getUTCDay(); return d !== 0 && d !== 6 };
+const sesionDe = f => { const d = new Date(f + 'T12:00:00Z');
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10) };
 const fFecha = f => new Date(f + 'T12:00:00Z').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 function el(t, c, x) { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e }
 

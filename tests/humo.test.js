@@ -108,6 +108,34 @@ for (const f of orden) {
   niveles[0] < niveles[1] ? ok('una nota alta pero estirada va detrás de una comprable') : mal('la estirada no cede el paso', niveles.join(','));
   niveles[1] < niveles[2] ? ok('lo que ya no se toca va al final') : mal('la rota no va al final', niveles.join(','));
 
+  /* La pestaña Hoy decia ESPERAR sobre CDNA y Seguimiento la ponia la primera de "cual compraria
+     antes", porque ordenaba por estado y nota sin mirar el veredicto. Las dos tienen que coincidir. */
+  console.log('\nHOY Y SEGUIMIENTO NO SE CONTRADICEN');
+  porId.per.value = 90; porId.segorden.value = 'reco'; porId.segest.value = 'vivas';
+  const coh = vm.runInContext(`(() => {
+    const filas = historial(+document.getElementById('per').value || 90);
+    const hoy = {}; vista().todas.forEach(a => { hoy[a.clave || a.simbolo || a.ticker] = a.prio });
+    const choques = filas.filter(f => hoy[f.clave] != null && hoy[f.clave] !== f.prioridad)
+      .map(f => f.ticker + ': hoy ' + hoy[f.clave] + ' vs seguimiento ' + f.prioridad);
+    return { choques, n: filas.length, prio: Object.fromEntries(filas.map(f => [f.ticker, f.prioridad])),
+      etiquetas: filas.map(f => f.veredicto && f.veredicto.t).filter(Boolean).length };
+  })()`, ctx);
+  coh.choques.length === 0 ? ok('el veredicto de cada acción es el mismo en las dos pestañas')
+    : mal('las pestañas se contradicen', coh.choques.join(' | '));
+  coh.etiquetas === coh.n ? ok('toda fila de seguimiento lleva su veredicto calculado una sola vez')
+    : mal('hay filas sin veredicto', coh.etiquetas + ' de ' + coh.n);
+  // Se lee el orden REAL que pinta la pestaña, no uno reordenado aqui: si no, la prueba no prueba nada.
+  ventana.seguimiento();
+  const leer = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leer).join(' ');
+  const pintadas = (porId.rseg.hijos || []).filter(c => String(c.clase || c.className || '').includes('card'))
+    .map(c => Object.keys(coh.prio).find(t => new RegExp('(^|\\s)' + t + '(\\s|$)').test(leer(c))))
+    .filter(Boolean);
+  const saltos = pintadas.filter((t, i) => i && coh.prio[pintadas[i - 1]] > coh.prio[t]);
+  pintadas.length >= 3 ? ok('se han pintado ' + pintadas.length + ' tarjetas para comprobar el orden')
+    : mal('no hay tarjetas que comprobar', pintadas.length);
+  saltos.length === 0 ? ok('nunca va una de "esperar" por delante de una de "comprar"')
+    : mal('orden incoherente en la pestaña', saltos.join(', '));
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que
