@@ -1,0 +1,90 @@
+/* Test de humo: monta un navegador mínimo, carga la web con datos reales y pulsa todas las pestañas.
+   Nace de dos fallos reales en los que una edición dejó fuera una función y la pestaña se quedaba en blanco. */
+const fs = require('fs'), path = require('path'), vm = require('vm');
+const dir = path.join(__dirname, '..', 'docs');
+let fallos = 0, total = 0;
+const ok = n => { total++; console.log('  ✓ ' + n) };
+const mal = (n, e) => { total++; fallos++; console.log('  ✗ ' + n + (e ? '\n      ' + e : '')) };
+
+/* Navegador de juguete: lo justo para que el código se ejecute de verdad. */
+function nodo(tag) {
+  const e = {
+    tagName: (tag || 'div').toUpperCase(), hijos: [], _texto: '', className: '', style: {}, dataset: {}, hidden: false, value: '',
+    set textContent(v) { this._texto = String(v); this.hijos = [] },
+    get textContent() { return this._texto + this.hijos.map(h => h.textContent).join('') },
+    get innerText() { return this.textContent },
+    set innerHTML(v) { this._texto = '' }, get innerHTML() { return '' },
+    appendChild(h) { this.hijos.push(h); return h }, append(...h) { h.forEach(x => this.hijos.push(x)) },
+    prepend(h) { this.hijos.unshift(h) }, replaceChildren(...h) { this.hijos = h }, remove() {},
+    setAttribute(k, v) { this[k] = v }, getAttribute(k) { return this[k] }, addEventListener() {},
+    closest() { return null }, getBoundingClientRect() { return { height: 100, top: 0 } },
+    querySelector() { return null }, querySelectorAll() { return [] },
+    classList: { add() {}, remove() {}, contains() { return false } },
+    get selectedOptions() { return [{ textContent: 'orden' }] }, get options() { return this.hijos },
+  };
+  return e;
+}
+const porId = {};
+const doc = {
+  createElement: nodo, createElementNS: () => ({ ...nodo('svg'), setAttribute() {} }),
+  getElementById: id => (porId[id] = porId[id] || nodo('div')),
+  querySelector: () => null, querySelectorAll: () => [], addEventListener: (_, f) => { doc._listo = f },
+  head: nodo('head'), body: nodo('body'),
+};
+const almacen = {};
+const ventana = {
+  document: doc, location: { pathname: '/', href: '/', replace() {} }, matchMedia: () => ({ matches: false }),
+  localStorage: { getItem: k => almacen[k] ?? null, setItem: (k, v) => { almacen[k] = String(v) }, removeItem: k => { delete almacen[k] } },
+  sessionStorage: { getItem: () => null, setItem() {} },
+  fetch: async (u) => {
+    const f = u.split('?')[0];
+    const p = path.join(dir, f);
+    if (!fs.existsSync(p)) throw new Error('no existe ' + f);
+    return { json: async () => JSON.parse(fs.readFileSync(p, 'utf8')) };
+  },
+  VERSION: JSON.parse(fs.readFileSync(path.join(dir, 'panel.json'), 'utf8')).version,
+};
+ventana.window = ventana; ventana.globalThis = ventana; ventana.console = console;
+ventana.Math = Math; ventana.JSON = JSON; ventana.Date = Date; ventana.Object = Object; ventana.Array = Array;
+ventana.Number = Number; ventana.String = String; ventana.Promise = Promise; ventana.isFinite = isFinite;
+ventana.encodeURIComponent = encodeURIComponent; ventana.setTimeout = setTimeout; ventana.alert = () => {};
+ventana.confirm = () => true; ventana.prompt = () => '10';
+const ctx = vm.createContext(ventana);
+
+console.log('\nCARGA DE LA WEB');
+const orden = ['reglas.js', 'puntuacion.js', 'app.js', 'hoy.js', 'seguimiento.js', 'posiciones.js', 'resultados.js', 'parametros.js'];
+for (const f of orden) {
+  try { vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f }); ok(f + ' se carga sin errores') }
+  catch (e) { mal(f + ' falla al cargar', e.message) }
+}
+
+(async () => {
+  console.log('\nARRANQUE Y PESTAÑAS');
+  try { await doc._listo(); ok('la web arranca y descarga sus datos') } catch (e) { mal('la web no arranca', e.message) }
+  const paso = async (nombre, fn) => {
+    try { await fn(); ok(nombre) } catch (e) { mal(nombre, e.message) }
+  };
+  await paso('la pestaña del día se pinta', () => ventana.pinta());
+  await paso('la pestaña de seguimiento se pinta', () => ventana.seguimiento());
+  await paso('la pestaña de posiciones se pinta sin posiciones', () => ventana.posiciones());
+  await paso('la pestaña de resultados se pinta', () => ventana.resultados());
+  await paso('la pestaña de parámetros se pinta', () => ventana.parametros());
+
+  console.log('\nCON UNA POSICIÓN ABIERTA');
+  const panel = JSON.parse(fs.readFileSync(path.join(dir, 'panel.json'), 'utf8'));
+  const sim = Object.keys(panel.actual)[0], datos = panel.actual[sim];
+  almacen['posiciones-v1'] = JSON.stringify([{ ticker: datos.ticker, simbolo: sim, precio: datos.precio * 0.8, fecha: panel.dias[panel.dias.length - 1], maxVisto: datos.precio }]);
+  almacen['cartera-v1'] = JSON.stringify({ total: 10000, riesgo: 1 });
+  await paso('posiciones se pinta con una compra anotada', () => ventana.posiciones());
+  await paso('el día se pinta con el botón ya marcado', () => ventana.pinta());
+  await paso('el seguimiento se pinta con una posición', () => ventana.seguimiento());
+
+  console.log('\nEL VEREDICTO ES COHERENTE EN LAS DOS VISTAS');
+  const v = ventana.VEREDICTO(datos, {});
+  const e = ventana.REGLAS.stopDeEntrada(datos);
+  if (v && e && Math.abs(parseFloat(String(v.stop).replace(',', '.')) - e.stop) < 0.05) ok('el stop del veredicto es el del módulo de reglas');
+  else if (v && e) mal('el stop del veredicto no coincide', v.stop + ' vs ' + e.stop);
+
+  console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
+  if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
+})();

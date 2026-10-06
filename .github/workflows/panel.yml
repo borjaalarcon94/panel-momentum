@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     # Solo el código. Nunca docs/datos ni docs/panel.json: el propio bot los escribe y se dispararía en bucle.
-    paths: ["build.py", "puntuar.js", "plantilla.html", "docs/puntuacion.js", ".github/workflows/panel.yml"]
+    paths: ["build.py", "puntuar.js", "plantilla.html", "docs/puntuacion.js", "docs/reglas.js", "tests/**", ".github/workflows/panel.yml"]
 
 permissions:
   contents: write
@@ -23,6 +23,14 @@ jobs:
       - uses: actions/setup-node@v4        # build.py puntúa con docs/puntuacion.js
         with:
           node-version: "20"
+      # Si alguna regla deja de comportarse como debe, no se publica nada.
+      - name: Comprobar las reglas antes de publicar
+        run: |
+          node tests/reglas.test.js
+          node tests/puntuacion.test.js
+          node tests/integridad.test.js
+          node tests/humo.test.js
+          python3 tests/filtros.test.py
       - run: python build.py
       - name: Guardar resultados
         run: |

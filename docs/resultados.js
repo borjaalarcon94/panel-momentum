@@ -60,20 +60,22 @@ function objetivos(xs) {
    usando los cierres de los dias que tenemos (los que estuvo en el top) y el precio de hoy.
    Compara tres formas de operar la misma lista para ver si las reglas de salida aportan. */
 function simula(xs) {
-  const PERDIDA_MAXIMA = 15, GANANCIA_PROTEGER = 20;
   const res = xs.map(x => {
     const dias = FH.filter(f => f >= x.entrada).sort();
-    let maxVisto = x.precio, salida = null, motivo = null;
+    let maxVisto = x.precio, salida = null, motivo = null, stopPrevio = 0;
     for (const f of dias.slice(1)) {
       const fila = ((HIST[f] || {}).acciones || []).find(y => (y.s || y.t) === x.clave);
       if (!fila || !fila.p) continue;           // ese dia salio del top: no tenemos su cierre
       maxVisto = Math.max(maxVisto, fila.p);
       const gan = (fila.p / x.precio - 1) * 100;
       const ganMax = (maxVisto / x.precio - 1) * 100;
-      const suelo = x.precio * (1 - PERDIDA_MAXIMA / 100);
-      const stop = gan >= GANANCIA_PROTEGER ? x.precio : suelo;
-      if (fila.p < stop) { salida = fila.p; motivo = 'stop'; break }
-      if (ganMax >= 15 && gan < ganMax / 2) { salida = fila.p; motivo = 'devolvió la mitad'; break }
+      // Mismas reglas que las posiciones reales (docs/reglas.js). Sin EMA 50 histórica, el stop usa
+      // el suelo de pérdida máxima y la subida al coste; se indica en la nota de la tabla.
+      stopPrevio = Math.max(stopPrevio, window.REGLAS.stopDe({ precio: fila.p }, x.precio, stopPrevio) || 0);
+      if (fila.p < stopPrevio) { salida = fila.p; motivo = 'stop'; break }
+      const limite = window.REGLAS.limiteDevolucion(ganMax);
+      const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
+      if (limite != null && devuelto >= limite) { salida = fila.p; motivo = 'devolvió el ' + Math.round(devuelto) + ' %'; break }
     }
     return { ...x, conReglas: salida != null ? (salida / x.precio - 1) * 100 : x.ret, motivo,
       alSalirDelTop: x.retAlSalir != null ? x.retAlSalir : x.ret };
@@ -87,7 +89,7 @@ function tablaSimulacion(xs) {
   const filas = [
     ['Comprar y aguantar hasta hoy', r.map(x => x.ret), 'sin vender nunca'],
     ['Vender el día que sale del top', r.map(x => x.alSalirDelTop), 'disciplina máxima'],
-    ['Con nuestras reglas de salida', r.map(x => x.conReglas), 'stop del 15 %, sube al coste con +20 % y vender si devuelve la mitad'],
+    ['Con nuestras reglas de salida', r.map(x => x.conReglas), 'el stop y la devolución máxima de la pestaña Parámetros'],
   ];
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Las mismas entradas, tres formas de operarlas'));

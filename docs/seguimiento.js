@@ -1,6 +1,6 @@
 /* Pestana "Seguimiento": de las que han pasado por el top 10, si la compra sigue siendo viable y como va.
    Usa el resumen ligero de cada dia (historico) y los datos de HOY de cada accion (actual). */
-const CAIDA_SCORE = 8;            // puntos de caida que consideramos "pierde fuerza"
+const CAIDA_SCORE = 8;   // caída de puntuación que marca 'pierde fuerza' (solo informativo)            // puntos de caida que consideramos "pierde fuerza"
 let VER_TODAS = false;            // por defecto se muestran las 5 mejores
 
 function estadoHoy(sim) {

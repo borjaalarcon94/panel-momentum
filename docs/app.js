@@ -40,28 +40,35 @@ window.REQUISITOS = function (a) {
 
 /* Gestion de la posicion: donde poner el stop y que senales dicen que toca salir.
    Todo sale de los datos de hoy; son referencias tecnicas, no ordenes. */
-window.SALIDA = function (a, extra) {
-  extra = extra || {};
-  const p = a.precio, dist = x => x == null || !p ? null : (x / p - 1) * 100;
-  const atr = a.atr && p ? p - 2 * a.atr : null;
-  const opciones = [
-    { t: 'Cierre bajo la EMA 21', v: a.ema21, d: dist(a.ema21), nota: 'stop corto, para capturar tramos rápidos' },
-    { t: 'Cierre bajo la EMA 50', v: a.ema50, d: dist(a.ema50), nota: 'stop amplio, aguanta sustos normales' },
-    { t: 'Dos veces su rango diario (ATR)', v: atr, d: dist(atr), nota: 'stop por volatilidad' },
-  ].filter(x => x.v != null);
-  const senales = [];
-  if (p != null && a.ema21 != null && p < a.ema21) senales.push('Ha perdido la EMA 21 (' + n(a.ema21) + ' $): primera señal de salida');
-  if (p != null && a.ema50 != null && p < a.ema50) senales.push('Ha perdido la EMA 50 (' + n(a.ema50) + ' $): la tendencia corta se ha roto');
-  if (a.rsi != null && a.rsi < 45) senales.push('RSI ' + n(a.rsi, 0) + ': ha perdido la fuerza compradora');
-  const caida = a.max1m && p ? (p / a.max1m - 1) * 100 : null;
-  if (caida != null && caida <= -15) senales.push('Ha caído ' + n(Math.abs(caida), 0) + ' % desde su máximo del último mes');
-  if (extra.devuelto != null && extra.devuelto >= 50 && extra.maxGanancia >= 10) senales.push('Ha devuelto el ' + n(extra.devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(extra.maxGanancia) + ' a ' + pc(extra.ganancia) + ')');
-  return { opciones, senales, caidaMes: caida };
+/* Textos de las señales de REGLAS, para no repetir literales por toda la web. */
+window.TEXTO_SENAL = function (m) {
+  switch (m.codigo) {
+    case 'stop': return 'ha perdido el stop de ' + n(m.stop) + ' $' + (m.ema50 && Math.abs(m.stop - m.ema50) < 0.01 ? ' (su EMA 50)' : '');
+    case 'ema50': return 'ha cerrado por debajo de su EMA 50 (' + n(m.ema50) + ' $): la tendencia se ha roto';
+    case 'ema21': return 'ha perdido la EMA 21 (' + n(m.ema21) + ' $): primera señal de debilidad';
+    case 'rsi': return 'RSI ' + n(m.rsi, 0) + ': sin fuerza compradora';
+    case 'devuelto': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(m.ganMax) + ' a ' + pc(m.gan) + ')';
+    case 'devolviendo': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de su ganancia máxima (vendería al ' + m.limite + ' %)';
+    case 'requisitos': return 'ya no cumple ' + m.fallos.length + ' requisitos: ' + m.fallos.map(f => f.t.toLowerCase()).join(', ');
+    case 'un-requisito': return 'ha dejado de cumplir: ' + m.fallo.t.toLowerCase() + ' (' + m.fallo.v + ')';
+    case 'crecida': return 'ha superado el techo de capitalización: ya no entraría como nueva, pero eso no es motivo para vender';
+    case 'resultados': return 'publica resultados en ' + m.dias + ' día' + (m.dias === 1 ? '' : 's') + ': puede abrir con un hueco que el stop no evita';
+    case 'caida-mes': return 'ha caído ' + n(Math.abs(m.caida), 0) + ' % desde su máximo del último mes';
+    default: return m.codigo;
+  }
 };
 
-/* Veredicto de compra, unico para las dos pestanas: ¿es buen punto de entrada AHORA y donde va el stop?
-   Orientativo y calculado con los datos del cierre: la decision es del usuario. */
-/* Cartera y riesgo por operacion: guardados solo en el navegador. Con ellos se calcula cuanto comprar. */
+/* Stop y señales de una acción que todavía no tienes: una sola fuente, REGLAS. */
+window.SALIDA = function (a) {
+  const e = window.REGLAS.stopDeEntrada(a) || {};
+  const opciones = [];
+  if (e.stop != null) opciones.push({ t: 'Stop del sistema (EMA 50, con tope del ' + window.REGLAS.R.perdidaMaxima + ' %)', v: e.stop, d: e.distancia, nota: 'es el que gestionará tu posición si entras' });
+  if (e.ema21 != null && a.precio) opciones.push({ t: 'Cierre bajo la EMA 21', v: e.ema21, d: (e.ema21 / a.precio - 1) * 100, nota: 'referencia más ceñida si quieres apurar' });
+  if (a.atr && a.precio) opciones.push({ t: 'Dos veces su rango diario (ATR)', v: a.precio - 2 * a.atr, d: ((a.precio - 2 * a.atr) / a.precio - 1) * 100, nota: 'referencia por volatilidad' });
+  return { opciones, senales: window.REGLAS.senalesDeMercado(a).map(window.TEXTO_SENAL) };
+};
+
+/* Acciones en circulacion mas antiguas/* Acciones en circulacion mas antiguas que conozcamos de ese valor: base para medir la dilucion. */
 window.CARTERA = { leer() { try { return JSON.parse(localStorage.getItem('cartera-v1') || 'null') } catch (e) { return null } },
   guardar(v) { try { localStorage.setItem('cartera-v1', JSON.stringify(v)) } catch (e) {} } };
 
@@ -82,7 +89,7 @@ window.DIAS_RESULTADOS = function (a, hoy) {
 
 window.VEREDICTO = function (a, extra) {
   extra = extra || {};
-  const sal = window.SALIDA(a, extra), o = sal.opciones[0];
+  const sal = window.SALIDA(a), o = sal.opciones[0];
   const stop = o ? n(o.v) + ' $ (' + pc(o.d, 0) + ')' : '—';
   const dmax = a.precio && a.max52 ? (a.precio / a.max52 - 1) * 100 : null;
   const extendida = extra.extendida != null ? extra.extendida : false;
@@ -91,8 +98,8 @@ window.VEREDICTO = function (a, extra) {
   if (sal.senales.length) return { t: 'No comprar', d: sal.senales[0].toLowerCase() + '.', cls: 'qbad', stop };
   if (extendida) return { t: 'No comprar aquí', d: 'está muy estirada: esperar a que consolide. Si ya la tienes, dejarla correr con el stop en ' + stop + '.', cls: 'qwarn', stop };
   if (extra.flojea) return { t: 'Vigilar', d: 'sigue cumpliendo, pero ha perdido fuerza. Mantener con stop en ' + stop + '.', cls: 'qwarn', stop };
-  if (dmax != null && dmax < -10) return { t: 'Esperar', d: 'está a ' + pc(dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn', stop };
-  if (o && o.d < -15) return { t: 'Compra arriesgada', d: 'el stop técnico queda lejos, en ' + stop + ': media posición o esperar un retroceso a su EMA 21.', cls: 'qwarn', stop };
+  if (dmax != null && dmax < -window.REGLAS.R.lejosDeMaximo) return { t: 'Esperar', d: 'está a ' + pc(dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn', stop };
+  if (o && o.d < -window.REGLAS.R.stopLejos) return { t: 'Compra arriesgada', d: 'el stop queda lejos, en ' + stop + ': media posición o esperar un retroceso.', cls: 'qwarn', stop };
   return { t: 'COMPRA', d: 'buen punto de entrada: stop en ' + stop + '.', cls: 'qok', stop };
 };
 

@@ -268,6 +268,28 @@ marca el trabajo en rojo, avisa por correo y la web se queda con los datos del d
 que subir en vertical: con 1.042 observaciones, las diferencias quedaron dentro del ruido (medianas incluso peores en
 las bases estrechas). No se implementó, para no añadir 40 llamadas diarias y complejidad sin provecho.
 
+## Pruebas
+
+Las reglas que deciden comprar, dónde poner el stop y cuándo vender viven **en un solo sitio**, `docs/reglas.js`.
+Antes estaban repetidas en tres ficheros con umbrales distintos y las pestañas llegaban a contradecirse.
+
+```bash
+node tests/reglas.test.js && node tests/puntuacion.test.js && node tests/integridad.test.js && node tests/humo.test.js && python3 tests/filtros.test.py
+```
+
+129 comprobaciones repartidas en cinco ficheros:
+
+| Fichero | Qué vigila |
+|---|---|
+| `reglas.test.js` | límites de devolución, stop que nunca baja, protección del coste, qué vende y qué no, máximo alcanzado sin abrir la web, casos sin datos |
+| `puntuacion.test.js` | rangos 0-100, que ningún bloque se pase de su máximo, que la nota responda a margen, aceleración, tamaño y fuerza relativa, penalizaciones, ruptura con y sin volumen, determinismo |
+| `integridad.test.js` | que la plantilla cargue todos los ficheros, que no se use ninguna función inexistente y que **ningún umbral viva fuera de `reglas.js`** |
+| `humo.test.js` | monta un navegador mínimo, carga la web con los datos reales y pinta las cinco pestañas, con y sin posiciones abiertas |
+| `filtros.test.py` | requisitos de entrada, sectores excluidos, coherencia de umbrales y el blindaje ante datos corruptos |
+
+**El proceso diario las ejecuta antes de publicar**: si una falla, no se sube nada y la web conserva los datos del día
+anterior.
+
 ## Desarrollo
 
 ```bash

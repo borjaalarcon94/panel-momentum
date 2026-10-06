@@ -6,9 +6,7 @@
      - Cuando la ganancia pasa del 20%, el stop sube al precio de compra: la operación ya no puede dar pérdidas.
      - Se vende si cierra bajo la EMA 50, si el RSI baja de 45, si devuelve más de la mitad de la ganancia máxima
        o si la empresa deja de cumplir los requisitos (crecimiento, tendencia, liquidez...). */
-const CLAVE = 'posiciones-v1';
-const GANANCIA_PROTEGER = 20;   // % a partir del cual el stop sube al precio de compra
-const PERDIDA_MAXIMA = 15;      // % que no se deja perder nunca desde el precio de compra
+const CLAVE = 'posiciones-v1';   // los umbrales viven en docs/reglas.js
 
 function leerPos() { try { return JSON.parse(localStorage.getItem(CLAVE) || '[]') } catch (e) { return [] } }
 function guardarPos(p) { try { localStorage.setItem(CLAVE, JSON.stringify(p)) } catch (e) {} }
@@ -68,70 +66,24 @@ window.anotarCompra = function (a, alGuardar) {
   if (alGuardar) alGuardar();
 };
 
-/* Qué hacer con una posición abierta, con los datos de hoy.
-
-   Tres reglas pensadas para dejar correr la subida sin devolverla entera:
-   1. STOP QUE NUNCA BAJA. Lo marca la EMA 50, nunca arriesga más de PERDIDA_MAXIMA desde tu compra y,
-      superado GANANCIA_PROTEGER de ganancia, sube a tu precio de compra. Se guarda el valor más alto que
-      ha tenido: si la EMA 50 retrocede, el stop se queda donde estaba.
-   2. MÁXIMO REAL, no el que yo haya visto. Se toma del propio mercado (máximos de 1 y 3 meses) además del
-      precio más alto registrado, así funciona aunque no abras la web en semanas.
-   3. DEVOLUCIÓN PROPORCIONAL. Con menos de un 30 % ganado manda solo el stop, para no salir por una
-      corrección normal. A partir de ahí se vende si devuelve la mitad, y si la ganancia pasó del 100 %,
-      si devuelve el 40 %: cuanto más grande es el beneficio, más se protege. */
+/* Revisión diaria de una posición. Toda la lógica vive en docs/reglas.js: aquí solo se dan formato
+   los resultados. Si quieres cambiar un umbral, se cambia allí y cambia en toda la web a la vez. */
 function revision(p) {
   const a = ACT[p.simbolo] || ACT[p.ticker];
   const ahora = a ? a.precio : (T.precios || {})[p.simbolo] ?? null;
-  if (ahora == null) return { p, ahora: null, estado: 'sindatos', t: 'Sin datos', d: 'el panel ya no sigue esta acción: compruébala tú mismo.', cls: 'qwarn' };
-  const gan = (ahora / p.precio - 1) * 100;
+  if (ahora == null) return { p, ahora: null, estado: 'sindatos', t: 'Sin datos', d: 'el panel ya no sigue esta acción: compruébala tú mismo.', cls: 'qwarn', req: [] };
   const dias = Math.round((new Date(FH[0] + 'T12:00:00Z') - new Date(p.fecha + 'T12:00:00Z')) / 864e5);
-
-  // Máximo desde la compra: el mayor entre lo registrado y los máximos que da el mercado (si cubren el periodo).
-  const candidatos = [p.maxVisto || p.precio, ahora];
-  if (a && a.max1m && dias <= 30) candidatos.push(a.max1m);
-  if (a && a.max3m && dias <= 90) candidatos.push(a.max3m);
-  const maxVisto = Math.max(...candidatos);
-  const ganMax = (maxVisto / p.precio - 1) * 100;
-  const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
-
-  // Stop de hoy y stop histórico: nos quedamos siempre con el más alto de los dos.
-  const base = a && a.ema50 ? a.ema50 : null;
-  const suelo = p.precio * (1 - PERDIDA_MAXIMA / 100);
-  const stopHoy = gan >= GANANCIA_PROTEGER ? Math.max(base || 0, p.precio) : Math.max(base || 0, suelo);
-  const stop = Math.max(stopHoy, p.stopMax || 0) || null;
-
-  const req = a ? window.REQUISITOS(a) : [];
-  const fallos = req.filter(x => !x.ok && !x.entrada);          // los de entrada no son motivo de venta
-  const crecida = req.find(x => !x.ok && x.entrada && /Capitalización/.test(x.t));
-
-  // Cuánto se le permite devolver, según lo que haya llegado a ganar.
-  const limite = ganMax >= 100 ? 40 : ganMax >= 30 ? 50 : null;
-
-  const motivos = [];
-  if (stop && ahora < stop) motivos.push('ha perdido el stop de ' + n(stop) + ' $' + (base && Math.abs(stop - base) < 0.01 ? ' (su EMA 50)' : ''));
-  else if (base && ahora < base) motivos.push('ha cerrado por debajo de su EMA 50 (' + n(base) + ' $): la tendencia se ha roto');
-  if (a && a.rsi != null && a.rsi < 45) motivos.push('RSI ' + n(a.rsi, 0) + ': sin fuerza compradora');
-  if (limite && devuelto >= limite) motivos.push('ha devuelto el ' + n(devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(ganMax) + ' a ' + pc(gan) + ')');
-  if (fallos.length >= 2) motivos.push('ya no cumple ' + fallos.length + ' requisitos: ' + fallos.map(f => f.t.toLowerCase()).join(', '));
-
-  const avisos = [];
-  if (crecida) avisos.push('ha superado el techo de ' + cap(window.CRITERIOS_CAPMAX || 10e9) + ': ya no entraría como nueva, pero eso no es motivo para vender');
-  if (!motivos.length) {
-    if (fallos.length === 1) avisos.push('ha dejado de cumplir: ' + fallos[0].t.toLowerCase() + ' (' + fallos[0].v + ')');
-    if (limite && devuelto >= limite * 0.6) avisos.push('ha devuelto el ' + n(devuelto, 0) + ' % de su ganancia máxima (vendería al ' + limite + ' %)');
-    if (a && a.ema21 && ahora < a.ema21) avisos.push('ha perdido la EMA 21 (' + n(a.ema21) + ' $): primera señal de debilidad');
-  }
-  const dR = window.DIAS_RESULTADOS(a);
-  if (dR != null && dR >= 0 && dR <= 10) avisos.unshift('publica resultados en ' + dR + ' día' + (dR === 1 ? '' : 's') + ': puede abrir con un hueco que el stop no evita');
-
-  const estado = motivos.length ? 'vender' : avisos.length ? 'vigilar' : 'mantener';
-  return { p, a, ahora, gan, ganMax, devuelto, limite, stop, maxVisto, dias, req, fallos, motivos, avisos, estado,
-    t: estado === 'vender' ? 'VENDER' : estado === 'vigilar' ? 'VIGILAR' : 'MANTENER',
-    d: estado === 'vender' ? '(ahora ' + pc(gan) + ') ' + motivos.join(' · ')
-      : estado === 'vigilar' ? avisos.join(' · ')
-      : 'la tendencia aguanta. Stop en ' + (stop ? n(stop) + ' $ (' + pc((stop / ahora - 1) * 100, 0) + ')' : '—')
-        + (gan >= GANANCIA_PROTEGER ? ': ya protege tu precio de compra.' : '.'),
-    cls: estado === 'vender' ? 'qbad' : estado === 'vigilar' ? 'qwarn' : 'qok' };
+  const req = window.REQUISITOS(a);
+  const ev = window.REGLAS.evaluaPosicion({ datos: a, compra: p.precio, maxRegistrado: p.maxVisto, stopPrevio: p.stopMax,
+    dias, requisitos: req, diasResultados: window.DIAS_RESULTADOS(a) });
+  const motivos = ev.motivos.map(window.TEXTO_SENAL), avisos = ev.avisos.map(window.TEXTO_SENAL);
+  return { p, a, ahora, req, dias, ...ev, motivos, avisos, maxVisto: ev.maxVisto,
+    t: ev.estado === 'vender' ? 'VENDER' : ev.estado === 'vigilar' ? 'VIGILAR' : 'MANTENER',
+    d: ev.estado === 'vender' ? '(ahora ' + pc(ev.gan) + ') ' + motivos.join(' · ')
+      : ev.estado === 'vigilar' ? avisos.join(' · ')
+      : 'la tendencia aguanta. Stop en ' + (ev.stop ? n(ev.stop) + ' $ (' + pc((ev.stop / ahora - 1) * 100, 0) + ')' : '—')
+        + (ev.gan >= window.REGLAS.R.gananciaProteger ? ': ya protege tu precio de compra.' : '.'),
+    cls: ev.estado === 'vender' ? 'qbad' : ev.estado === 'vigilar' ? 'qwarn' : 'qok' };
 }
 
 function cajaCartera() {
