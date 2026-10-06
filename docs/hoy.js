@@ -84,6 +84,14 @@ $('stats').replaceChildren(el('span',null,'Top '+top.length+' · puntuación med
 $('cuenta').textContent='';
 if(!top.length){L.appendChild(el('div','empty','Ese día ninguna acción cumplió los requisitos.'));return}
 top.forEach((a,i)=>L.appendChild(tarjeta(a,i)));
+/* Con el orden por prioridad una nota alta puede caer fuera de las 5 visibles porque hoy no sea
+   entrada. Sin decirlo, parece que la accion ha desaparecido del panel. */
+const ocultas=v.todas.slice(top.length),peorVisible=Math.min(...top.map(a=>a.score??0));
+const altasFuera=ocultas.filter(a=>(a.score??0)>peorVisible);
+if(altasFuera.length){const t=el('div','m');
+t.appendChild(el('b',null,altasFuera.slice(0,3).map(a=>a.ticker+' ('+n(a.score,0)+')').join(', ')+(altasFuera.length>3?' y '+(altasFuera.length-3)+' más':'')));
+t.appendChild(el('span',null,' puntúan más alto que alguna de arriba, pero hoy no son entrada. Siguen en el panel, más abajo.'));
+L.appendChild(t)}
 // Botón para ver el resto de las guardadas sin salir de la vista
 if(v.todas.length>top.length||S.top>5){const b=el('button','chip ver-mas',S.top>5?'Ver solo las 5 mejores':'Ver las '+v.todas.length+' guardadas');
 b.onclick=()=>{S.top=S.top>5?5:99;window.pinta()};L.appendChild(b)}};
