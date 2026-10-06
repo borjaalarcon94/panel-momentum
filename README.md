@@ -160,6 +160,10 @@ Quinta pestaña: todas las reglas en seis tablas (requisitos de entrada, puntuac
 veredictos, reglas de venta, y fuentes y límites). Ahí vive la letra pequeña que antes se repetía al final de cada
 pestaña.
 
+La pestaña Parámetros incluye **Descargar PDF** y **Copiar como texto**: ambos se generan de las mismas tablas que se
+ven en pantalla, con las constantes exactas del motor y los umbrales de entrada, para auditar las instrucciones por
+tu cuenta o con otra IA.
+
 ## Veredicto de compra
 
 Las dos pestañas usan la misma función (`window.VEREDICTO` en `docs/app.js`), de modo que una acción nunca puede

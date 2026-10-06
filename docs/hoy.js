@@ -106,13 +106,20 @@ c.appendChild(r);
 // Veredicto de compra, lo primero que se lee
 const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false});
 const vd=el('div','quehacer '+v.cls);vd.appendChild(el('b',null,v.t));vd.appendChild(el('span',null,' · '+v.d));
-const sal0=window.SALIDA(a),tam=sal0.opciones[0]?window.TAMANO(sal0.opciones[0].d):null;
-if(tam&&v.cls==='qok')vd.appendChild(el('span','m',' Comprar unos '+n(tam.importe,0)+' ('+n(tam.pct,1)+' % de tu cartera'+(tam.tope?', tope del 25 %':'')+').'));
 const dR=window.DIAS_RESULTADOS(a,S.dia);
 if(dR!=null&&dR>=0&&dR<=10)vd.appendChild(el('span','m',' Publica resultados en '+dR+' día'+(dR===1?'':'s')+': el stop no protege de un hueco al abrir.'));
 c.appendChild(vd);
 if(a.pt&&a.pt.razones.length)c.appendChild(el('div','clave','➜ '+a.pt.razones[0]));
 const sal=window.SALIDA(a);
+const o=sal.opciones[0];
+if(o){const lejos=o.d<-window.REGLAS.R.stopLejos,sb=el('div','stopbox'+(lejos?' lejos':''));
+sb.appendChild(el('span','et','Stop'));
+sb.appendChild(el('span','vl',n(o.v)+' $'));
+sb.appendChild(el('span','ds',pc(o.d,0)+' desde aquí'));
+const tam=window.TAMANO(o.d);
+if(tam&&v.cls==='qok'){sb.appendChild(el('span','et','Comprar'));sb.appendChild(el('span','vl',n(tam.importe,0)));sb.appendChild(el('span','ds',n(tam.pct,1)+' % de tu cartera'))}
+if(lejos)sb.appendChild(el('span','ds','· media posición o esperar un retroceso'));
+c.appendChild(sb)}
 const nr=a.pt?a.pt.riesgos.length:0;
 
 const bc=el('button','chip',window.tengoPosicion(a.ticker)?'✓ La tienes':'La tengo');bc.style.marginTop='10px';bc.style.marginRight='6px';

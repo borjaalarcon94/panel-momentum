@@ -134,9 +134,10 @@ window.seguimiento = function () {
     const q = datos ? window.VEREDICTO(datos, { extendida: a.estado === 'extendida', flojea: a.estado === 'flojea', fallos: a.fallos,
       devuelto: a.devuelto, maxGanancia: a.max, ganancia: a.ret })
       : { t: 'Sin datos de hoy', d: '', cls: 'qwarn' };
-    const qd = el('div', 'quehacer ' + q.cls);
-    qd.appendChild(el('b', null, q.t));
-    if (q.d) qd.appendChild(el('span', null, ' ' + q.d));
+    const clase = q.cls === 'qok' ? 'v-compra' : q.cls === 'qbad' ? 'v-vender' : 'v-espera';
+    const qd = el('div', 'veredicto ' + clase);
+    qd.appendChild(el('span', 'vt', q.t.toUpperCase()));
+    if (q.d) qd.appendChild(el('span', 'vd', q.d));
     c.appendChild(qd);
     if (a.salida && a.salida.senales.length) {
       const v = el('div', 'venta');

@@ -140,8 +140,17 @@ window.posiciones = function () {
     der.appendChild(g);
     if (r.ahora != null) der.appendChild(el('div', 'm', n(r.p.precio) + ' $ → ' + n(r.ahora) + ' $'));
     top.append(izq, der); c.appendChild(top);
-    const q = el('div', 'quehacer ' + r.cls); q.appendChild(el('b', null, r.t)); q.appendChild(el('span', null, ' · ' + r.d));
+    const clase = r.cls === 'qok' ? 'v-mantener' : r.cls === 'qbad' ? 'v-vender' : 'v-espera';
+    const q = el('div', 'veredicto ' + clase);
+    q.appendChild(el('span', 'vt', r.t));
+    q.appendChild(el('span', 'vd', r.d));
     c.appendChild(q);
+    if (r.stop) { const sb = el('div', 'stopbox');
+      sb.appendChild(el('span', 'et', 'Stop'));
+      sb.appendChild(el('span', 'vl', n(r.stop) + ' $'));
+      sb.appendChild(el('span', 'ds', pc((r.stop / r.ahora - 1) * 100, 0) + ' desde el precio actual'));
+      if (r.gan >= window.REGLAS.R.gananciaProteger) sb.appendChild(el('span', 'ds', '· ya protege tu compra'));
+      c.appendChild(sb); }
     if (r.ahora != null) {
       const g = el('div', 'grid');
       [['Stop', (r.stop ? n(r.stop) + ' $ (' + pc((r.stop / r.ahora - 1) * 100, 0) + ')' : '—')],

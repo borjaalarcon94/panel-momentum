@@ -121,3 +121,44 @@ details.descartadas .tw{margin-top:8px}
 .rverde{color:var(--up)}.rrojo{color:var(--down)}.rgris{color:var(--muted)}
 .ganancia{font-size:22px;font-weight:700;line-height:1.1}
 #rres .card{padding:12px 14px}
+
+/* ─── Señales grandes y legibles ─────────────────────────────────────────── */
+.veredicto{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:11px 13px;border-radius:12px;
+  border-left:5px solid currentColor;font-size:13.5px;line-height:1.45}
+.veredicto .vt{font-weight:800;letter-spacing:.3px;font-size:14px;white-space:nowrap}
+.veredicto .vd{color:var(--text);font-weight:400}
+.v-compra{background:color-mix(in srgb,var(--up) 14%,var(--card));color:var(--up)}
+.v-espera{background:var(--warnbg);color:var(--warn)}
+.v-vender{background:var(--badbg);color:var(--down)}
+.v-mantener{background:color-mix(in srgb,var(--up) 10%,var(--card));color:var(--up)}
+
+/* Caja del stop: lo que hay que mirar antes de entrar */
+.stopbox{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:8px;padding:9px 12px;border-radius:10px;
+  background:color-mix(in srgb,var(--line) 45%,var(--card));border:1px solid var(--line)}
+.stopbox .et{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600}
+.stopbox .vl{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.stopbox .ds{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stopbox.lejos{background:var(--warnbg);border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+
+/* Puntuación: círculo en lugar de etiqueta */
+.score{margin-top:8px;display:inline-flex;align-items:baseline;gap:3px;padding:5px 11px;border-radius:999px;
+  font-variant-numeric:tabular-nums;border:1px solid transparent}
+.score b{font-size:19px;font-weight:800}
+.s3{background:color-mix(in srgb,var(--up) 16%,var(--card));color:var(--up);border-color:color-mix(in srgb,var(--up) 30%,transparent)}
+.s2{background:var(--infobg);color:var(--info);border-color:color-mix(in srgb,var(--info) 25%,transparent)}
+.s1{background:var(--warnbg);color:var(--warn)}
+
+/* Tarjetas con más aire y jerarquía */
+.card{padding:16px}
+.tk{font-size:19px;letter-spacing:-.2px}
+.px b{font-size:19px;font-variant-numeric:tabular-nums}
+.name{font-size:12.5px;line-height:1.4}
+.resumen{gap:10px 20px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.rz b{font-size:14.5px;font-variant-numeric:tabular-nums}
+.rz i{letter-spacing:.3px;text-transform:uppercase;font-size:10px}
+.clave{margin-top:10px;font-size:13px;color:var(--text-secondary,var(--text))}
+.bar{grid-template-columns:160px 1fr 48px}
+.bt2{height:8px}
+h1{letter-spacing:-.4px}
+.tabla th{text-transform:uppercase;letter-spacing:.4px;font-size:11px}
+.tabla td{font-variant-numeric:tabular-nums}

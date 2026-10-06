@@ -1,6 +1,7 @@
 /* Pestaña "Parámetros": todas las reglas que sigue el panel, en tablas. Aquí vive la letra pequeña
    que antes estaba repartida en párrafos al final de cada pestaña. */
 function tabla(titulo, cabeceras, filas, nota) {
+  SECCIONES.push({ titulo, cabeceras, filas, nota });
   const d = el('div', 'blk');
   d.appendChild(el('h2', 'ph', titulo));
   const t = el('table', 'tabla'), h = el('tr');
@@ -16,10 +17,95 @@ function tabla(titulo, cabeceras, filas, nota) {
   return d;
 }
 
+/* Texto completo de los parámetros, para auditarlos fuera (PDF o pegado en otra IA).
+   Se genera de las mismas tablas que se ven en pantalla: no puede quedarse desactualizado. */
+function textoParametros() {
+  const C = CRIT || {}, Rg = (window.REGLAS || {}).R || {};
+  const lineas = [
+    'PANEL "GROWTH CON MOMENTUM" · PARÁMETROS E INSTRUCCIONES',
+    'Generado el ' + new Date().toLocaleString('es-ES') + ' · versión del código ' + (T.version || '') + ' · datos del ' + (T.actualizado || ''),
+    '',
+    'OBJETIVO DECLARADO DEL SISTEMA',
+    'Encontrar empresas pequeñas y medianas de EE. UU. que crecen deprisa y están empezando a despegar en bolsa,',
+    'para comprarlas pronto, aguantar la subida y salir cuando se agota el impulso. Horizonte de semanas a meses.',
+    'No es una recomendación de compra ni asesoramiento financiero.',
+    '',
+  ];
+  SECCIONES.forEach(sec => {
+    lineas.push(sec.titulo.toUpperCase(), '');
+    lineas.push(sec.cabeceras.join(' | '));
+    lineas.push(sec.cabeceras.map(() => '---').join(' | '));
+    sec.filas.forEach(f => lineas.push(f.join(' | ')));
+    if (sec.nota) lineas.push('', 'Nota: ' + sec.nota);
+    lineas.push('');
+  });
+  lineas.push('CONSTANTES EXACTAS DEL MOTOR (docs/reglas.js)');
+  Object.entries(Rg).forEach(([k, v]) => lineas.push('  ' + k + ' = ' + JSON.stringify(v)));
+  lineas.push('', 'UMBRALES DE ENTRADA (build.py, viajan en panel.json)');
+  Object.entries(C).forEach(([k, v]) => lineas.push('  ' + k + ' = ' + v));
+  lineas.push('', 'PREGUNTAS ÚTILES PARA UNA AUDITORÍA EXTERNA',
+    '  1. ¿Algún umbral se contradice con otro o deja casos sin cubrir?',
+    '  2. ¿Las reglas de venta protegen la ganancia sin cortar las subidas grandes?',
+    '  3. ¿Falta algún criterio relevante para detectar crecimiento sostenible?',
+    '  4. ¿Hay sesgos conocidos (supervivencia, mercado alcista) que invaliden la calibración?');
+  return lineas.join('\n');
+}
+
+function descargarPdf() {
+  const b = $('bpar-pdf'); b.disabled = true; b.textContent = 'Generando…';
+  const cargar = src => new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s) });
+  (async () => {
+    try {
+      if (!window.jspdf) { await cargar('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); await cargar('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'); }
+      const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+      doc.setFontSize(16); doc.text('Growth con momentum · parámetros', 14, 18);
+      doc.setFontSize(9); doc.setTextColor(110);
+      doc.text('Versión del código ' + (T.version || '') + ' · datos del ' + (T.actualizado || '') + ' · generado el ' + new Date().toLocaleDateString('es-ES'), 14, 24);
+      doc.text('Objetivo: empresas pequeñas y medianas de EE. UU. que crecen deprisa y empiezan a despegar, para comprar pronto, aguantar la subida y salir cuando se agota el impulso. No es una recomendación de compra.', 14, 29, { maxWidth: 182 });
+      let y = 40;
+      SECCIONES.forEach(sec => {
+        doc.autoTable({ startY: y, head: [sec.cabeceras], body: sec.filas,
+          styles: { fontSize: 8, cellPadding: 1.8 }, headStyles: { fillColor: [20, 23, 28] },
+          columnStyles: { 0: { cellWidth: 52 } },
+          didDrawPage: d => { y = d.cursor.y },
+          willDrawPage: () => {}, margin: { left: 14, right: 14 },
+          didParseCell: () => {},
+          theme: 'striped', tableLineColor: [230, 230, 230],
+          showHead: 'firstPage', pageBreak: 'auto',
+          beforePageContent: () => {} });
+        y = doc.lastAutoTable.finalY + 6;
+        if (sec.nota) { doc.setFontSize(8); doc.setTextColor(110); doc.text(sec.nota, 14, y, { maxWidth: 182 }); y += 4 + Math.ceil(sec.nota.length / 120) * 4; }
+        if (y > 250) { doc.addPage(); y = 18; }
+      });
+      const Rg = (window.REGLAS || {}).R || {};
+      doc.addPage();
+      doc.setFontSize(12); doc.setTextColor(0); doc.text('Constantes exactas del motor', 14, 18);
+      doc.autoTable({ startY: 24, head: [['Constante', 'Valor']], body: Object.entries(Rg).map(([k, v]) => [k, JSON.stringify(v)]), styles: { fontSize: 8 }, headStyles: { fillColor: [20, 23, 28] } });
+      doc.autoTable({ startY: doc.lastAutoTable.finalY + 8, head: [['Umbral de entrada', 'Valor']], body: Object.entries(CRIT || {}).map(([k, v]) => [k, String(v)]), styles: { fontSize: 8 }, headStyles: { fillColor: [20, 23, 28] } });
+      doc.save('parametros-growth-momentum.pdf');
+    } catch (e) { alert('No se pudo generar el PDF. Revisa la conexión e inténtalo de nuevo.'); }
+    b.disabled = false; b.textContent = 'Descargar PDF';
+  })();
+}
+
+let SECCIONES = [];
+
 window.parametros = function () {
   const R = $('rpar'); R.replaceChildren();
+  SECCIONES = [];
   const C = CRIT || {};
   const eur = v => cap(v);
+
+  const barra = el('div', 'row');
+  const bp = el('button', 'main', 'Descargar PDF'); bp.id = 'bpar-pdf'; bp.onclick = descargarPdf;
+  const bc = el('button', 'chip', 'Copiar como texto');
+  bc.onclick = async () => {
+    try { await navigator.clipboard.writeText(textoParametros()); bc.textContent = '✓ Copiado'; setTimeout(() => { bc.textContent = 'Copiar como texto' }, 2000); }
+    catch (e) { alert('No se pudo copiar. Usa el PDF.'); }
+  };
+  barra.append(bp, bc);
+  R.appendChild(barra);
+  R.appendChild(el('p', 'nota', 'Para auditar las instrucciones por tu cuenta o con otra IA.'));
 
   R.appendChild(tabla('1 · Qué tiene que cumplir para entrar en el top',
     ['Requisito', 'Umbral', 'Por qué'], [
