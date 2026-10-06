@@ -192,7 +192,7 @@ window.seguimiento = function () {
     b.onclick = () => { VER_TODAS = !VER_TODAS; window.seguimiento() };
     R.appendChild(b);
   }
-  R.appendChild(el('p', 'nota', '«Sigue viable» = hoy cumple los 9 requisitos obligatorios, mantiene su puntuación y no está extendida. «Muy extendida» = los cumple, pero está demasiado lejos de sus medias: puede seguir subiendo, aunque entrar ahí suele salir caro; mejor esperar a que consolide. «Pierde fuerza» = los cumple, pero su puntuación ha caído más de ' + CAIDA_SCORE + ' puntos. «Ya no cumple» = ha roto algún requisito (se indica cuál). «HOY #n ↑» indica el puesto de hoy en el top y cuántos puestos ha subido o bajado desde ayer. Entró = primer día en el top 10, a su precio de cierre. Máx. alcanzado = mayor cierre mientras estaba en el top. Se muestran las 5 mejores, más las que tengas compradas o hayan dado señal de salida, que nunca se ocultan. Las que dejan de cumplir desaparecen (puedes verlas eligiendo «Solo las descartadas»). Las que entran hoy aparecen mañana. El stop y las señales de salida son referencias técnicas calculadas con los datos de hoy, no órdenes: decide tú.'));
+  
 };
 window.initSeguimiento = function () {
   $('per').onchange = () => window.seguimiento();

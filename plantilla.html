@@ -17,7 +17,7 @@
 <h1>Growth con momentum</h1>
 <p class="sub">Las 5 empresas pequeñas y medianas de EE. UU. con más momentum que además crecen deprisa · se actualiza cada día laborable por la noche</p>
 <p class="act" id="act"></p>
-<div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Hoy</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button><button class="tab" data-v="pos" aria-selected="false">Posiciones</button><button class="tab" data-v="res" aria-selected="false">Resultados</button></div>
+<div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Hoy</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button><button class="tab" data-v="pos" aria-selected="false">Posiciones</button><button class="tab" data-v="res" aria-selected="false">Resultados</button><button class="tab" data-v="par" aria-selected="false">Parámetros</button></div>
 <section id="vhoy">
 <div class="banner" id="mercado" hidden></div>
 <details id="dsectores"><summary>Sectores con más fuerza</summary><div class="blk" id="sectores" hidden></div></details>
@@ -31,23 +31,23 @@
 <div id="lmarcha"></div></details>
 </section>
 <section id="vseg" hidden>
-<p class="nota">Las oportunidades que siguen vivas, ordenadas por cuál compraría antes. Qué ha pasado con cada una desde el día que entró en el top: cuánto lleva, cuánto subió como máximo, cómo va frente al S&amp;P 500 y, sobre todo, <b>si mantiene el momentum</b> (sigue en el top y su puntuación aguanta) o lo está perdiendo.</p>
+<p class="nota">Las que siguen siendo oportunidad, ordenadas por cuál compraría antes.</p>
 <div class="row"><select id="per" aria-label="Periodo"><option value="5">Entradas de la última semana</option><option value="20">Entradas del último mes</option><option value="90" selected>Entradas de los últimos 3 meses</option></select><select id="segest" aria-label="Estado"><option value="" selected>Las que siguen siendo oportunidad</option><option value="top">Solo las del top de hoy</option><option value="fuera">Solo las descartadas</option><option value="todas">Todas</option></select><select id="segorden" aria-label="Ordenar"><option value="reco" selected>Las más recomendables ahora</option><option value="score">Más momentum ahora</option><option value="ret">Mejor resultado</option><option value="entrada">Entrada más reciente</option><option value="max">Mayor subida alcanzada</option></select></div>
 <div id="rseg"></div>
 </section>
 <section id="vpos" hidden>
-<p class="nota">Las acciones que has comprado de verdad. Se guardan <b>solo en tu navegador</b>. Cada día te digo si mantener o vender y dónde está el stop.</p>
+<p class="nota">Lo que has comprado. Cada día te digo si mantener o vender, y dónde está el stop.</p>
 <div id="rpos"></div>
 </section>
+<section id="vpar" hidden>
+<p class="nota">Todas las reglas que sigue el panel, una por una.</p>
+<div id="rpar"></div>
+</section>
 <section id="vres" hidden>
-<p class="nota">¿Funciona esto? Aquí se compara lo que el panel decía con lo que después hicieron las acciones. Se llena solo con el tiempo.</p>
+<p class="nota">¿Funciona el sistema? Se compara lo que dijo el panel con lo que luego pasó.</p>
 <div id="rres"></div>
 </section>
-<footer>
-<b>Para entrar en el top</b>: precio &gt; 2 $ · capitalización entre 300 M y 10.000 M $ (buscamos empresas que puedan multiplicar, no gigantes) · volumen medio &gt; 300.000 acciones y más de 2 M$ negociados al día · precio sobre su media de 200 días · EMA 9 sobre EMA 50 · RSI &gt; 55 · ingresos +20 % interanual o más · a menos de un 20 % de su máximo de 52 semanas. Se excluyen navieras, petroleras, mineras, químicas, utilities, REITs y gestoras de fondos: su crecimiento no viene de ganar clientes.<br>
-<b>Puntuación 0-100</b>: momentum técnico (25) + aceleración del crecimiento (25) + calidad fundamental (20) + fuerza relativa frente al S&amp;P 500 y a su sector (15) + volumen y ruptura (15), menos hasta 15 puntos por extremos (RSI &gt; 80, más de un 50 % sobre su EMA 50, más de un 70 % en un mes o margen bruto bajo), más hasta 5 por impulso en la zona que históricamente más multiplica (20-50 % sobre la EMA 50) y hasta 5 por tamaño pequeño.<br>
-Datos de TradingView al cierre. Detección de oportunidades para estudiarlas una a una: <b>no es una recomendación de compra</b>.
-</footer>
+<footer>Datos de TradingView al cierre · se actualiza cada día laborable por la noche · todas las reglas, en la pestaña <b>Parámetros</b>.<br>Detección de oportunidades para estudiarlas una a una: <b>no es una recomendación de compra</b>.</footer>
 </main>
 <script>window.VERSION="__VER__";</script>
 <script src="puntuacion.js?v=__VER__"></script>
@@ -56,6 +56,7 @@ Datos de TradingView al cierre. Detección de oportunidades para estudiarlas una
 <script src="seguimiento.js?v=__VER__"></script>
 <script src="posiciones.js?v=__VER__"></script>
 <script src="resultados.js?v=__VER__"></script>
+<script src="parametros.js?v=__VER__"></script>
 <script src="export.js?v=__VER__"></script>
 </body>
 </html>

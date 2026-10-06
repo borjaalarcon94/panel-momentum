@@ -52,7 +52,7 @@ function objetivos(xs) {
     t.appendChild(tr);
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
-  d.appendChild(el('p', 'nota', 'Si pasadas unas semanas con casos suficientes algún objetivo no se cumple, toca cambiar los criterios: ese es el propósito de esta pestaña. Mientras ponga «sin datos suficientes», cualquier conclusión sería casualidad.'));
+  
   return d;
 }
 
@@ -105,9 +105,7 @@ function tablaSimulacion(xs) {
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
   const vendidas = r.filter(x => x.motivo);
-  d.appendChild(el('p', 'nota', 'Las reglas habrían vendido ' + vendidas.length + ' de ' + r.length + ' posiciones' +
-    (vendidas.length ? ' (' + vendidas.map(x => x.ticker + ' por ' + x.motivo).slice(0, 6).join(', ') + ')' : '') +
-    '. La simulación usa los cierres de los días que cada acción estuvo en el top y el precio actual: si una salió del top y siguió cayendo, la caída posterior no se ve. Sin comisiones.'));
+  
   return d;
 }
 
@@ -115,48 +113,45 @@ window.resultados = function () {
   const R = $('rres'); R.replaceChildren();
   const xs = entradas();
   if (xs.length < 3) {
-    R.appendChild(el('div', 'empty', 'Todavía no hay suficientes entradas registradas con los criterios actuales. Esta pestaña se irá llenando sola: cada acción que entra en el top queda anotada con su puntuación y su precio, y aquí se compara después con lo que hizo de verdad.'));
+    R.appendChild(el('div', 'empty', 'Todavía no hay historial. Cada acción que entra en el top queda anotada con su puntuación y su precio, y aquí se compara con lo que hizo después. Vuelve dentro de unas semanas.'));
     return;
   }
-  const media = v => v.reduce((s, x) => s + x, 0) / v.length;
-  const st = el('div', 'stats');
-  const pos = xs.filter(a => a.ret > 0).length;
+  const media = v => (v.length ? v.reduce((s, x) => s + x, 0) / v.length : null);
   const cs = xs.filter(a => a.sp != null);
-  st.append(stat('entradas medidas', xs.length), stat('en positivo', Math.round(pos / xs.length * 100) + ' %'),
-    stat('media', pc(media(xs.map(a => a.ret)))),
-    stat('vs S&P 500', cs.length ? pc(media(cs.map(a => a.ret - a.sp))) : '—'));
-  R.appendChild(st);
+  const vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
+  const pos = xs.filter(a => a.ret > 0).length;
 
-  R.appendChild(el('div', 'blt', '¿Acierta la puntuación? Resultado medio según la nota que tenía al entrar'));
-  const t = el('table', 'tabla'), h = el('tr');
-  ['Tramo', 'Entradas', 'Media', 'Mediana', 'En positivo', 'Mejor', 'Peor'].forEach(x => h.appendChild(el('th', null, x)));
-  t.appendChild(h);
-  TRAMOS.forEach(([min, nom], i) => {
-    const max = i === 0 ? 999 : TRAMOS[i - 1][0];
-    const g = xs.filter(a => a.score >= min && a.score < max);
-    const tr = el('tr');
-    tr.appendChild(el('td', null, nom));
-    if (!g.length) { tr.appendChild(el('td', null, '0')); [1, 2, 3, 4, 5].forEach(() => tr.appendChild(el('td', null, '—'))); t.appendChild(tr); return }
-    const v = g.map(a => a.ret).sort((a, b) => a - b), m = media(v);
-    tr.appendChild(el('td', null, g.length));
-    tr.appendChild(el('td', m >= 0 ? 'up' : 'down', pc(m)));
-    tr.appendChild(el('td', null, pc(v[Math.floor(v.length / 2)])));
-    tr.appendChild(el('td', null, Math.round(100 * g.filter(a => a.ret > 0).length / g.length) + ' %'));
-    tr.appendChild(el('td', 'up', pc(v[v.length - 1])));
-    tr.appendChild(el('td', 'down', pc(v[0])));
-    t.appendChild(tr);
-  });
-  const w = el('div', 'tw'); w.appendChild(t); R.appendChild(w);
+  // Tres preguntas, tres respuestas en lenguaje llano.
+  const pregunta = (titulo, respuesta, detalle, casos, minimo, bien) => {
+    const d = el('div', 'card');
+    d.appendChild(el('div', 'pregunta', titulo));
+    const suficiente = casos >= minimo;
+    d.appendChild(el('div', 'respuesta ' + (!suficiente ? 'rgris' : bien ? 'rverde' : 'rrojo'),
+      suficiente ? respuesta : 'Todavía no se puede saber'));
+    d.appendChild(el('div', 'm', suficiente ? detalle : 'Hacen falta ' + minimo + ' casos y por ahora hay ' + casos + '. Con menos, cualquier conclusión sería casualidad.'));
+    return d;
+  };
 
-  const fuera = xs.filter(a => a.fuera && a.retAlSalir != null);
-  if (fuera.length >= 3) {
-    const alSalir = media(fuera.map(a => a.retAlSalir)), hastaHoy = media(fuera.map(a => a.ret));
-    const d = alSalir - hastaHoy;
-    const B = el('div', 'banner ' + (d >= 0 ? 'okb' : 'warnb'));
-    B.appendChild(el('div', 'bt', '¿Sirve salirse cuando dejan de cumplir? De las ' + fuera.length + ' que salieron del top, vender el día que salieron habría dado ' + pc(alSalir) + ' de media; aguantarlas hasta hoy, ' + pc(hastaHoy) + '. Diferencia: ' + (d >= 0 ? '+' : '') + n(d, 1) + ' puntos a favor de ' + (d >= 0 ? 'vender al salir' : 'aguantar') + '.'));
-    R.appendChild(B);
-  }
+  R.appendChild(pregunta(
+    '¿Habrías ganado dinero siguiendo el panel?',
+    (media(xs.map(a => a.ret)) >= 0 ? 'Sí, ' : 'No, ') + pc(media(xs.map(a => a.ret))) + ' de media por acción',
+    'De las ' + xs.length + ' acciones anotadas, ' + pos + ' van en positivo (' + Math.round(pos / xs.length * 100) + ' %).',
+    xs.length, 30, media(xs.map(a => a.ret)) >= 0));
+
+  R.appendChild(pregunta(
+    '¿Mejor que comprar el índice?',
+    vsSp == null ? '—' : (vsSp >= 0 ? 'Sí, ' : 'No, ') + (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos frente al S&P 500',
+    'Comparado con lo que habría hecho el S&P 500 en esos mismos días.',
+    cs.length, 30, (vsSp || 0) >= 0));
+
+  const altas = xs.filter(a => a.score >= 75).map(a => a.ret), bajas = xs.filter(a => a.score < 75).map(a => a.ret);
+  const dif = altas.length >= 10 && bajas.length >= 10 ? media(altas) - media(bajas) : null;
+  R.appendChild(pregunta(
+    '¿Sirve de algo la puntuación?',
+    dif == null ? '—' : (dif >= 0 ? 'Sí, las mejor puntuadas rinden ' : 'No, las mejor puntuadas rinden ') + (dif >= 0 ? '+' : '') + n(dif, 1) + ' puntos más',
+    'Las de 75 o más: ' + pc(media(altas)) + ' (' + altas.length + ' casos). Las de menos de 75: ' + pc(media(bajas)) + ' (' + bajas.length + ' casos).',
+    Math.min(altas.length, bajas.length), 10, (dif || 0) >= 0));
+
   R.appendChild(tablaSimulacion(xs));
-  R.appendChild(objetivos(xs));
-  R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, al precio de cierre de ese día, con la puntuación que tenía. El resultado se mide contra el precio de hoy, sin comisiones ni dividendos. Con pocas entradas estos números no significan nada: hacen falta semanas y varias decenas de casos para sacar conclusiones.'));
+  R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, a su precio de cierre, y se compara con el precio de hoy. Sin comisiones.'));
 };

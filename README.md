@@ -154,6 +154,12 @@ acciones vigiladas han dado señal de salida.
 Sigue a todas las acciones que han pasado por el top 10 y responde a si la compra sigue siendo viable. Cada día
 recomprueba los 8 requisitos obligatorios con los datos de hoy, aunque la acción ya no esté en el top:
 
+## Parámetros
+
+Quinta pestaña: todas las reglas en seis tablas (requisitos de entrada, puntuación, penalizaciones y bonus,
+veredictos, reglas de venta, y fuentes y límites). Ahí vive la letra pequeña que antes se repetía al final de cada
+pestaña.
+
 ## Veredicto de compra
 
 Las dos pestañas usan la misma función (`window.VEREDICTO` en `docs/app.js`), de modo que una acción nunca puede
@@ -200,7 +206,17 @@ Protocolo de salida, pensado para aguantar la subida y no vender por un 5 %:
 |---|---|
 | La tendencia aguanta | **MANTENER**, con el stop del día |
 | Primeras grietas (pierde la EMA 21, devuelve ≥ 30 % de la ganancia, falla un requisito) | **VIGILAR** |
-| Cierra bajo la EMA 50, pierde el stop, RSI < 45, devuelve ≥ 50 % de lo ganado o rompe dos requisitos | **VENDER** |
+| Cierra bajo la EMA 50, pierde el stop, RSI < 45, devuelve demasiado de lo ganado o rompe dos requisitos | **VENDER** |
+
+Tres detalles que evitan vender antes de tiempo o tarde:
+
+- **El stop nunca baja.** Se guarda el valor más alto que ha alcanzado, así que si la EMA 50 retrocede, el stop se
+  queda donde estaba.
+- **El máximo se toma del mercado**, no de lo que el panel haya visto: usa los máximos de 1 y 3 meses además del
+  precio más alto registrado, así funciona aunque no abras la web en semanas.
+- **La devolución permitida es proporcional**: por debajo de un 30 % de ganancia manda solo el stop (para no salir en
+  una corrección normal); entre el 30 y el 100 % se vende al devolver la mitad; por encima del 100 %, al devolver el
+  40 %.
 
 **No hay ninguna regla que venda por haber ganado mucho.** Los requisitos de entrada (capitalización máxima y precio
 mínimo) se marcan con `entrada: true` y no cuentan como incumplimiento mientras tengas la acción: que una ganadora

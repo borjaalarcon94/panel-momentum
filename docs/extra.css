@@ -115,3 +115,9 @@ details.descartadas .tw{margin-top:8px}
 .name,.m,.clave,.quehacer span{overflow-wrap:anywhere}
 .editor{margin-top:10px;padding:10px;border:1px dashed var(--line);border-radius:10px}
 .editor .row{margin-bottom:6px;align-items:center}
+.ph{font-size:15px;margin:18px 0 8px}
+.pregunta{font-size:13px;color:var(--muted)}
+.respuesta{font-size:18px;font-weight:700;margin:4px 0 6px}
+.rverde{color:var(--up)}.rrojo{color:var(--down)}.rgris{color:var(--muted)}
+.ganancia{font-size:22px;font-weight:700;line-height:1.1}
+#rres .card{padding:12px 14px}
