@@ -108,6 +108,34 @@ for (const f of orden) {
   niveles[0] < niveles[1] ? ok('una nota alta pero estirada va detrás de una comprable') : mal('la estirada no cede el paso', niveles.join(','));
   niveles[1] < niveles[2] ? ok('lo que ya no se toca va al final') : mal('la rota no va al final', niveles.join(','));
 
+  /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
+     el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
+     T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que
+     hay que tocarlos desde dentro. */
+  console.log('\nRESULTADOS CON HISTORIAL SUFICIENTE');
+  vm.runInContext(`
+    const base = FH[FH.length - 1];
+    const sesiones = [];
+    for (let k = 1; sesiones.length < 25; k++) {
+      const d = new Date(base + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + k);
+      if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) sesiones.push(d.toISOString().slice(0, 10));
+    }
+    const falsos = [];
+    for (let i = 0; i < 40; i++) falsos.push({ t: 'X' + i, s: 'X' + i, sc: 76 + (i % 12) });
+    sesiones.forEach((f, j) => { HIST[f] = { spy: 100 + j,
+      acciones: falsos.map(a => ({ ...a, p: 100 + j * (a.sc >= 82 ? 0.4 : 0.1) })) } });
+    FH = Object.keys(HIST).sort().reverse();
+    falsos.forEach(a => { T.precios[a.s] = 110 });
+  `, ctx);
+  await paso('resultados se pinta con 40 entradas maduras', () => ventana.resultados());
+  const texto = (function leer(x) {
+    return (x.textContent || '') + ' ' + (x.hijos || []).map(leer).join(' ');
+  })(porId.rres);
+  !/Todav/.test(texto) ? ok('ya no dice "todavía no"') : mal('sigue bloqueada con 40 entradas maduras');
+  /Sirve de algo la puntuaci/.test(texto) ? ok('responde si la puntuación discrimina') : mal('no responde a la puntuación');
+  /mediana/.test(texto) ? ok('parte por la mediana, no por un 75 fijo que nadie baja') : mal('no usa la mediana');
+  /tres formas de operarlas/.test(texto) ? ok('aparece la comparación de formas de operar') : mal('falta la simulación');
+
   console.log('\nEL TEMA ARRANCA OSCURO Y SE PUEDE CAMBIAR');
   doc.documentElement.dataset.tema === undefined ? ok('por defecto es oscuro') : mal('no arranca oscuro', doc.documentElement.dataset.tema);
   const bt = doc.getElementById('tema');

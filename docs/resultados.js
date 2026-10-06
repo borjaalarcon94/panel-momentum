@@ -1,91 +1,128 @@
-/* Pestana "Resultados": mide si la puntuacion sirve de algo. Se calcula con lo que ya hay guardado:
-   cada entrada al top con su puntuacion de ese dia, su precio, y el precio de hoy. */
-const TRAMOS = [[85, 'Puntuación 85 o más'], [75, 'Puntuación 75-85'], [65, 'Puntuación 65-75'], [0, 'Puntuación menor de 65']];
+/* Pestana "Resultados": responde a una sola pregunta, "¿me puedo fiar ya de esto?", y mientras la
+   respuesta sea no, lo dice claro y enseña el registro en bruto sin disfrazarlo de conclusion.
+   Se calcula con lo que ya hay guardado: cada entrada al top con su nota de ese dia, su precio, y
+   el precio de hoy. Cero llamadas a la red. */
+
+/* Una entrada no cuenta hasta que ha vivido lo suficiente: medir lo que hizo una accion en dos dias
+   y promediarlo con lo que hizo otra en dos meses no significa nada. */
+const MADUREZ = 15;   // sesiones que tiene que vivir una entrada para contar
+const MINIMO = 30;    // entradas maduras para poder concluir algo
+
+/* Un push de codigo en fin de semana hacia que el proceso guardara un dia con el cierre del viernes
+   repetido. Ya no ocurre (build.py lo corta), pero los que hay guardados no son sesiones de bolsa y
+   no pueden contar como recorrido. */
+const esSesion = f => { const d = new Date(f + 'T12:00:00Z').getUTCDay(); return d !== 0 && d !== 6 };
+/* El precio de un archivo de fin de semana es el cierre del viernes, asi que la entrada se apunta en
+   el viernes: poner "entro el domingo" al lado de un precio de viernes solo confunde. */
+const sesionDe = f => { const d = new Date(f + 'T12:00:00Z');
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10) };
 
 function entradas() {
   const P = T.precios || {}, hoyF = FH[0], spyHoy = (HIST[hoyF] || {}).spy;
   const reg = {};
   [...FH].reverse().forEach(f => ((HIST[f] || {}).acciones || []).forEach(a => {
     const k = a.s || a.t;
-    if (!reg[k]) reg[k] = { ticker: a.t, entrada: f, precio: a.p, score: a.sc, spy: (HIST[f] || {}).spy, ultimo: f, precioUltimo: a.p };
+    if (!reg[k]) reg[k] = { ticker: a.t, entrada: sesionDe(f), precio: a.p, score: a.sc, spy: (HIST[f] || {}).spy, ultimo: f, precioUltimo: a.p };
     reg[k].ultimo = f; reg[k].precioUltimo = a.p;
   }));
   return Object.entries(reg).map(([k, r]) => {
     const ahora = (ACT[k] || {}).precio ?? P[k] ?? null;
-    const fuera = r.ultimo !== hoyF;
-    return { ...r, ahora, clave: k, ticker: r.ticker,
+    return { ...r, ahora, clave: k,
       ret: ahora != null && r.precio ? (ahora / r.precio - 1) * 100 : null,
       retAlSalir: r.precioUltimo && r.precio ? (r.precioUltimo / r.precio - 1) * 100 : null,
-      sp: r.spy && spyHoy ? (spyHoy / r.spy - 1) * 100 : null, fuera,
-      dias: Math.round((new Date(hoyF + 'T12:00:00Z') - new Date(r.entrada + 'T12:00:00Z')) / 864e5) };
-  }).filter(a => a.ret != null && a.score != null && a.entrada !== hoyF);
+      sp: r.spy && spyHoy ? (spyHoy / r.spy - 1) * 100 : null, fuera: r.ultimo !== hoyF,
+      sesiones: FH.filter(f => f > r.entrada && esSesion(f)).length };   // sesiones nuestras, no dias de calendario
+  }).filter(a => a.ret != null && a.score != null && a.sesiones > 0);
 }
 
-/* Los tres objetivos que tiene que cumplir el sistema para merecer la pena. Si fallan, hay que cambiar criterios. */
-function objetivos(xs) {
-  const media = v => v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
-  const cs = xs.filter(a => a.sp != null);
-  const vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
-  const altas = xs.filter(a => a.score >= 75).map(a => a.ret), bajas = xs.filter(a => a.score < 75).map(a => a.ret);
-  const difTramos = altas.length >= 10 && bajas.length >= 10 ? media(altas) - media(bajas) : null;
-  const fuera = xs.filter(a => a.fuera && a.retAlSalir != null);
-  const difSalida = fuera.length >= 10 ? media(fuera.map(a => a.retAlSalir)) - media(fuera.map(a => a.ret)) : null;
-  const filas = [
-    ['Batir al S&P 500', vsSp, cs.length, 30, 'de media, cada entrada frente al índice en los mismos días'],
-    ['Que la puntuación discrimine', difTramos, Math.min(altas.length, bajas.length), 10, 'las de 75 o más deberían rendir más que las de menos de 75'],
-    ['Que salir a tiempo compense', difSalida, fuera.length, 10, 'vender el día que salen del top frente a aguantarlas'],
-  ];
-  const d = el('div', 'blk');
-  d.appendChild(el('div', 'blt', '¿Se están cumpliendo los objetivos?'));
-  const t = el('table', 'tabla'), h = el('tr');
-  ['Objetivo', 'Resultado', 'Casos', 'Estado'].forEach(x => h.appendChild(el('th', null, x)));
-  t.appendChild(h);
-  filas.forEach(([nom, val, n0, min, ayuda]) => {
-    const tr = el('tr');
-    const td = el('td'); td.appendChild(el('b', null, nom)); td.appendChild(el('div', 'name', ayuda)); tr.appendChild(td);
-    tr.appendChild(el('td', val == null ? null : val >= 0 ? 'up' : 'down', val == null ? '—' : (val >= 0 ? '+' : '') + n(val, 1) + ' pt'));
-    tr.appendChild(el('td', null, n0 + (n0 < min ? ' de ' + min : '')));
-    const est = el('td');
-    est.appendChild(el('span', 'est ' + (n0 < min ? 'eoff' : val >= 0 ? 'eok' : 'ebad'),
-      n0 < min ? 'sin datos suficientes' : val >= 0 ? 'se cumple' : 'no se cumple'));
-    tr.appendChild(est);
-    t.appendChild(tr);
-  });
-  const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
-  
+const media = v => (v.length ? v.reduce((s, x) => s + x, 0) / v.length : null);
+
+/* Cuantas semanas quedan: las entradas que ya hay tienen que madurar, y si aun no hay suficientes,
+   se proyecta al ritmo al que estan apareciendo. Es una estimacion, y se dice que lo es. */
+function cuandoEstara(xs) {
+  const sesiones = FH.filter(esSesion).length;
+  const faltanPorMadurar = [...xs].sort((a, b) => b.sesiones - a.sesiones)[MINIMO - 1];
+  let sesionesQueFaltan;
+  if (faltanPorMadurar) sesionesQueFaltan = Math.max(0, MADUREZ - faltanPorMadurar.sesiones);
+  else {
+    const ritmo = xs.length / Math.max(sesiones, 1);
+    sesionesQueFaltan = Math.ceil((MINIMO - xs.length) / Math.max(ritmo, 0.2)) + MADUREZ;
+  }
+  if (sesionesQueFaltan <= 0) return null;
+  const d = new Date(FH[0] + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + Math.ceil(sesionesQueFaltan / 5) * 7);
+  return { sesiones: sesionesQueFaltan, fecha: d.toISOString().slice(0, 10) };
+}
+
+/* Lo primero que se lee: si los numeros valen ya o no, y cuanto falta. Nada mas. */
+function estado(xs, maduras) {
+  const listo = maduras.length >= MINIMO;
+  const d = el('div', 'card');
+  d.appendChild(el('div', 'pregunta', '¿Me puedo fiar ya de estos números?'));
+  d.appendChild(el('div', 'respuesta ' + (listo ? 'rverde' : 'rgris'),
+    listo ? 'Sí, ya hay historial suficiente' : 'Todavía no'));
+  if (listo) {
+    d.appendChild(el('div', 'm', maduras.length + ' entradas con al menos ' + MADUREZ + ' sesiones de recorrido. Las respuestas de abajo ya se sostienen.'));
+    return d;
+  }
+  const falta = cuandoEstara(xs);
+  d.appendChild(el('div', 'm', 'El panel lleva ' + FH.filter(esSesion).length + ' ' + (FH.filter(esSesion).length === 1 ? 'sesión' : 'sesiones') + ' guardadas y hay ' +
+    xs.length + ' ' + (xs.length === 1 ? 'acción anotada' : 'acciones anotadas') + ', pero ' +
+    (maduras.length ? 'solo ' + maduras.length : 'ninguna') + ' con las ' + MADUREZ + ' sesiones de recorrido que hacen falta. ' +
+    'Medir lo que ha hecho una acción en dos días no dice nada: sube o baja por ruido.'));
+  const b = el('div', 'barra'); const r = el('i'); r.style.width = Math.min(100, Math.round(100 * maduras.length / MINIMO)) + '%';
+  b.appendChild(r); d.appendChild(b);
+  d.appendChild(el('div', 'm', maduras.length + ' de ' + MINIMO + ' entradas maduras' +
+    (falta ? ' · estimo que estará listo hacia el ' + fFecha(falta.fecha) : '')));
   return d;
 }
 
-/* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice,
-   usando los cierres de los dias que tenemos (los que estuvo en el top) y el precio de hoy.
-   Compara tres formas de operar la misma lista para ver si las reglas de salida aportan. */
+/* Una pregunta con su respuesta en una linea. Solo se pinta cuando hay con que responderla. */
+function pregunta(titulo, respuesta, detalle, bien) {
+  const d = el('div', 'card');
+  d.appendChild(el('div', 'pregunta', titulo));
+  d.appendChild(el('div', 'respuesta ' + (bien ? 'rverde' : 'rrojo'), respuesta));
+  d.appendChild(el('div', 'm', detalle));
+  return d;
+}
+
+/* El corte entre "buena nota" y "mala nota" es la mediana de lo anotado, no un 75 fijo: al top solo
+   suben las mejores, asi que con un corte fijo el grupo de abajo se quedaba siempre vacio y la
+   pregunta no se podia responder nunca por mucho que esperaramos. */
+function discrimina(maduras) {
+  const notas = maduras.map(a => a.score).sort((a, b) => a - b);
+  const corte = notas[Math.floor(notas.length / 2)];
+  const altas = maduras.filter(a => a.score >= corte), bajas = maduras.filter(a => a.score < corte);
+  if (altas.length < 10 || bajas.length < 10) return null;
+  return { corte, dif: media(altas.map(a => a.ret)) - media(bajas.map(a => a.ret)), altas, bajas };
+}
+
+/* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice, con los
+   cierres de los dias que tenemos (los que estuvo en el top) y el precio de hoy. */
 function simula(xs) {
-  const res = xs.map(x => {
-    const dias = FH.filter(f => f >= x.entrada).sort();
+  return xs.map(x => {
     let maxVisto = x.precio, salida = null, motivo = null, stopPrevio = 0;
-    for (const f of dias.slice(1)) {
+    for (const f of FH.filter(f => f > x.entrada && esSesion(f)).sort()) {
       const fila = ((HIST[f] || {}).acciones || []).find(y => (y.s || y.t) === x.clave);
       if (!fila || !fila.p) continue;           // ese dia salio del top: no tenemos su cierre
       maxVisto = Math.max(maxVisto, fila.p);
-      const gan = (fila.p / x.precio - 1) * 100;
-      const ganMax = (maxVisto / x.precio - 1) * 100;
-      // Mismas reglas que las posiciones reales (docs/reglas.js). Sin EMA 50 histórica, el stop usa
-      // el suelo de pérdida máxima y la subida al coste; se indica en la nota de la tabla.
+      const gan = (fila.p / x.precio - 1) * 100, ganMax = (maxVisto / x.precio - 1) * 100;
+      // Mismas reglas que las posiciones reales (docs/reglas.js). Sin EMA 50 historica, el stop usa
+      // el suelo de perdida maxima y la subida al coste; se indica en la nota de la tabla.
       stopPrevio = Math.max(stopPrevio, window.REGLAS.stopDe({ precio: fila.p }, x.precio, stopPrevio) || 0);
       if (fila.p < stopPrevio) { salida = fila.p; motivo = 'stop'; break }
       const limite = window.REGLAS.limiteDevolucion(ganMax);
       const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
-      if (limite != null && devuelto >= limite) { salida = fila.p; motivo = 'devolvió el ' + Math.round(devuelto) + ' %'; break }
+      if (limite != null && devuelto >= limite) { salida = fila.p; motivo = 'devolución'; break }
     }
     return { ...x, conReglas: salida != null ? (salida / x.precio - 1) * 100 : x.ret, motivo,
       alSalirDelTop: x.retAlSalir != null ? x.retAlSalir : x.ret };
   });
-  return res;
 }
 
-function tablaSimulacion(xs) {
-  const r = simula(xs);
-  const med = v => v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+function tablaSimulacion(maduras) {
+  const r = simula(maduras);
   const filas = [
     ['Comprar y aguantar hasta hoy', r.map(x => x.ret), 'sin vender nunca'],
     ['Vender el día que sale del top', r.map(x => x.alSalirDelTop), 'disciplina máxima'],
@@ -99,61 +136,78 @@ function tablaSimulacion(xs) {
   filas.forEach(([nom, v, ayuda]) => {
     const tr = el('tr'), ord = [...v].sort((a, b) => a - b);
     const td = el('td'); td.appendChild(el('b', null, nom)); td.appendChild(el('div', 'name', ayuda)); tr.appendChild(td);
-    tr.appendChild(el('td', med(v) >= 0 ? 'up' : 'down', pc(med(v))));
+    tr.appendChild(el('td', media(v) >= 0 ? 'up' : 'down', pc(media(v))));
     tr.appendChild(el('td', null, pc(ord[Math.floor(ord.length / 2)])));
     tr.appendChild(el('td', null, Math.round(100 * v.filter(x => x > 0).length / v.length) + ' %'));
     tr.appendChild(el('td', 'down', pc(ord[0])));
     t.appendChild(tr);
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
-  const vendidas = r.filter(x => x.motivo);
-  
+  return d;
+}
+
+/* El registro en bruto. Esto no concluye nada, pero se entiende sin saber estadistica: cada accion que
+   ha entrado, con que nota, a que precio y que ha hecho desde entonces. */
+function registro(xs) {
+  const VER = 15;
+  const orden = [...xs].sort((a, b) => (a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : (b.score || 0) - (a.score || 0)));
+  const d = el('div', 'blk');
+  d.appendChild(el('div', 'blt', 'Lo que llevamos anotado'));
+  const t = el('table', 'tabla'), h = el('tr');
+  ['Acción', 'Entró', 'Nota', 'Al entrar', 'Ahora', 'Cambio', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
+  t.appendChild(h);
+  orden.slice(0, VER).forEach(a => {
+    const tr = el('tr');
+    const td = el('td'); td.appendChild(el('b', null, a.ticker));
+    if (a.fuera) td.appendChild(el('div', 'name', 'ya no está en el top'));
+    tr.appendChild(td);
+    tr.appendChild(el('td', null, fFecha(a.entrada)));
+    tr.appendChild(el('td', null, n(a.score, 0)));
+    tr.appendChild(el('td', null, n(a.precio) + ' $'));
+    tr.appendChild(el('td', null, n(a.ahora) + ' $'));
+    tr.appendChild(el('td', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
+    const s = el('td'); s.appendChild(el('span', 'est ' + (a.sesiones >= MADUREZ ? 'eok' : 'eoff'),
+      a.sesiones + (a.sesiones >= MADUREZ ? '' : ' de ' + MADUREZ)));
+    tr.appendChild(s);
+    t.appendChild(tr);
+  });
+  const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' más recientes de ' + orden.length + '.'));
   return d;
 }
 
 window.resultados = function () {
   const R = $('rres'); R.replaceChildren();
   const xs = entradas();
-  if (xs.length < 3) {
+  if (!xs.length) {
     R.appendChild(el('div', 'empty', 'Todavía no hay historial. Cada acción que entra en el top queda anotada con su puntuación y su precio, y aquí se compara con lo que hizo después. Vuelve dentro de unas semanas.'));
     return;
   }
-  const media = v => (v.length ? v.reduce((s, x) => s + x, 0) / v.length : null);
-  const cs = xs.filter(a => a.sp != null);
-  const vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
-  const pos = xs.filter(a => a.ret > 0).length;
+  const maduras = xs.filter(a => a.sesiones >= MADUREZ);
+  R.appendChild(estado(xs, maduras));
 
-  // Tres preguntas, tres respuestas en lenguaje llano.
-  const pregunta = (titulo, respuesta, detalle, casos, minimo, bien) => {
-    const d = el('div', 'card');
-    d.appendChild(el('div', 'pregunta', titulo));
-    const suficiente = casos >= minimo;
-    d.appendChild(el('div', 'respuesta ' + (!suficiente ? 'rgris' : bien ? 'rverde' : 'rrojo'),
-      suficiente ? respuesta : 'Todavía no se puede saber'));
-    d.appendChild(el('div', 'm', suficiente ? detalle : 'Hacen falta ' + minimo + ' casos y por ahora hay ' + casos + '. Con menos, cualquier conclusión sería casualidad.'));
-    return d;
-  };
+  /* Las respuestas solo aparecen cuando se sostienen. Antes salian en gris diciendo "no se puede
+     saber" y justo debajo una tabla con numeros al decimal: se contradecian solas. */
+  if (maduras.length >= MINIMO) {
+    const ret = media(maduras.map(a => a.ret)), pos = maduras.filter(a => a.ret > 0).length;
+    R.appendChild(pregunta('¿Habrías ganado dinero siguiendo el panel?',
+      (ret >= 0 ? 'Sí, ' : 'No, ') + pc(ret) + ' de media por acción',
+      'De las ' + maduras.length + ' entradas con recorrido, ' + pos + ' van en positivo (' + Math.round(pos / maduras.length * 100) + ' %).', ret >= 0));
 
-  R.appendChild(pregunta(
-    '¿Habrías ganado dinero siguiendo el panel?',
-    (media(xs.map(a => a.ret)) >= 0 ? 'Sí, ' : 'No, ') + pc(media(xs.map(a => a.ret))) + ' de media por acción',
-    'De las ' + xs.length + ' acciones anotadas, ' + pos + ' van en positivo (' + Math.round(pos / xs.length * 100) + ' %).',
-    xs.length, 30, media(xs.map(a => a.ret)) >= 0));
+    const cs = maduras.filter(a => a.sp != null), vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
+    if (vsSp != null) R.appendChild(pregunta('¿Mejor que comprar el índice?',
+      (vsSp >= 0 ? 'Sí, ' : 'No, ') + (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos frente al S&P 500',
+      'Comparado con lo que habría hecho el S&P 500 en esos mismos días.', vsSp >= 0));
 
-  R.appendChild(pregunta(
-    '¿Mejor que comprar el índice?',
-    vsSp == null ? '—' : (vsSp >= 0 ? 'Sí, ' : 'No, ') + (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos frente al S&P 500',
-    'Comparado con lo que habría hecho el S&P 500 en esos mismos días.',
-    cs.length, 30, (vsSp || 0) >= 0));
+    const dis = discrimina(maduras);
+    if (dis) R.appendChild(pregunta('¿Sirve de algo la puntuación?',
+      (dis.dif >= 0 ? 'Sí, las mejor puntuadas rinden ' : 'No, las mejor puntuadas rinden ') + (dis.dif >= 0 ? '+' : '') + n(dis.dif, 1) + ' puntos más',
+      'Partiendo por la mediana (' + n(dis.corte, 0) + '): de ' + n(dis.corte, 0) + ' para arriba, ' + pc(media(dis.altas.map(a => a.ret))) + ' en ' + dis.altas.length +
+      ' casos; por debajo, ' + pc(media(dis.bajas.map(a => a.ret))) + ' en ' + dis.bajas.length + '.', dis.dif >= 0));
 
-  const altas = xs.filter(a => a.score >= 75).map(a => a.ret), bajas = xs.filter(a => a.score < 75).map(a => a.ret);
-  const dif = altas.length >= 10 && bajas.length >= 10 ? media(altas) - media(bajas) : null;
-  R.appendChild(pregunta(
-    '¿Sirve de algo la puntuación?',
-    dif == null ? '—' : (dif >= 0 ? 'Sí, las mejor puntuadas rinden ' : 'No, las mejor puntuadas rinden ') + (dif >= 0 ? '+' : '') + n(dif, 1) + ' puntos más',
-    'Las de 75 o más: ' + pc(media(altas)) + ' (' + altas.length + ' casos). Las de menos de 75: ' + pc(media(bajas)) + ' (' + bajas.length + ' casos).',
-    Math.min(altas.length, bajas.length), 10, (dif || 0) >= 0));
+    R.appendChild(tablaSimulacion(maduras));
+  }
 
-  R.appendChild(tablaSimulacion(xs));
-  R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, a su precio de cierre, y se compara con el precio de hoy. Sin comisiones.'));
+  R.appendChild(registro(xs));
+  R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, a su precio de cierre, y se compara con el precio de hoy. Sin comisiones. Una sesión es un día de los que este panel tiene guardados.'));
 };

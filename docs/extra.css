@@ -174,3 +174,7 @@ main{position:relative}
 h1{padding-right:84px}
 @media (max-width:420px){h1{padding-right:70px}}
 @media (max-width:420px){.tema{padding:5px 9px;font-size:12px}}
+
+/* Barra de avance del historial: cuanto falta para que los numeros de Resultados se sostengan. */
+.barra{height:6px;border-radius:999px;background:var(--line);overflow:hidden;margin:10px 0 6px}
+.barra i{display:block;height:100%;background:var(--up);border-radius:999px}

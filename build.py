@@ -200,8 +200,14 @@ def main():
                         and (puntos.get(a["ticker"]) or {}).get("extendida")],
                        key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
     comprueba(universo, candidatas, acciones, mercado, ref)
+    # Sabado o domingo no hay cierre nuevo: TradingView devuelve el del viernes. Guardarlo crea un dia
+    # falso que ocupa sitio y que luego cuenta como sesion al medir resultados. El filtro por datos
+    # repetidos no basta: si cambia el codigo de puntuacion, el top sale distinto con los mismos precios.
+    if datetime.date.fromisoformat(hoy).weekday() >= 5:
+        print("Fin de semana: no hay cierre nuevo, no se guarda el dia")
+        acciones = None
     previos = [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
-    if previos:
+    if previos and acciones is not None:
         ant = leer(previos[-1])["acciones"]
         if [(a["ticker"], a["precio"]) for a in ant] == [(a["ticker"], a["precio"]) for a in acciones]:
             print("Mismos datos que el dia anterior (festivo): no se guarda")
