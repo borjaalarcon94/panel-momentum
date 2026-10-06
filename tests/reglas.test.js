@@ -98,5 +98,18 @@ comprueba('sin precio de compra tampoco',
   REGLAS.evaluaPosicion({ datos: { precio: 100 }, compra: null, dias: 1, requisitos: req() }).estado, 'sindatos');
 comprueba('stop de entrada sin datos devuelve nulo', REGLAS.stopDeEntrada({}), null);
 
+/* El stop ya viene recortado al 15 %, asi que comparar su distancia con 15 solo era cierto por el
+   redondeo del flotante y marcaba "compra arriesgada" a casi todo. El aviso tiene que mirar la EMA 50. */
+console.log('\nAVISO DE STOP SIN NIVEL TECNICO (TOPE)');
+const tope = (precio, ema50) => REGLAS.stopDeEntrada({ precio, ema50, ema21: 0 });
+comprueba('la EMA 50 dentro del 15 %: el stop es tecnico', tope(100, 90).tope, false);
+comprueba('la EMA 50 justo al 15 %: todavia es tecnico, no lo decide el redondeo', tope(100, 85).tope, false);
+comprueba('la EMA 50 mas lejos del 15 %: el stop es un tope fijo', tope(100, 79).tope, true);
+comprueba('con el tope, el stop se queda exactamente en la perdida maxima',
+  Math.round(tope(100, 79).stop * 1e6) / 1e6, 85);
+comprueba('sin EMA 50 no se inventa el aviso', tope(100, null).tope, false);
+comprueba('la distancia a la EMA 50 se publica para poder explicarlo',
+  Math.round(tope(100, 79).distanciaEma50 * 10) / 10, -21);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }

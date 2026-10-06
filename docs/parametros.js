@@ -145,13 +145,13 @@ window.parametros = function () {
 
   R.appendChild(tabla('4 · Qué significa cada veredicto',
     ['Veredicto', 'Cuándo aparece'], [
-      ['COMPRA', 'cumple todo, no está estirada y el stop queda a menos de un 15 %'],
-      ['Compra arriesgada', 'cumple, pero el stop técnico queda más lejos del 15 %'],
+      ['COMPRA', 'cumple todo, no está estirada y su EMA 50 queda a menos de un 15 %'],
+      ['Compra arriesgada', 'cumple, pero la EMA 50 queda a más del 15 %: el stop es un tope fijo, no un nivel técnico'],
       ['Esperar', 'está a más de un 10 % de su máximo de 52 semanas'],
       ['No comprar aquí', 'demasiado estirada: mejor esperar a que consolide'],
       ['Vigilar', 'cumple, pero su puntuación ha caído más de 8 puntos'],
       ['Ya no cumple', 'ha roto algún requisito obligatorio'],
-    ]));
+    ], 'La lista del día se ordena por prioridad de compra: primero las que marcan COMPRA, después las de vigilar y al final las que no se tocan; dentro de cada grupo, por puntuación. La puntuación mide la calidad de la empresa, no si hoy es buen día para entrar.'));
 
   R.appendChild(tabla('5 · Cuándo vender una posición abierta',
     ['Regla', 'Detalle'], [

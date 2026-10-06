@@ -10,7 +10,6 @@
     // Cuánto se le permite devolver de la ganancia máxima, según lo que haya llegado a ganar
     devolucion: [{ desde: 100, limite: 40 }, { desde: 30, limite: 50 }],
     avisoDevolucion: 0.6,   // fracción del límite a la que se avisa (VIGILAR)
-    stopLejos: 15,          // % de distancia al stop a partir del cual una compra se considera arriesgada
     lejosDeMaximo: 10,      // % por debajo del máximo de 52 semanas que convierte una compra en "esperar"
   };
   const num = v => (typeof v === 'number' && isFinite(v) ? v : null);
@@ -93,10 +92,17 @@
   }
 
   /* Stop que se ofrece al comprar: el MISMO que gestionará la posición si entras hoy. */
+  /* Stop si entrases hoy. "tope" avisa de que la EMA 50 queda mas lejos que la perdida maxima: el stop
+     entonces no es un nivel tecnico sino una linea fija al -15 %, que el precio puede cruzar sin que
+     nada se haya roto. Antes esto se detectaba comparando la distancia con 15, pero como el stop ya
+     viene recortado a 15 esa comparacion solo era cierta por el redondeo del flotante. */
   function stopDeEntrada(datos) {
-    const precio = num(datos && datos.precio);
+    const precio = num(datos && datos.precio), ema50 = num(datos && datos.ema50);
     const stop = stopDe(datos, precio, null);
-    return stop == null || precio == null ? null : { stop, distancia: (stop / precio - 1) * 100, ema21: num(datos.ema21), ema50: num(datos.ema50) };
+    if (stop == null || precio == null) return null;
+    const distanciaEma50 = ema50 ? (ema50 / precio - 1) * 100 : null;
+    const tope = distanciaEma50 != null && !alMenos(distanciaEma50, -R.perdidaMaxima);
+    return { stop, distancia: (stop / precio - 1) * 100, ema21: num(datos.ema21), ema50, distanciaEma50, tope };
   }
 
   raiz.REGLAS = { R, alMenos, limiteDevolucion, stopDe, maximoDesdeCompra, evaluaPosicion, senalesDeMercado, stopDeEntrada };

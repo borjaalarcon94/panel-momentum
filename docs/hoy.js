@@ -112,13 +112,13 @@ c.appendChild(vd);
 if(a.pt&&a.pt.razones.length)c.appendChild(el('div','clave','➜ '+a.pt.razones[0]));
 const sal=window.SALIDA(a);
 const o=sal.opciones[0];
-if(o){const lejos=o.d<-window.REGLAS.R.stopLejos,sb=el('div','stopbox'+(lejos?' lejos':''));
+if(o){const sb=el('div','stopbox'+(sal.tope?' lejos':''));
 sb.appendChild(el('span','et','Stop'));
 sb.appendChild(el('span','vl',n(o.v)+' $'));
 sb.appendChild(el('span','ds',pc(o.d,0)+' desde aquí'));
 const tam=window.TAMANO(o.d);
 if(tam&&v.cls==='qok'){sb.appendChild(el('span','et','Comprar'));sb.appendChild(el('span','vl',n(tam.importe,0)));sb.appendChild(el('span','ds',n(tam.pct,1)+' % de tu cartera'))}
-if(lejos)sb.appendChild(el('span','ds','· media posición o esperar un retroceso'));
+if(sal.tope)sb.appendChild(el('span','ds','· media posición o esperar un retroceso'));
 c.appendChild(sb)}
 const nr=a.pt?a.pt.riesgos.length:0;
 

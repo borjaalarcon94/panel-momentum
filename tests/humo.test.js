@@ -97,6 +97,17 @@ for (const f of orden) {
   if (v && e && Math.abs(parseFloat(String(v.stop).replace(',', '.')) - e.stop) < 0.05) ok('el stop del veredicto es el del módulo de reglas');
   else if (v && e) mal('el stop del veredicto no coincide', v.stop + ' vs ' + e.stop);
 
+  /* Una nota alta que hoy no se puede comprar no puede encabezar la lista: lo primero que se lee
+     tiene que ser lo que se puede comprar. */
+  console.log('\nLA LISTA SE ORDENA POR PRIORIDAD DE COMPRA');
+  const comprable = { ticker: 'BUENA', precio: 100, ema50: 92, ema21: 97, rsi: 62, max52: 101, pt: { extendida: false } };
+  const estirada = { ticker: 'LEJOS', precio: 100, ema50: 70, ema21: 95, rsi: 62, max52: 101, pt: { extendida: false } };
+  const rota = { ticker: 'ROTA', precio: 100, ema50: 110, ema21: 108, rsi: 30, max52: 180, pt: { extendida: false } };
+  const niveles = [comprable, estirada, rota].map(x => ventana.PRIORIDAD(x));
+  niveles[0] === 0 ? ok('la que se puede comprar va primera') : mal('la comprable no es prioridad 0', niveles[0]);
+  niveles[0] < niveles[1] ? ok('una nota alta pero estirada va detrás de una comprable') : mal('la estirada no cede el paso', niveles.join(','));
+  niveles[1] < niveles[2] ? ok('lo que ya no se toca va al final') : mal('la rota no va al final', niveles.join(','));
+
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
   if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
 })();

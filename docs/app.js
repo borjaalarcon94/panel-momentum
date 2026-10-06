@@ -3,7 +3,7 @@
    datos/<fecha>.json: el detalle de un dia, que se descarga solo cuando se mira ese dia. */
 let T = {}, HIST = {}, FH = [], ACT = {}, CRIT = {}, MHOY = {}, REFHOY = {};
 const CACHE = {};                       // ficheros de dia ya descargados
-const S = { dia: null, orden: 'score', top: 5 };   // se muestran 5; las 10 guardadas están a un clic
+const S = { dia: null, orden: 'prioridad', top: 5 };   // se muestran 5; las 10 guardadas están a un clic
 let REGIMEN = { favorable: true };
 const $ = id => document.getElementById(id);
 const n = (v, d = 2) => v == null ? '-' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -65,10 +65,20 @@ window.SALIDA = function (a) {
   if (e.stop != null) opciones.push({ t: 'Stop del sistema (EMA 50, con tope del ' + window.REGLAS.R.perdidaMaxima + ' %)', v: e.stop, d: e.distancia, nota: 'es el que gestionará tu posición si entras' });
   if (e.ema21 != null && a.precio) opciones.push({ t: 'Cierre bajo la EMA 21', v: e.ema21, d: (e.ema21 / a.precio - 1) * 100, nota: 'referencia más ceñida si quieres apurar' });
   if (a.atr && a.precio) opciones.push({ t: 'Dos veces su rango diario (ATR)', v: a.precio - 2 * a.atr, d: ((a.precio - 2 * a.atr) / a.precio - 1) * 100, nota: 'referencia por volatilidad' });
-  return { opciones, senales: window.REGLAS.senalesDeMercado(a).map(window.TEXTO_SENAL) };
+  return { opciones, tope: !!e.tope, distanciaEma50: e.distanciaEma50 != null ? e.distanciaEma50 : null,
+    senales: window.REGLAS.senalesDeMercado(a).map(window.TEXTO_SENAL) };
 };
 
-/* Acciones en circulacion mas antiguas/* Acciones en circulacion mas antiguas que conozcamos de ese valor: base para medir la dilucion. */
+/* Prioridad de compra: primero lo que se puede comprar hoy, despues lo que hay que vigilar y al final
+   lo que no se toca; dentro de cada grupo manda la nota. La nota mide lo buena que es la empresa, no si
+   hoy es el dia de entrar: un 89 que no se puede comprar no es la primera idea del dia. */
+const NIVEL = { qok: 0, qwarn: 1, qbad: 2 };
+window.PRIORIDAD = function (a) {
+  const v = window.VEREDICTO(a, { extendida: a.pt ? a.pt.extendida : false });
+  return NIVEL[v.cls] != null ? NIVEL[v.cls] : 2;
+};
+
+/* Tu cartera: cuanto dinero tienes y que porcentaje arriesgas por operacion. Solo en este navegador. */
 window.CARTERA = { leer() { try { return JSON.parse(localStorage.getItem('cartera-v1') || 'null') } catch (e) { return null } },
   guardar(v) { try { localStorage.setItem('cartera-v1', JSON.stringify(v)) } catch (e) {} } };
 
@@ -99,7 +109,7 @@ window.VEREDICTO = function (a, extra) {
   if (extendida) return { t: 'No comprar aquí', d: 'está muy estirada: esperar a que consolide. Si ya la tienes, dejarla correr con el stop en ' + stop + '.', cls: 'qwarn', stop };
   if (extra.flojea) return { t: 'Vigilar', d: 'sigue cumpliendo, pero ha perdido fuerza. Mantener con stop en ' + stop + '.', cls: 'qwarn', stop };
   if (dmax != null && dmax < -window.REGLAS.R.lejosDeMaximo) return { t: 'Esperar', d: 'está a ' + pc(dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn', stop };
-  if (o && o.d < -window.REGLAS.R.stopLejos) return { t: 'Compra arriesgada', d: 'el stop queda lejos, en ' + stop + ': media posición o esperar un retroceso.', cls: 'qwarn', stop };
+  if (sal.tope) return { t: 'Compra arriesgada', d: 'está un ' + n(-sal.distanciaEma50, 0) + ' % por encima de su EMA 50, así que el stop de ' + stop + ' no es un nivel técnico sino un tope fijo: media posición o esperar un retroceso.', cls: 'qwarn', stop };
   return { t: 'COMPRA', d: 'buen punto de entrada: stop en ' + stop + '.', cls: 'qok', stop };
 };
 
@@ -125,13 +135,22 @@ function puntua(f, d, lista, conNueva) {
     return { ...a, pt: p, score: p ? p.total : null, acel: p ? p.acel : null, g: p ? p.g : null,
       dmax: p ? p.dmax : null, ext: p ? p.extEma : null, racha: racha(a.ticker, f),
       nueva: conNueva && comparable && !antes.has(a.ticker) };
-  });
+  }).map(x => ({ ...x, prio: window.PRIORIDAD(x) }));
+}
+
+/* Desempate siempre por capitalizacion menor: a igualdad, la pequena tiene mas recorrido. */
+function compara(x, y) {
+  if (S.orden === 'prioridad') {
+    const d = (x.prio ?? 2) - (y.prio ?? 2);
+    if (d) return d;
+    return ((y.score ?? -1e18) - (x.score ?? -1e18)) || ((x.cap ?? 0) - (y.cap ?? 0));
+  }
+  return ((y[S.orden] ?? -1e18) - (x[S.orden] ?? -1e18)) || ((x.cap ?? 0) - (y.cap ?? 0));
 }
 
 window.vista = function () {
   const d = CACHE[S.dia] || {};
-  const todas = puntua(S.dia, d, d.acciones, true)
-    .sort((x, y) => ((y[S.orden] ?? -1e18) - (x[S.orden] ?? -1e18)) || ((x.cap ?? 0) - (y.cap ?? 0)));
+  const todas = puntua(S.dia, d, d.acciones, true).sort(compara);
   return { fecha: S.dia, fechaTxt: S.dia ? fFecha(S.dia) : '', todas, filas: todas.slice(0, S.top),
     enMarcha: puntua(S.dia, d, d.enMarcha, false).sort((x, y) => ((y.pt || {}).sinPenalizar ?? 0) - ((x.pt || {}).sinPenalizar ?? 0)),
     orden: $('orden').selectedOptions[0].textContent, filtros: [],
