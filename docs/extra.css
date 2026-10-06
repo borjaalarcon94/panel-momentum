@@ -165,3 +165,12 @@ h1{letter-spacing:-.4px}
 .aviso-viejo{background:var(--badbg);color:var(--down);border-left:5px solid currentColor;border-radius:12px;
   padding:11px 13px;margin:10px 0;font-size:13.5px;line-height:1.45}
 .aviso-viejo span{color:var(--text);font-weight:400}
+
+/* Boton de tema: discreto, arriba a la derecha, fuera del flujo de lectura. */
+.tema{position:absolute;top:0;right:0;border:1px solid var(--line);background:var(--card);color:var(--muted);
+  border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;line-height:1}
+.tema:hover{color:var(--text)}
+main{position:relative}
+h1{padding-right:84px}
+@media (max-width:420px){h1{padding-right:70px}}
+@media (max-width:420px){.tema{padding:5px 9px;font-size:12px}}

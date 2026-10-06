@@ -178,7 +178,27 @@ function avisaDatosViejos(ultimo) {
     el('span', null, ' · el último cierre guardado es el de ' + fFecha(ultimo) + '. Los precios, los stops y los veredictos no están actualizados: compruébalos en tu bróker antes de operar.'));
 }
 
+/* Tema: oscuro salvo que se pida claro. Se guarda en este navegador, igual que las posiciones.
+   El valor ya se ha aplicado en el <head> antes de pintar; aqui solo se cablea el boton. */
+function tema() {
+  const b = $('tema');
+  if (!b) return;
+  const pinta = () => { const claro = document.documentElement.dataset.tema === 'claro';
+    b.textContent = claro ? 'Oscuro' : 'Claro';
+    const m = document.querySelector('meta[name=theme-color]');
+    if (m) m.content = claro ? '#f6f7f9' : '#0f1115'; };
+  b.onclick = () => {
+    const claro = document.documentElement.dataset.tema === 'claro';
+    if (claro) delete document.documentElement.dataset.tema;
+    else document.documentElement.dataset.tema = 'claro';
+    try { localStorage.setItem('tema', claro ? 'oscuro' : 'claro') } catch (e) {}
+    pinta();
+  };
+  pinta();
+}
+
 async function iniciar() {
+  tema();
   try {
     T = await (await fetch('panel.json', { cache: 'no-cache' })).json();
   } catch (e) {

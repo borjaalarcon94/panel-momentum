@@ -29,7 +29,7 @@ const doc = {
   createElement: nodo, createElementNS: () => ({ ...nodo('svg'), setAttribute() {} }),
   getElementById: id => (porId[id] = porId[id] || nodo('div')),
   querySelector: () => null, querySelectorAll: () => [], addEventListener: (_, f) => { doc._listo = f },
-  head: nodo('head'), body: nodo('body'),
+  head: nodo('head'), body: nodo('body'), documentElement: { dataset: {} },
 };
 const almacen = {};
 const ventana = {
@@ -107,6 +107,14 @@ for (const f of orden) {
   niveles[0] === 0 ? ok('la que se puede comprar va primera') : mal('la comprable no es prioridad 0', niveles[0]);
   niveles[0] < niveles[1] ? ok('una nota alta pero estirada va detrás de una comprable') : mal('la estirada no cede el paso', niveles.join(','));
   niveles[1] < niveles[2] ? ok('lo que ya no se toca va al final') : mal('la rota no va al final', niveles.join(','));
+
+  console.log('\nEL TEMA ARRANCA OSCURO Y SE PUEDE CAMBIAR');
+  doc.documentElement.dataset.tema === undefined ? ok('por defecto es oscuro') : mal('no arranca oscuro', doc.documentElement.dataset.tema);
+  const bt = doc.getElementById('tema');
+  bt.onclick();
+  doc.documentElement.dataset.tema === 'claro' && almacen.tema === 'claro' ? ok('el botón pasa a claro y lo recuerda') : mal('no cambia a claro', doc.documentElement.dataset.tema + '/' + almacen.tema);
+  bt.onclick();
+  doc.documentElement.dataset.tema === undefined && almacen.tema === 'oscuro' ? ok('y vuelve a oscuro') : mal('no vuelve a oscuro', doc.documentElement.dataset.tema + '/' + almacen.tema);
 
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
   if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
