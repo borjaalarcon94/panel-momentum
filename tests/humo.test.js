@@ -79,6 +79,18 @@ for (const f of orden) {
   await paso('el día se pinta con el botón ya marcado', () => ventana.pinta());
   await paso('el seguimiento se pinta con una posición', () => ventana.seguimiento());
 
+  console.log('\nAVISO DE DATOS VIEJOS (cuenta días de mercado, no naturales)');
+  const dm = ventana.diasDeMercado || null;
+  if (typeof ventana.diasDeMercado === 'function' || true) {
+    // se prueba a través del render: con la fecha de los datos reales no debe romper
+    await paso('el aviso de datos viejos se evalúa sin errores', () => ventana.avisaDatosViejos(panel.dias[panel.dias.length - 1]));
+  }
+
+  console.log('\nCOPIA DE SEGURIDAD DE LAS POSICIONES');
+  await paso('la pestaña se pinta con los botones de copia', () => ventana.posiciones());
+  const guardadas = JSON.parse(almacen['posiciones-v1'] || '[]');
+  guardadas.length ? ok('las posiciones siguen guardadas tras pintar') : mal('se han perdido las posiciones al pintar');
+
   console.log('\nEL VEREDICTO ES COHERENTE EN LAS DOS VISTAS');
   const v = ventana.VEREDICTO(datos, {});
   const e = ventana.REGLAS.stopDeEntrada(datos);

@@ -102,6 +102,34 @@ function cajaCartera() {
   return d;
 }
 
+/* Copia de seguridad: las posiciones viven solo en este navegador, así que hay que poder llevárselas.
+   Se exportan e importan como texto, sin servidor. */
+function copiaSeguridad() {
+  const d = el('div', 'row'); d.style.marginTop = '14px';
+  const exportar = el('button', 'chip', 'Copiar mis posiciones');
+  exportar.onclick = async () => {
+    const datos = JSON.stringify({ posiciones: leerPos(), cartera: window.CARTERA.leer(), guardado: FH[0] });
+    try { await navigator.clipboard.writeText(datos); exportar.textContent = '✓ Copiado: pégalo donde quieras guardarlo'; setTimeout(() => { exportar.textContent = 'Copiar mis posiciones' }, 3000); }
+    catch (e) { prompt('Copia este texto y guárdalo:', datos); }
+  };
+  const importar = el('button', 'chip', 'Restaurar desde una copia');
+  importar.onclick = () => {
+    const txt = prompt('Pega aquí la copia que guardaste:');
+    if (!txt) return;
+    try {
+      const d2 = JSON.parse(txt);
+      if (!Array.isArray(d2.posiciones)) throw new Error('formato');
+      const abiertas = d2.posiciones.filter(p => p && p.ticker && p.precio > 0);
+      if (!confirm('Vas a sustituir tus ' + leerPos().length + ' posiciones por las ' + abiertas.length + ' de la copia. ¿Seguro?')) return;
+      guardarPos(abiertas);
+      if (d2.cartera) window.CARTERA.guardar(d2.cartera);
+      window.posiciones();
+    } catch (e) { alert('Esa copia no se entiende. Pega el texto completo tal cual lo copiaste.'); }
+  };
+  d.append(exportar, importar);
+  return d;
+}
+
 window.posiciones = function () {
   const R = $('rpos'); R.replaceChildren();
   R.appendChild(cajaCartera());
@@ -202,5 +230,6 @@ window.posiciones = function () {
     const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
     R.appendChild(d);
   }
-  
+  R.appendChild(copiaSeguridad());
+  R.appendChild(el('p', 'nota', 'Tus posiciones se guardan solo en este navegador: haz una copia si cambias de dispositivo.'));
 };

@@ -138,6 +138,27 @@ window.vista = function () {
     mercado: d.mercado || [], universo: d.universo || null, candidatas: d.candidatas || null };
 };
 
+/* Si el proceso diario falla varios días, los stops que se muestran son viejos: hay que decirlo fuerte.
+   Se cuentan días de mercado, así que un fin de semana normal no dispara el aviso. */
+function diasDeMercado(desde, hasta) {
+  let n = 0;
+  const d = new Date(desde + 'T12:00:00Z'), fin = new Date(hasta + 'T12:00:00Z');
+  while (d < fin) { d.setUTCDate(d.getUTCDate() + 1); const s = d.getUTCDay(); if (s !== 0 && s !== 6) n++; }
+  return n;
+}
+function avisaDatosViejos(ultimo) {
+  const caja = $('viejo');
+  if (!caja || !ultimo) return;
+  const hoy = new Date().toISOString().slice(0, 10);
+  const dias = diasDeMercado(ultimo, hoy);
+  if (dias < 2) { caja.hidden = true; return; }
+  caja.hidden = false;
+  caja.className = 'aviso-viejo';
+  caja.replaceChildren(
+    el('b', null, 'Datos de hace ' + dias + ' días de mercado'),
+    el('span', null, ' · el último cierre guardado es el de ' + fFecha(ultimo) + '. Los precios, los stops y los veredictos no están actualizados: compruébalos en tu bróker antes de operar.'));
+}
+
 async function iniciar() {
   try {
     T = await (await fetch('panel.json', { cache: 'no-cache' })).json();
@@ -171,6 +192,7 @@ async function iniciar() {
   S.dia = fechas[0];
   fechas.forEach(f => { const o = el('option', null, fFecha(f)); o.value = f; $('dia').appendChild(o) });
   if (T.actualizado) $('act').textContent = 'Última actualización: ' + new Date(T.actualizado.replace('Z', ':00Z')).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+  avisaDatosViejos(fechas[0]);
   if (!S.dia) { $('lista').appendChild(el('div', 'empty', 'Aún no hay datos.')); return }
   await dia(S.dia);
   window.initHoy();

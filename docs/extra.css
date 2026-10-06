@@ -162,3 +162,6 @@ details.descartadas .tw{margin-top:8px}
 h1{letter-spacing:-.4px}
 .tabla th{text-transform:uppercase;letter-spacing:.4px;font-size:11px}
 .tabla td{font-variant-numeric:tabular-nums}
+.aviso-viejo{background:var(--badbg);color:var(--down);border-left:5px solid currentColor;border-radius:12px;
+  padding:11px 13px;margin:10px 0;font-size:13.5px;line-height:1.45}
+.aviso-viejo span{color:var(--text);font-weight:400}
