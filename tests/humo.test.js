@@ -136,6 +136,21 @@ for (const f of orden) {
   saltos.length === 0 ? ok('nunca va una de "esperar" por delante de una de "comprar"')
     : mal('orden incoherente en la pestaña', saltos.join(', '));
 
+  /* Se pintaba "#1" por la posicion en pantalla y "TOP #2" por la nota en la misma tarjeta: dos
+     numeraciones distintas peleandose. En una tarjeta solo puede haber un numero de puesto. */
+  console.log('\nUNA SOLA NUMERACIÓN POR TARJETA');
+  ventana.seguimiento();
+  const leer2 = x => (x.hijos && x.hijos.length) ? x.hijos.map(leer2).join(' ') : (x.textContent || '');
+  const tarjetas = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card'));
+  const conDosNumeros = tarjetas.filter(c => (leer2(c).match(/#\d+/g) || []).length > 1)
+    .map(c => (leer2(c).match(/#\d+/g) || []).join(' y '));
+  tarjetas.length ? ok('hay ' + tarjetas.length + ' tarjetas que comprobar') : mal('no se pinto ninguna tarjeta');
+  conDosNumeros.length === 0 ? ok('ninguna tarjeta enseña dos puestos distintos')
+    : mal('tarjetas con numeración doble', conDosNumeros.join(' | '));
+  const puestos = tarjetas.map(c => (leer2(c).match(/#(\d+)/) || [])[1]).map(Number);
+  puestos.every((v, i) => v === i + 1) ? ok('el número de cada tarjeta es su posición en la lista')
+    : mal('los números no siguen el orden de la lista', puestos.join(', '));
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que

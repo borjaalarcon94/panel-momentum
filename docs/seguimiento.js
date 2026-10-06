@@ -109,15 +109,14 @@ window.seguimiento = function () {
     B.appendChild(el('div', 'bt', (d >= 0 ? 'El top va mejor que el mercado: ' : 'El top va peor que el mercado: ') + 'de media ' + pc(med) + ' frente a ' + pc(spMed) + ' del S&P 500 en los mismos días (' + (d >= 0 ? '+' : '') + n(d, 1) + ' puntos). ' + gana + ' de ' + cs.length + ' lo hacen mejor que el índice.'));
     R.appendChild(B) }
 
-  r.forEach(a => {
+  r.forEach((a, i) => {
     const c = el('div', 'card seg'), top = el('div', 'top'), izq = el('div');
+    izq.appendChild(el('span', 'pos', '#' + (i + 1)));
     const l = el('a', 'tk', a.ticker); l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(a.clave); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);
-    if (a.enTop) {
-      const mov = a.puestoAyer ? a.puestoAyer - a.puestoHoy : null;
-      izq.appendChild(el('span', 'new', 'TOP #' + a.puestoHoy + (mov ? (mov > 0 ? ' ↑' + mov : ' ↓' + -mov) : mov === 0 ? ' =' : ' · entra')));
-    } else if (a.ultimo !== FH[0]) izq.appendChild(el('span', 'm', 'fuera del top desde ' + fFecha(a.ultimo)));
-    izq.appendChild(el('div', 'name', (a.empresa || '') + ' · entró ' + fFecha(a.entrada) + ' · ' + a.dias + (a.dias === 1 ? ' día' : ' días') + ' en el top · mejor puesto #' + a.mejorPuesto));
+    if (a.enTop) izq.appendChild(el('span', 'new', 'EN EL TOP HOY'));
+    else if (a.ultimo !== FH[0]) izq.appendChild(el('span', 'm', 'fuera del top desde ' + fFecha(a.ultimo)));
+    izq.appendChild(el('div', 'name', (a.empresa || '') + ' · entró ' + fFecha(a.entrada) + ' · ' + a.dias + (a.dias === 1 ? ' día' : ' días') + ' en el top'));
     const der = el('div', 'px');
     der.appendChild(el('b', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
     der.appendChild(el('div', 'm', n(a.precioEntrada) + ' $ → ' + n(a.ahora) + ' $'));
@@ -155,7 +154,6 @@ window.seguimiento = function () {
     const g = el('div', 'grid');
     [['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
      ['Puntuación día a día', ''],
-     ['Puesto por nota', a.puestoHoy ? '#' + a.puestoHoy + (a.puestoAyer ? ' (ayer #' + a.puestoAyer + ')' : ' (nueva)') : 'fuera del top'],
      ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
      ['Máx. alcanzado', pc(a.max)], ['Frente a su mejor cierre', pc(a.desdeMax)],
      ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt'],
@@ -192,6 +190,14 @@ window.seguimiento = function () {
     }
     R.appendChild(c);
   });
+  if (ocultas > 0) {
+    const peor = Math.min(...r.map(a => a.score ?? 0));
+    const altas = completa.slice(r.length).filter(a => (a.score ?? 0) > peor);
+    if (altas.length) { const t = el('div', 'm');
+      t.appendChild(el('b', null, altas.slice(0, 3).map(a => a.ticker + ' (' + n(a.score, 0) + ')').join(', ') + (altas.length > 3 ? ' y ' + (altas.length - 3) + ' más' : '')));
+      t.appendChild(el('span', null, ' puntúan más alto, pero hoy no son entrada. Siguen aquí, más abajo.'));
+      R.appendChild(t) }
+  }
   if (ocultas > 0 || VER_TODAS) {
     const b = el('button', 'chip', VER_TODAS ? 'Ver solo las 5 mejores' : 'Ver las ' + completa.length + ' que siguen vivas');
     b.style.margin = '6px 0';
