@@ -239,6 +239,40 @@ for (const f of orden) {
   !/Invertido/.test(txtSin) ? ok('y no enseña importes que no puede calcular')
     : mal('enseña importes sin saber el nº de acciones');
 
+  /* El historial de operaciones cerradas: la respuesta a "¿esto funciona?" con dinero real.
+     Si la suma esta mal, la conclusion esta mal. */
+  console.log('\nEL HISTORIAL DE OPERACIONES SUMA BIEN');
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: 'AAA', simbolo: 'AAA', precio: 10, acciones: 100, fecha: '2026-09-01', cerrada: '2026-09-20', precioSalida: 13 },
+    { ticker: 'BBB', simbolo: 'BBB', precio: 50, acciones: 10, fecha: '2026-09-05', cerrada: '2026-09-25', precioSalida: 42.5 },
+    { ticker: 'CCC', simbolo: 'CCC', precio: 20, acciones: 25, fecha: '2026-09-10', cerrada: '2026-09-30', precioSalida: 24 },
+  ]);
+  await paso('posiciones se pinta con tres operaciones cerradas', () => ventana.posiciones());
+  const hist = porId.rpos.textContent;
+  // AAA +300, BBB -75, CCC +100  ->  +325 sobre 2.000 invertidos = +16,25 %
+  /* La copia de seguridad es lo unico que protege el historial: vive solo en este navegador. */
+  const copia = JSON.parse(almacen['posiciones-v1']).filter(p => p.cerrada).length;
+  copia === 3 ? ok('las operaciones cerradas siguen guardadas para la copia de seguridad')
+    : mal('el historial no sobrevive en el almacenamiento', copia);
+  /\+325,00 \$/.test(hist) ? ok('suma el resultado total en dinero (+300 −75 +100 = +325 $)')
+    : mal('el total en dinero no cuadra', hist.slice(0, 200));
+  /2 de 3 · 67 %/.test(hist) ? ok('cuenta las acertadas (2 de 3)') : mal('no cuenta las acertadas');
+  /\+16,3 %|\+16,2 %/.test(hist) ? ok('calcula el resultado sobre lo invertido (325 de 2.000)')
+    : mal('no calcula el rendimiento sobre lo invertido');
+  /TOTAL · 3 operaciones/.test(hist) ? ok('la tabla lleva su fila de totales') : mal('falta la fila de totales');
+  /19|20/.test(hist) ? ok('cuenta los días que duró cada operación') : mal('no cuenta los días');
+
+  // A una le falta el nº de acciones: el total no puede incluirla y hay que decirlo.
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: 'AAA', simbolo: 'AAA', precio: 10, acciones: 100, fecha: '2026-09-01', cerrada: '2026-09-20', precioSalida: 13 },
+    { ticker: 'DDD', simbolo: 'DDD', precio: 8, fecha: '2026-09-02', cerrada: '2026-09-21', precioSalida: 9 },
+  ]);
+  await paso('posiciones se pinta con una operación sin nº de acciones', () => ventana.posiciones());
+  const parcial = porId.rpos.textContent;
+  /suma 1 de 2 operaciones/.test(parcial) ? ok('avisa de que el total no incluye todas')
+    : mal('da una suma incompleta sin avisar', parcial.slice(0, 200));
+  almacen['posiciones-v1'] = '[]';
+
   console.log('\nEL TEMA ARRANCA OSCURO Y SE PUEDE CAMBIAR');
   doc.documentElement.dataset.tema === undefined ? ok('por defecto es oscuro') : mal('no arranca oscuro', doc.documentElement.dataset.tema);
   const bt = doc.getElementById('tema');

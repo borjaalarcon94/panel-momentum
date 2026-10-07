@@ -144,6 +144,136 @@ function copiaSeguridad() {
   return d;
 }
 
+/* Alta manual de una operacion ya cerrada: para las de antes de usar el panel o las que no quedaron
+   bien grabadas. Son seis campos, demasiados para encadenar prompts. */
+function formularioOperacion(alGuardar) {
+  const d = el('div', 'blk');
+  d.appendChild(el('div', 'blt', 'Añadir una operación cerrada'));
+  const campo = (etiqueta, tipo, ph) => {
+    const i = document.createElement('input'); i.type = tipo; i.step = 'any'; i.min = '0';
+    if (ph) i.placeholder = ph;
+    const w = el('div', 'campo'); w.appendChild(el('span', 'm', etiqueta)); w.appendChild(i);
+    return { i, w };
+  };
+  const tk = campo('Acción', 'text', 'p. ej. PAYS');
+  const f1 = campo('Comprada el', 'date'), p1 = campo('Precio de compra', 'number', '0,00');
+  const f2 = campo('Vendida el', 'date'), p2 = campo('Precio de venta', 'number', '0,00');
+  const ac = campo('Nº de acciones', 'number', 'opcional');
+  const rejilla = el('div', 'formop');
+  rejilla.append(tk.w, ac.w, f1.w, p1.w, f2.w, p2.w);
+  d.appendChild(rejilla);
+  const guardar = el('button', 'chip main', 'Guardar operación');
+  guardar.onclick = () => {
+    const ticker = String(tk.i.value || '').trim().toUpperCase();
+    const compra = Number(String(p1.i.value).replace(',', '.')), venta = Number(String(p2.i.value).replace(',', '.'));
+    if (!ticker) return alert('Pon el símbolo de la acción.');
+    if (!compra || compra <= 0 || !venta || venta <= 0) return alert('Los dos precios tienen que ser mayores que cero.');
+    if (!f1.i.value || !f2.i.value) return alert('Pon las dos fechas.');
+    if (f2.i.value < f1.i.value) return alert('La venta no puede ser anterior a la compra.');
+    const pos = leerPos();
+    pos.push({ ticker, simbolo: ticker, precio: compra, fecha: f1.i.value, acciones: Number(ac.i.value) || undefined,
+      cerrada: f2.i.value, precioSalida: venta, manual: true, maxVisto: Math.max(compra, venta) });
+    guardarPos(pos);
+    alGuardar();
+  };
+  const cancelar = el('button', 'chip', 'Cancelar');
+  cancelar.onclick = alGuardar;
+  const fila = el('div', 'row'); fila.append(guardar, cancelar);
+  d.appendChild(fila);
+  return d;
+}
+
+/* El historial: cada operacion cerrada con su resultado y, abajo, la suma. Es la respuesta a
+   "¿esto esta funcionando?" con tu dinero, no con el backtest. */
+function historialOperaciones(cerradas) {
+  const R = el('div'); R.style.marginTop = '18px';
+  R.appendChild(el('h2', 'blt', 'Mis operaciones cerradas'));
+  R.appendChild(el('p', 'nota', 'Todo lo que has comprado y vendido, con lo que ganaste o perdiste en cada una. Es tu historial real: lo que de verdad dice si la estrategia funciona.'));
+
+  const ops = cerradas.map(p => {
+    const ret = p.precioSalida ? (p.precioSalida / p.precio - 1) * 100 : null;
+    const acc = Number(p.acciones) > 0 ? Number(p.acciones) : null;
+    return { p, ret, acc, invertido: acc ? p.precio * acc : null,
+      pyl: acc && p.precioSalida ? (p.precioSalida - p.precio) * acc : null,
+      dias: p.cerrada && p.fecha ? Math.round((new Date(p.cerrada + 'T12:00:00Z') - new Date(p.fecha + 'T12:00:00Z')) / 864e5) : null };
+  }).sort((a, b) => (a.p.cerrada < b.p.cerrada ? 1 : -1));
+
+  if (ops.length) {
+    const conDinero = ops.filter(o => o.pyl != null);
+    const ganadoras = ops.filter(o => o.ret > 0).length;
+    const totalPyl = conDinero.reduce((s, o) => s + o.pyl, 0);
+    const totalInv = conDinero.reduce((s, o) => s + o.invertido, 0);
+    const st = el('div', 'stats');
+    st.append(stat('operaciones', ops.length),
+      stat('acertadas', ganadoras + ' de ' + ops.length + ' · ' + Math.round(ganadoras / ops.length * 100) + ' %'));
+    if (conDinero.length) {
+      st.append(stat('resultado total', (totalPyl >= 0 ? '+' : '−') + n(Math.abs(totalPyl), 2) + ' $'),
+        stat('sobre lo invertido', pc(totalInv ? totalPyl / totalInv * 100 : 0)));
+    } else {
+      st.append(stat('resultado medio', pc(ops.reduce((s, o) => s + (o.ret || 0), 0) / ops.length)));
+    }
+    R.appendChild(st);
+    /* Si a alguna le falta el nº de acciones, el total no incluye esa operacion: se dice, en vez de
+       dar una suma incompleta como si fuera la buena. */
+    if (conDinero.length && conDinero.length < ops.length)
+      R.appendChild(el('div', 'm', 'El total suma ' + conDinero.length + ' de ' + ops.length +
+        ' operaciones: a las otras les falta el nº de acciones. Añádelo para que la cuenta salga completa.'));
+  }
+
+  const t = el('table', 'tabla'), h = el('tr');
+  ['Acción', 'Comprada', 'Vendida', 'Días', 'Compra', 'Venta', 'Acciones', 'Resultado', 'En dinero', ''].forEach(x => h.appendChild(el('th', null, x)));
+  t.appendChild(h);
+  ops.forEach(o => {
+    const p = o.p, tr = el('tr');
+    const td0 = el('td'); td0.appendChild(el('b', null, p.ticker));
+    if (p.manual) td0.appendChild(el('div', 'name', 'añadida a mano'));
+    tr.appendChild(td0);
+    [fFecha(p.fecha), fFecha(p.cerrada), o.dias == null ? '—' : String(o.dias),
+     n(p.precio) + ' $', p.precioSalida ? n(p.precioSalida) + ' $' : '—',
+     o.acc == null ? '—' : n(o.acc, o.acc % 1 ? 2 : 0)].forEach(x => tr.appendChild(el('td', null, x)));
+    tr.appendChild(el('td', o.ret == null ? null : o.ret >= 0 ? 'up' : 'down', o.ret == null ? '—' : pc(o.ret)));
+    tr.appendChild(el('td', o.pyl == null ? null : o.pyl >= 0 ? 'up' : 'down',
+      o.pyl == null ? '—' : (o.pyl >= 0 ? '+' : '−') + n(Math.abs(o.pyl), 2) + ' $'));
+    const tb = el('td'), bb = el('button', 'chip', 'Borrar');
+    bb.onclick = () => {
+      if (!confirm('¿Borrar la operación de ' + p.ticker + ' del ' + fFecha(p.cerrada) + '? No se puede deshacer.')) return;
+      guardarPos(leerPos().filter(x => !(x.ticker === p.ticker && x.cerrada === p.cerrada && x.fecha === p.fecha)));
+      window.posiciones();
+    };
+    tb.appendChild(bb); tr.appendChild(tb);
+    t.appendChild(tr);
+  });
+  if (!ops.length) {
+    const tr = el('tr'), td = el('td', 'name', 'Todavía no has cerrado ninguna operación. Cuando vendas, aparecerá aquí.');
+    td.setAttribute('colspan', '10'); tr.appendChild(td); t.appendChild(tr);
+  } else {
+    // Fila de totales dentro de la propia tabla: la suma se lee junto a lo que la compone.
+    const conDinero = ops.filter(o => o.pyl != null);
+    const tr = el('tr', 'total');
+    const td = el('td'); td.setAttribute('colspan', '7'); td.appendChild(el('b', null, 'TOTAL · ' + ops.length + ' operaciones'));
+    tr.appendChild(td);
+    const medio = ops.reduce((s, o) => s + (o.ret || 0), 0) / ops.length;
+    tr.appendChild(el('td', medio >= 0 ? 'up' : 'down', pc(medio)));
+    const suma = conDinero.reduce((s, o) => s + o.pyl, 0);
+    tr.appendChild(el('td', !conDinero.length ? null : suma >= 0 ? 'up' : 'down',
+      !conDinero.length ? '—' : (suma >= 0 ? '+' : '−') + n(Math.abs(suma), 2) + ' $'));
+    tr.appendChild(el('td'));
+    t.appendChild(tr);
+  }
+  const w = el('div', 'tw'); w.appendChild(t); R.appendChild(w);
+
+  const b = el('button', 'chip', 'Añadir una operación a mano');
+  b.style.marginTop = '10px';
+  let form = null;
+  b.onclick = () => {
+    if (form) { form.remove(); form = null; b.textContent = 'Añadir una operación a mano'; return }
+    form = formularioOperacion(window.posiciones);
+    R.appendChild(form); b.textContent = 'Ocultar el formulario';
+  };
+  R.appendChild(b);
+  return R;
+}
+
 window.posiciones = function () {
   const R = $('rpos'); R.replaceChildren();
   R.appendChild(cajaCartera());
@@ -249,28 +379,7 @@ window.posiciones = function () {
     R.appendChild(c);
   });
 
-  if (cerradas.length) {
-    const d = document.createElement('details');
-    d.appendChild(Object.assign(document.createElement('summary'), { textContent: 'Posiciones cerradas (' + cerradas.length + ')' }));
-    const t = el('table', 'tabla'), h = el('tr');
-    ['Acción', 'Comprada', 'Precio compra', 'Vendida', 'Precio venta', 'Resultado', 'En dinero', ''].forEach(x => h.appendChild(el('th', null, x)));
-    t.appendChild(h);
-    cerradas.forEach(p => {
-      const ret = p.precioSalida ? (p.precioSalida / p.precio - 1) * 100 : null;
-      const tr = el('tr');
-      [p.ticker, fFecha(p.fecha), n(p.precio) + ' $', fFecha(p.cerrada), p.precioSalida ? n(p.precioSalida) + ' $' : '—'].forEach(x => tr.appendChild(el('td', null, x)));
-      tr.appendChild(el('td', ret == null ? null : ret >= 0 ? 'up' : 'down', ret == null ? '—' : pc(ret)));
-      const eur = p.acciones > 0 && p.precioSalida ? (p.precioSalida - p.precio) * p.acciones : null;
-      tr.appendChild(el('td', eur == null ? null : eur >= 0 ? 'up' : 'down',
-        eur == null ? '—' : (eur >= 0 ? '+' : '−') + n(Math.abs(eur), 2) + ' $'));
-      const tb = el('td'); const bb = el('button', 'chip', 'Borrar');
-      bb.onclick = () => { if (confirm('¿Borrar ' + p.ticker + ' del histórico?')) { guardarPos(leerPos().filter(x => !(x.ticker === p.ticker && x.cerrada === p.cerrada))); window.posiciones() } };
-      tb.appendChild(bb); tr.appendChild(tb);
-      t.appendChild(tr);
-    });
-    const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
-    R.appendChild(d);
-  }
+  R.appendChild(historialOperaciones(cerradas));
   R.appendChild(copiaSeguridad());
   R.appendChild(el('p', 'nota', 'Tus posiciones se guardan solo en este navegador: haz una copia si cambias de dispositivo.'));
 };

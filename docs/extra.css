@@ -181,3 +181,10 @@ h1{padding-right:84px}
 
 /* Ganancia en dinero, debajo del porcentaje: mismo peso visual, un escalon mas pequeña. */
 .ganancia-eur{font-size:15px;font-weight:700;margin-top:-2px}
+
+/* Formulario de alta manual de una operación: etiqueta encima del campo, dos columnas en móvil. */
+.formop{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:10px;margin:10px 0}
+.campo{display:flex;flex-direction:column;gap:4px}
+.campo input{width:100%}
+/* Fila de totales del historial: se tiene que leer como un total, no como una operación más. */
+tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
