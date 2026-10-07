@@ -60,11 +60,25 @@ window.anotarCompra = function (a, alGuardar) {
   if (precio === null) return;
   const v = Number(String(precio).replace(',', '.').replace(/[^\d.]/g, ''));
   if (!v || v <= 0) return alert('Precio no válido.');
+  const acc = Number(String(prompt('¿Cuántas acciones de ' + a.ticker + '? (puedes dejarlo en blanco, pero sin esto no puedo decirte cuánto dinero tienes metido)', '') || '').replace(',', '.'));
   const pos = leerPos();
-  pos.push({ ticker: a.ticker, simbolo: a.simbolo || a.ticker, precio: v, fecha: FH[0], maxVisto: Math.max(v, a.precio || v) });
+  pos.push({ ticker: a.ticker, simbolo: a.simbolo || a.ticker, precio: v, fecha: FH[0],
+    acciones: acc > 0 ? acc : undefined, maxVisto: Math.max(v, a.precio || v) });
   guardarPos(pos);
   if (alGuardar) alGuardar();
 };
+
+/* Todo lo que va en dinero. Sin el numero de acciones no se puede calcular nada: se devuelve null
+   y la tarjeta lo pide en vez de inventarse una cifra. Los precios son en dolares. */
+function dinero(p, ahora, stop) {
+  const acc = Number(p.acciones);
+  if (!acc || !(acc > 0) || ahora == null) return null;
+  const invertido = p.precio * acc, valor = ahora * acc;
+  const c = window.CARTERA.leer() || {};
+  return { acciones: acc, invertido, valor, pyl: valor - invertido,
+    riesgo: stop ? Math.max(0, (ahora - stop) * acc) : null,
+    pctCartera: c.total ? invertido / c.total * 100 : null };
+}
 
 /* Revisión diaria de una posición. Toda la lógica vive en docs/reglas.js: aquí solo se dan formato
    los resultados. Si quieres cambiar un umbral, se cambia allí y cambia en toda la web a la vez. */
@@ -96,9 +110,9 @@ function cajaCartera() {
   i2.value = c.riesgo || 1;
   const b = el('button', 'chip', 'Guardar');
   b.onclick = () => { window.CARTERA.guardar({ total: Number(i1.value) || 0, riesgo: Number(i2.value) || 1 }); window.posiciones() };
-  fila.append(el('span', 'm', 'Cartera'), i1, el('span', 'm', '% que arriesgas por operación'), i2, b);
+  fila.append(el('span', 'm', 'Cartera ($)'), i1, el('span', 'm', '% que arriesgas por operación'), i2, b);
   d.appendChild(fila);
-  d.appendChild(el('p', 'nota', 'Con esto se calcula cuánto comprar de cada acción. Se guarda en tu navegador.'));
+  d.appendChild(el('p', 'nota', 'Con esto se calcula cuánto comprar de cada acción y qué parte de tu cartera ocupa cada posición. Los precios del panel son en dólares: pon aquí tu cartera en dólares para que los porcentajes cuadren. Se guarda en tu navegador.'));
   return d;
 }
 
@@ -145,13 +159,27 @@ window.posiciones = function () {
   }));
 
   if (revs.length) {
-    const st = el('div', 'stats');
     const vivos = revs.filter(r => r.ahora != null);
-    const med = vivos.length ? vivos.reduce((s, r) => s + r.gan, 0) / vivos.length : null;
+    const con = vivos.map(r => ({ r, d: dinero(r.p, r.ahora, r.stop) })).filter(x => x.d);
+    const suma = (xs, f) => xs.reduce((s, x) => s + f(x), 0);
+    const st = el('div', 'stats');
     st.append(stat('posiciones abiertas', abiertas.length),
-      stat('a vender', revs.filter(r => r.estado === 'vender').length),
-      stat('resultado medio', med == null ? '—' : pc(med)),
-      stat('cerradas', cerradas.length));
+      stat('a vender', revs.filter(r => r.estado === 'vender').length));
+    if (con.length === vivos.length && con.length) {
+      /* Con el dinero de todas se puede dar la foto real. La media simple de porcentajes engaña
+         cuando no has metido lo mismo en cada una: 1000 $ al +2 % y 100 $ al +40 % no es un +21 %. */
+      const inv = suma(con, x => x.d.invertido), val = suma(con, x => x.d.valor), rie = suma(con, x => x.d.riesgo || 0);
+      const c = window.CARTERA.leer() || {};
+      st.append(stat('invertido', n(inv, 0) + ' $' + (c.total ? ' · ' + n(inv / c.total * 100, 0) + ' % de tu cartera' : '')),
+        stat('vale ahora', n(val, 0) + ' $'),
+        stat('ganancia', (val - inv >= 0 ? '+' : '−') + n(Math.abs(val - inv), 0) + ' $ · ' + pc((val / inv - 1) * 100)),
+        stat('riesgo abierto', n(rie, 0) + ' $' + (c.total ? ' · ' + n(rie / c.total * 100, 1) + ' % de tu cartera' : '')));
+    } else {
+      const med = vivos.length ? suma(vivos, r => r.gan) / vivos.length : null;
+      st.append(stat('resultado medio', med == null ? '—' : pc(med)));
+      if (con.length) st.append(stat('sin nº de acciones', vivos.length - con.length + ' de ' + vivos.length));
+    }
+    st.append(stat('cerradas', cerradas.length));
     R.appendChild(st);
   }
 
@@ -166,6 +194,9 @@ window.posiciones = function () {
     const g = el('div', 'ganancia ' + (r.gan >= 0 ? 'up' : 'down'));
     g.textContent = r.ahora == null ? '—' : pc(r.gan);
     der.appendChild(g);
+    const din = dinero(r.p, r.ahora, r.stop);
+    if (din) der.appendChild(el('div', 'ganancia-eur ' + (din.pyl >= 0 ? 'up' : 'down'),
+      (din.pyl >= 0 ? '+' : '−') + n(Math.abs(din.pyl), 2) + ' $'));
     if (r.ahora != null) der.appendChild(el('div', 'm', n(r.p.precio) + ' $ → ' + n(r.ahora) + ' $'));
     top.append(izq, der); c.appendChild(top);
     const clase = r.cls === 'qok' ? 'v-mantener' : r.cls === 'qbad' ? 'v-vender' : 'v-espera';
@@ -181,12 +212,19 @@ window.posiciones = function () {
       c.appendChild(sb); }
     if (r.ahora != null) {
       const g = el('div', 'grid');
-      [['Stop', (r.stop ? n(r.stop) + ' $ (' + pc((r.stop / r.ahora - 1) * 100, 0) + ')' : '—')],
+      const filas = [['Stop', (r.stop ? n(r.stop) + ' $ (' + pc((r.stop / r.ahora - 1) * 100, 0) + ')' : '—')],
        ['Llegó a ganar', pc(r.ganMax)],
        ['Ha devuelto', r.ganMax > 0 ? n(r.devuelto, 0) + ' %' + (r.limite ? ' de ' + r.limite + ' %' : '') : '—'],
-       ['Requisitos', r.req.length ? r.req.filter(x => x.ok).length + '/' + r.req.length : '—']]
-        .forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
+       ['Requisitos', r.req.length ? r.req.filter(x => x.ok).length + '/' + r.req.length : '—']];
+      if (din) filas.push(
+        ['Acciones', n(din.acciones, din.acciones % 1 ? 2 : 0)],
+        ['Invertido', n(din.invertido, 2) + ' $' + (din.pctCartera != null ? ' · ' + n(din.pctCartera, 1) + ' % de tu cartera' : '')],
+        ['Valor ahora', n(din.valor, 2) + ' $'],
+        ['Si salta el stop', din.riesgo == null ? '—' : 'pierdes ' + n(din.riesgo, 2) + ' $ desde aquí']);
+      filas.forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
       c.appendChild(g);
+      /* Sin el numero de acciones no hay importes: se pide, no se deja el hueco en blanco. */
+      if (!din) c.appendChild(el('div', 'm', 'Añade cuántas acciones tienes en «Editar compra» y te diré el dinero invertido, lo que vale ahora y cuánto arriesgas.'));
     }
     const acciones = el('div', 'row'); acciones.style.marginTop = '10px';
     const bv = el('button', 'chip', 'Marcar como vendida');
@@ -215,13 +253,16 @@ window.posiciones = function () {
     const d = document.createElement('details');
     d.appendChild(Object.assign(document.createElement('summary'), { textContent: 'Posiciones cerradas (' + cerradas.length + ')' }));
     const t = el('table', 'tabla'), h = el('tr');
-    ['Acción', 'Comprada', 'Precio compra', 'Vendida', 'Precio venta', 'Resultado', ''].forEach(x => h.appendChild(el('th', null, x)));
+    ['Acción', 'Comprada', 'Precio compra', 'Vendida', 'Precio venta', 'Resultado', 'En dinero', ''].forEach(x => h.appendChild(el('th', null, x)));
     t.appendChild(h);
     cerradas.forEach(p => {
       const ret = p.precioSalida ? (p.precioSalida / p.precio - 1) * 100 : null;
       const tr = el('tr');
       [p.ticker, fFecha(p.fecha), n(p.precio) + ' $', fFecha(p.cerrada), p.precioSalida ? n(p.precioSalida) + ' $' : '—'].forEach(x => tr.appendChild(el('td', null, x)));
       tr.appendChild(el('td', ret == null ? null : ret >= 0 ? 'up' : 'down', ret == null ? '—' : pc(ret)));
+      const eur = p.acciones > 0 && p.precioSalida ? (p.precioSalida - p.precio) * p.acciones : null;
+      tr.appendChild(el('td', eur == null ? null : eur >= 0 ? 'up' : 'down',
+        eur == null ? '—' : (eur >= 0 ? '+' : '−') + n(Math.abs(eur), 2) + ' $'));
       const tb = el('td'); const bb = el('button', 'chip', 'Borrar');
       bb.onclick = () => { if (confirm('¿Borrar ' + p.ticker + ' del histórico?')) { guardarPos(leerPos().filter(x => !(x.ticker === p.ticker && x.cerrada === p.cerrada))); window.posiciones() } };
       tb.appendChild(bb); tr.appendChild(tb);

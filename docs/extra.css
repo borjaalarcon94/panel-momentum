@@ -178,3 +178,6 @@ h1{padding-right:84px}
 /* Barra de avance del historial: cuanto falta para que los numeros de Resultados se sostengan. */
 .barra{height:6px;border-radius:999px;background:var(--line);overflow:hidden;margin:10px 0 6px}
 .barra i{display:block;height:100%;background:var(--up);border-radius:999px}
+
+/* Ganancia en dinero, debajo del porcentaje: mismo peso visual, un escalon mas pequeña. */
+.ganancia-eur{font-size:15px;font-weight:700;margin-top:-2px}

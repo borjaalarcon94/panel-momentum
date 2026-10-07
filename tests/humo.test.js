@@ -140,14 +140,13 @@ for (const f of orden) {
      numeraciones distintas peleandose. En una tarjeta solo puede haber un numero de puesto. */
   console.log('\nUNA SOLA NUMERACIÓN POR TARJETA');
   ventana.seguimiento();
-  const leer2 = x => (x.hijos && x.hijos.length) ? x.hijos.map(leer2).join(' ') : (x.textContent || '');
   const tarjetas = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card'));
-  const conDosNumeros = tarjetas.filter(c => (leer2(c).match(/#\d+/g) || []).length > 1)
-    .map(c => (leer2(c).match(/#\d+/g) || []).join(' y '));
+  const conDosNumeros = tarjetas.filter(c => (c.textContent.match(/#\d+/g) || []).length > 1)
+    .map(c => (c.textContent.match(/#\d+/g) || []).join(' y '));
   tarjetas.length ? ok('hay ' + tarjetas.length + ' tarjetas que comprobar') : mal('no se pinto ninguna tarjeta');
   conDosNumeros.length === 0 ? ok('ninguna tarjeta enseña dos puestos distintos')
     : mal('tarjetas con numeración doble', conDosNumeros.join(' | '));
-  const puestos = tarjetas.map(c => (leer2(c).match(/#(\d+)/) || [])[1]).map(Number);
+  const puestos = tarjetas.map(c => (c.textContent.match(/#(\d+)/) || [])[1]).map(Number);
   puestos.every((v, i) => v === i + 1) ? ok('el número de cada tarjeta es su posición en la lista')
     : mal('los números no siguen el orden de la lista', puestos.join(', '));
 
@@ -178,6 +177,37 @@ for (const f of orden) {
   /Sirve de algo la puntuaci/.test(texto) ? ok('responde si la puntuación discrimina') : mal('no responde a la puntuación');
   /mediana/.test(texto) ? ok('parte por la mediana, no por un 75 fijo que nadie baja') : mal('no usa la mediana');
   /tres formas de operarlas/.test(texto) ? ok('aparece la comparación de formas de operar') : mal('falta la simulación');
+
+  /* Hasta ahora "La tengo" solo guardaba el precio, asi que no habia forma de saber cuanto dinero
+     tenias metido. Estas cuentas son las que miras antes de vender: tienen que cuadrar al centimo. */
+  console.log('\nLOS IMPORTES EN DINERO CUADRAN');
+  const panel2 = JSON.parse(fs.readFileSync(path.join(dir, 'panel.json'), 'utf8'));
+  const sim2 = Object.keys(panel2.actual)[0], d2 = panel2.actual[sim2];
+  almacen['posiciones-v1'] = JSON.stringify([{ ticker: d2.ticker, simbolo: sim2, precio: 10, acciones: 100,
+    fecha: panel2.dias[panel2.dias.length - 1], maxVisto: d2.precio }]);
+  almacen['cartera-v1'] = JSON.stringify({ total: 5000, riesgo: 1 });
+  await paso('posiciones se pinta con importes', () => ventana.posiciones());
+  const txtPos = porId.rpos.textContent;
+  const valorEsperado = (d2.precio * 100).toFixed(2).replace('.', ',');
+  txtPos.includes('1.000,00 $') || txtPos.includes('1000,00 $')
+    ? ok('el invertido sale de precio × acciones (10 × 100 = 1.000 $)')
+    : mal('no aparece el invertido', txtPos.slice(0, 160));
+  txtPos.includes(valorEsperado) ? ok('el valor de hoy usa el precio actual (' + valorEsperado + ' $)')
+    : mal('no aparece el valor actual esperado', valorEsperado);
+  /20 % de tu cartera/.test(txtPos) ? ok('dice qué parte de tu cartera ocupa (1.000 de 5.000 = 20 %)')
+    : mal('no dice el peso en la cartera');
+  /Si salta el stop/.test(txtPos) ? ok('dice cuánto pierdes si salta el stop')
+    : mal('no dice el riesgo en dinero');
+
+  // Sin el numero de acciones no puede inventarse importes: tiene que pedirlo.
+  almacen['posiciones-v1'] = JSON.stringify([{ ticker: d2.ticker, simbolo: sim2, precio: 10,
+    fecha: panel2.dias[panel2.dias.length - 1], maxVisto: d2.precio }]);
+  await paso('posiciones se pinta sin nº de acciones', () => ventana.posiciones());
+  const txtSin = porId.rpos.textContent;
+  /Añade cuántas acciones/.test(txtSin) ? ok('sin nº de acciones lo pide en vez de inventarse una cifra')
+    : mal('no pide el nº de acciones');
+  !/Invertido/.test(txtSin) ? ok('y no enseña importes que no puede calcular')
+    : mal('enseña importes sin saber el nº de acciones');
 
   console.log('\nEL TEMA ARRANCA OSCURO Y SE PUEDE CAMBIAR');
   doc.documentElement.dataset.tema === undefined ? ok('por defecto es oscuro') : mal('no arranca oscuro', doc.documentElement.dataset.tema);
