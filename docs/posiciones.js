@@ -315,7 +315,8 @@ window.posiciones = function () {
 
   revs.sort((a, b) => ({ vender: 0, vigilar: 1, mantener: 2, sindatos: 3 })[a.estado] - ({ vender: 0, vigilar: 1, mantener: 2, sindatos: 3 })[b.estado]);
   revs.forEach(r => {
-    const c = el('div', 'card'), top = el('div', 'top'), izq = el('div');
+    // MANTENER verde, VIGILAR ambar, VENDER rojo: el mismo codigo que en el resto de la web
+    const c = el('div', 'card v-' + ({ qok: 'ok', qwarn: 'warn', qbad: 'bad' }[r.cls] || 'warn')), top = el('div', 'top'), izq = el('div');
     const l = el('a', 'tk', r.p.ticker);
     l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(r.p.simbolo); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);

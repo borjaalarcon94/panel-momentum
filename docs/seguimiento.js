@@ -115,7 +115,8 @@ window.seguimiento = function () {
     R.appendChild(B) }
 
   r.forEach((a, i) => {
-    const c = el('div', 'card seg'), top = el('div', 'top'), izq = el('div');
+    // mismo acento por veredicto que en la pestaña Hoy
+    const c = el('div', 'card seg v-' + ({ qok: 'ok', qwarn: 'warn', qbad: 'bad' }[a.veredicto.cls] || 'warn')), top = el('div', 'top'), izq = el('div');
     izq.appendChild(el('span', 'pos', '#' + (i + 1)));
     const l = el('a', 'tk', a.ticker); l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(a.clave); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);

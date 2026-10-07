@@ -98,7 +98,11 @@ if(v.todas.length>top.length||S.top>5){const b=el('button','chip ver-mas',S.top>
 b.onclick=()=>{S.top=S.top>5?5:99;window.pinta()};L.appendChild(b)}};
 
 /* Tarjeta compacta: lo justo para decidir si merece abrirla. El detalle va dentro del desplegable. */
-function tarjeta(a,i){const nivel=a.score>=75?' n3':a.score>=55?' n2':' n1';
+/* El acento de la tarjeta lo marca el VEREDICTO, no el tramo de puntuacion: al top solo suben las
+   mejores, asi que con el corte en 75 nueve de cada diez tarjetas salian con el mismo color y la
+   lista entera parecia homogenea. El veredicto si cambia de una a otra, que es lo que hay que ver. */
+function tarjeta(a,i){const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento});
+const nivel=' v-'+({qok:'ok',qwarn:'warn',qbad:'bad'}[v.cls]||'warn');
 const c=el('div','card'+nivel+(i===0?' destacada':'')),top=el('div','top'),izq=el('div');
 const tk=el('a','tk',a.ticker);tk.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(a.simbolo||a.ticker);tk.target='_blank';tk.rel='noopener';
 izq.appendChild(el('span','pos','#'+(i+1)));izq.appendChild(tk);if(a.nueva)izq.appendChild(el('span','new','NUEVA'));
@@ -113,7 +117,6 @@ const r=el('div','resumen');
 .forEach(([k,x])=>{const m=el('span','rz');m.appendChild(el('i',null,k));m.appendChild(el('b',null,x));r.appendChild(m)});
 c.appendChild(r);
 // Veredicto de compra, lo primero que se lee
-const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento});
 const vd=el('div','quehacer '+v.cls);vd.appendChild(el('b',null,v.t));vd.appendChild(el('span',null,' · '+v.d));
 const dR=window.DIAS_RESULTADOS(a,S.dia);
 if(dR!=null&&dR>=0&&dR<=10)vd.appendChild(el('span','m',' Publica resultados en '+dR+' día'+(dR===1?'':'s')+': el stop no protege de un hueco al abrir.'));

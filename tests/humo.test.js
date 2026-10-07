@@ -313,6 +313,23 @@ for (const f of orden) {
   /todavía es ruido/.test(porId.rres.textContent) ? ok('y avisa de que con pocas sesiones es ruido')
     : mal('presenta la diferencia como si fuera una conclusión');
 
+  /* El acento de las tarjetas iba por tramo de puntuacion con corte en 75, y como al top solo suben
+     las mejores, nueve de cada diez salian con el mismo color: la lista parecia homogenea. */
+  console.log('\nCADA TARJETA SE DISTINGUE POR SU VEREDICTO');
+  ventana.pinta();
+  const clases = (porId.lista.hijos || []).filter(c => String(c.className || '').includes('card'))
+    .map(c => (String(c.className).match(/v-(ok|warn|bad)/) || [])[1]).filter(Boolean);
+  clases.length ? ok('las ' + clases.length + ' tarjetas llevan acento de veredicto') : mal('ninguna tarjeta lleva acento');
+  const tramosNota = vm.runInContext(`(() => vista().todas.slice(0, 5)
+    .map(a => a.score >= 75 ? 'n3' : a.score >= 55 ? 'n2' : 'n1'))()`, ctx);
+  const variedadVieja = new Set(tramosNota).size, variedadNueva = new Set(clases).size;
+  variedadNueva >= variedadVieja
+    ? ok('distingue al menos tanto como el tramo de nota (' + variedadNueva + ' colores frente a ' + variedadVieja + ')')
+    : mal('distingue menos que antes', variedadNueva + ' vs ' + variedadVieja);
+  const fuenteH = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  !/score>=75\?' n3'/.test(fuenteH) ? ok('ya no se pinta por tramo de puntuación')
+    : mal('sigue pintando por tramo de puntuación');
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que
