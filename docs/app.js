@@ -81,6 +81,7 @@ window.SALIDA = function (a) {
    hoy es el dia de entrar: un 89 que no se puede comprar no es la primera idea del dia. */
 const NIVEL = { qok: 0, qwarn: 1, qbad: 2 };
 window.PRIORIDAD = function (a) {
+  if (a.sinSeguimiento) return 3;   // sin datos de hoy no se compra: al final de todo
   const v = window.VEREDICTO(a, { extendida: a.pt ? a.pt.extendida : false });
   return NIVEL[v.cls] != null ? NIVEL[v.cls] : 2;
 };
@@ -110,6 +111,9 @@ window.VEREDICTO = function (a, extra) {
   const stop = o ? n(o.v) + ' $ (' + pc(o.d, 0) + ')' : '—';
   const dmax = a.precio && a.max52 ? (a.precio / a.max52 - 1) * 100 : null;
   const extendida = extra.extendida != null ? extra.extendida : false;
+  /* Si la accion ha desaparecido de la fuente de datos (fusion, cambio de simbolo, exclusion), lo
+     ultimo que se puede hacer es seguir diciendo COMPRA con el precio del ultimo cierre conocido. */
+  if (extra.sinSeguimiento) return { t: 'Sin datos', d: 'ha dejado de cotizar con este símbolo o ha cambiado de nombre: compruébala en tu bróker antes de hacer nada.', cls: 'qbad', stop };
   const fallosReales = (extra.fallos || []).filter(f => !f.entrada);
   if (fallosReales.length) return { t: 'Ya no cumple', d: fallosReales.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', '), cls: 'qbad', stop };
   if (sal.senales.length) return { t: 'No comprar', d: sal.senales[0].toLowerCase() + '.', cls: 'qbad', stop };
@@ -141,6 +145,7 @@ function puntua(f, d, lista, conNueva) {
     const p = window.PUNTUA ? window.PUNTUA(a, ctxDia(f, a, d)) : null;
     return { ...a, pt: p, score: p ? p.total : null, acel: p ? p.acel : null, g: p ? p.g : null,
       dmax: p ? p.dmax : null, ext: p ? p.extEma : null, racha: racha(a.ticker, f),
+      sinSeguimiento: f === FH[0] && !!a.simbolo && !ACT[a.simbolo],
       nueva: conNueva && comparable && !antes.has(a.ticker) };
   }).map(x => ({ ...x, prio: window.PRIORIDAD(x) }));
 }

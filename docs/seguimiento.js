@@ -54,16 +54,19 @@ function historial(lim) {
        una accion con 87 puntos y veredicto ESPERAR salia la primera de "cual compraria antes". */
     const veredicto = h ? window.VEREDICTO(h.a, { extendida: estado === 'extendida', flojea: estado === 'flojea',
       fallos: h.fallos, devuelto, maxGanancia: maxGan, ganancia: gan })
-      : { t: 'Sin datos de hoy', d: '', cls: 'qwarn' };
+      : window.VEREDICTO({ precio: r.precioUltimo }, { sinSeguimiento: true });
     return { ...r, clave: k, ahora, enTop, puestoHoy, puestoAyer, estado, dScore, veredicto,
-      prioridad: { qok: 0, qwarn: 1, qbad: 2 }[veredicto.cls] ?? 2,
+      prioridad: estado === 'sindatos' ? 3 : ({ qok: 0, qwarn: 1, qbad: 2 }[veredicto.cls] ?? 2),
       score: h ? h.score : null, req: h ? h.req : null,
       fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [], salida, devuelto, dmax,
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
       desdeMax: ahora != null && r.maxCierre ? (ahora / r.maxCierre - 1) * 100 : null,
       sp: r.spyEntrada && spyHoy ? (spyHoy / r.spyEntrada - 1) * 100 : null };
-  }).filter(a => a.ret != null && a.entrada !== hoyF);   // las que entran hoy aun no tienen evolucion
+    /* Se quedan las que han perdido el precio (fusion, cambio de simbolo, exclusion de bolsa): salen
+       como "sin datos" entre las descartadas. Borrarlas sin mas haria desaparecer del panel una accion
+       que quiza tienes comprada. */
+  }).filter(a => a.entrada !== hoyF);   // las que entran hoy aun no tienen evolucion
 }
 
 const ETIQUETA = {

@@ -112,7 +112,7 @@ const r=el('div','resumen');
 .forEach(([k,x])=>{const m=el('span','rz');m.appendChild(el('i',null,k));m.appendChild(el('b',null,x));r.appendChild(m)});
 c.appendChild(r);
 // Veredicto de compra, lo primero que se lee
-const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false});
+const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento});
 const vd=el('div','quehacer '+v.cls);vd.appendChild(el('b',null,v.t));vd.appendChild(el('span',null,' · '+v.d));
 const dR=window.DIAS_RESULTADOS(a,S.dia);
 if(dR!=null&&dR>=0&&dR<=10)vd.appendChild(el('span','m',' Publica resultados en '+dR+' día'+(dR===1?'':'s')+': el stop no protege de un hueco al abrir.'));

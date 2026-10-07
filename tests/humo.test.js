@@ -180,6 +180,42 @@ for (const f of orden) {
   sinSerie == null ? ok('sin la serie diaria ese mismo desplome pasaba desapercibido')
     : mal('la prueba no distingue los dos casos', String(sinSerie));
 
+  /* BLFS desaparecio de TradingView el 7 de octubre (fusion, cambio de simbolo o exclusion) y el
+     panel la borraba en silencio de Seguimiento y de Resultados mientras Hoy seguia diciendo COMPRA
+     con el ultimo cierre. Borrar las que desaparecen deja el registro lleno de supervivientes. */
+  console.log('\nUNA ACCIÓN QUE DESAPARECE NO SE BORRA EN SILENCIO');
+  const desap = vm.runInContext(`(() => {
+    // tiene que ser una que este de verdad en el registro, no cualquiera de las seguidas
+    const clave = entradas().map(a => a.clave).find(k => T.actual[k]);
+    const copia = T.actual[clave];
+    delete T.actual[clave]; delete ACT[clave]; const pr = T.precios[clave]; delete T.precios[clave];
+    const ticker = copia.ticker;
+    const enRegistro = entradas().some(a => a.clave === clave);
+    const sinPrecio = entradas().find(a => a.clave === clave);
+    const enSeguimiento = historial(90).find(a => a.clave === clave);
+    const enHoy = vista().todas.find(a => a.clave === clave || a.simbolo === clave);
+    const res = { ticker, enRegistro, ret: sinPrecio ? sinPrecio.ret : 'no esta',
+      ultimoConocido: sinPrecio ? sinPrecio.precioUltimo : null,
+      segEstado: enSeguimiento ? enSeguimiento.estado : 'no esta',
+      segVeredicto: enSeguimiento ? enSeguimiento.veredicto.t : 'no esta',
+      hoyVeredicto: enHoy ? VEREDICTO(enHoy, { sinSeguimiento: enHoy.sinSeguimiento }).t : 'no esta',
+      hoyPrio: enHoy ? enHoy.prio : null };
+    T.actual[clave] = copia; ACT[clave] = copia; T.precios[clave] = pr;
+    return res;
+  })()`, ctx);
+  desap.enRegistro ? ok(desap.ticker + ' sigue en el registro de Resultados aunque pierda el precio')
+    : mal('se borra del registro en silencio');
+  desap.ret === null ? ok('sin precio de hoy no se inventa un resultado') : mal('se inventa un resultado', desap.ret);
+  desap.ultimoConocido > 0 ? ok('conserva su último precio conocido (' + desap.ultimoConocido + ' $)')
+    : mal('pierde el último precio conocido');
+  desap.segEstado === 'sindatos' ? ok('en Seguimiento aparece como "sin datos", no desaparece')
+    : mal('en Seguimiento no sale como sin datos', desap.segEstado);
+  desap.hoyVeredicto === 'Sin datos' ? ok('la pestaña Hoy deja de decir COMPRA sobre ella')
+    : mal('Hoy sigue dando un veredicto de compra', desap.hoyVeredicto);
+  desap.hoyPrio === 3 ? ok('y la manda al final de la lista') : mal('no la manda al final', desap.hoyPrio);
+  desap.segVeredicto === desap.hoyVeredicto ? ok('las dos pestañas dicen lo mismo sobre ella')
+    : mal('se contradicen', desap.segVeredicto + ' vs ' + desap.hoyVeredicto);
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que

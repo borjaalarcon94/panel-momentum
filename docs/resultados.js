@@ -23,7 +23,11 @@ function entradas() {
       retAlSalir: r.precioUltimo && r.precio ? (r.precioUltimo / r.precio - 1) * 100 : null,
       sp: r.spy && spyHoy ? (spyHoy / r.spy - 1) * 100 : null, fuera: r.ultimo !== hoyF,
       sesiones: FH.filter(f => f > r.entrada && esSesion(f)).length };   // sesiones nuestras, no dias de calendario
-  }).filter(a => a.ret != null && a.score != null && a.sesiones > 0);
+    /* Se quedan tambien las que han perdido el precio: una accion puede desaparecer de la fuente de
+       datos por una fusion, un cambio de simbolo o una exclusion de bolsa. Descartarlas en silencio
+       dejaria el registro lleno solo de supervivientes y la media saldria mejor de lo que fue, que es
+       exactamente el sesgo que invalida la mayoria de los backtests. */
+  }).filter(a => a.score != null && a.sesiones > 0);
 }
 
 const media = v => (v.length ? v.reduce((s, x) => s + x, 0) / v.length : null);
@@ -182,8 +186,10 @@ function registro(xs) {
     tr.appendChild(el('td', null, fFecha(a.entrada)));
     tr.appendChild(el('td', null, n(a.score, 0)));
     tr.appendChild(el('td', null, n(a.precio) + ' $'));
-    tr.appendChild(el('td', null, n(a.ahora) + ' $'));
-    tr.appendChild(el('td', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
+    tr.appendChild(el('td', a.ahora == null ? 'm' : null,
+      a.ahora == null ? n(a.precioUltimo) + ' $ (último)' : n(a.ahora) + ' $'));
+    tr.appendChild(el('td', a.ret == null ? null : a.ret >= 0 ? 'up' : 'down',
+      a.ret == null ? 'sin datos' : pc(a.ret)));
     const s = el('td'); s.appendChild(el('span', 'est ' + (a.sesiones >= MADUREZ ? 'eok' : 'eoff'),
       a.sesiones + (a.sesiones >= MADUREZ ? '' : ' de ' + MADUREZ)));
     tr.appendChild(s);
@@ -202,8 +208,13 @@ window.resultados = async function () {
     R.appendChild(el('div', 'empty', 'Todavía no hay historial. Cada acción que entra en el top queda anotada con su puntuación y su precio, y aquí se compara con lo que hizo después. Vuelve dentro de unas semanas.'));
     return;
   }
-  const maduras = xs.filter(a => a.sesiones >= MADUREZ);
+  const medibles = xs.filter(a => a.ret != null), perdidas = xs.filter(a => a.ret == null);
+  const maduras = medibles.filter(a => a.sesiones >= MADUREZ);
   R.appendChild(estado(xs, maduras));
+  if (perdidas.length) R.appendChild(el('div', 'm', perdidas.map(a => a.ticker).join(', ') +
+    (perdidas.length === 1 ? ' ha dejado' : ' han dejado') + ' de cotizar o ha cambiado de símbolo: ' +
+    'se queda' + (perdidas.length === 1 ? '' : 'n') + ' en el registro con su último precio conocido, pero sin precio de hoy ' +
+    'no se puede' + (perdidas.length === 1 ? '' : 'n') + ' incluir en las medias. Compruébalo en tu bróker.'));
 
   /* Las respuestas solo aparecen cuando se sostienen. Antes salian en gris diciendo "no se puede
      saber" y justo debajo una tabla con numeros al decimal: se contradecian solas. */
