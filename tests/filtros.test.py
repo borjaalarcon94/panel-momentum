@@ -87,5 +87,20 @@ comprueba("el primer dia de todos si se guarda (no hay anterior)",
 comprueba("si no hay acciones que guardar, no se inventa un motivo",
           b.sin_cierre_nuevo("2026-10-07", _mañana, _otro, None), None)
 
+print("\nNINGUNA ACCION DEL TOP SE QUEDA SIN DATOS DE HOY")
+# El 7 de octubre BLFS estaba en el top y el escaneo de seguimiento no la devolvio: desaparecio del
+# seguimiento y del registro de Resultados sin que nada avisara.
+_top = [{"simbolo": "NASDAQ:BLFS", "ticker": "BLFS", "precio": 38.61, "rsi": 61.0, "cap": 1.89e9},
+        {"simbolo": "NASDAQ:PAYS", "ticker": "PAYS", "precio": 14.36, "rsi": 63.0, "cap": 8.1e8}]
+_escaneo = {"NASDAQ:PAYS": {"ticker": "PAYS", "precio": 14.36}}
+_r = b.con_respaldo(_escaneo, _top)
+comprueba("la que falta en el escaneo se rellena con los datos del top",
+          "NASDAQ:BLFS" in _r, True)
+comprueba("y con su precio correcto", _r["NASDAQ:BLFS"]["precio"], 38.61)
+comprueba("la que si vino no se toca", _r["NASDAQ:PAYS"], {"ticker": "PAYS", "precio": 14.36})
+comprueba("sin top que respaldar no se inventa nada", b.con_respaldo(_escaneo, []), _escaneo)
+comprueba("solo se copian los campos del seguimiento",
+          all(k in b.CAMPOS_SEGUIMIENTO for k in _r["NASDAQ:BLFS"]), True)
+
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

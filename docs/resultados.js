@@ -170,8 +170,9 @@ function registro(xs) {
   const orden = [...xs].sort((a, b) => (a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : (b.score || 0) - (a.score || 0)));
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Lo que llevamos anotado'));
+  d.appendChild(el('div', 'm', 'Por fecha de entrada, la más reciente primero; las que entraron el mismo día, por su nota de ese día.'));
   const t = el('table', 'tabla'), h = el('tr');
-  ['Acción', 'Entró', 'Nota', 'Al entrar', 'Ahora', 'Cambio', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
+  ['Acción', 'Entró', 'Nota al entrar', 'Precio al entrar', 'Precio ahora', 'Cambio', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
   orden.slice(0, VER).forEach(a => {
     const tr = el('tr');

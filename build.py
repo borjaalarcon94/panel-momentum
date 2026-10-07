@@ -109,6 +109,21 @@ def puntuar(acciones, ctx):
     return {x["ticker"]: x for x in json.loads(out.stdout)}
 
 
+def con_respaldo(frescos, top):
+    """Rellena con los datos del top de hoy los simbolos que el escaneo de seguimiento no devolvio.
+
+    Si ese escaneo se deja uno, la accion se queda sin datos de hoy y desaparece del seguimiento y del
+    registro de Resultados aunque este en el top. Paso con BLFS el 7 de octubre de 2026. Los datos del
+    top ya estan escaneados, asi que el respaldo no cuesta ninguna llamada mas.
+    """
+    salida = dict(frescos)
+    for a in top:
+        s = a.get("simbolo")
+        if s and s not in salida:
+            salida[s] = {k: v for k, v in a.items() if k in CAMPOS_SEGUIMIENTO and v is not None}
+    return salida
+
+
 def previos_de(hoy):
     return [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
 
@@ -228,6 +243,7 @@ def main():
                         and (puntos.get(a["ticker"]) or {}).get("extendida")],
                        key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
     comprueba(universo, candidatas, acciones, mercado, ref)
+    acciones_hoy = list(acciones)   # el top de hoy, aunque luego no se guarde como dia nuevo
     motivo = sin_cierre_nuevo(hoy, datetime.datetime.utcnow(),
                               leer(previos_de(hoy)[-1])["acciones"] if previos_de(hoy) else None, acciones)
     if motivo:
@@ -265,6 +281,7 @@ def main():
         for i in range(0, len(lista), 300):
             for fila in filas(scan({"columns": list(C), "symbols": {"tickers": lista[i:i + 300]}})):
                 frescos[fila["simbolo"]] = {k: v for k, v in fila.items() if k in CAMPOS_SEGUIMIENTO and v is not None}
+    frescos = con_respaldo(frescos, acciones_hoy + en_marcha)
     actual = {s: v for s, v in frescos.items() if s in set(recientes)}
     extra = {s: v for s, v in frescos.items() if s in set(antiguos_seguidos)}
     (WEB / "extra.json").write_text(json.dumps({"actual": extra}, ensure_ascii=False))
