@@ -171,10 +171,17 @@ function tablaSimulacion(maduras) {
    ha entrado, con que nota, a que precio y que ha hecho desde entonces. */
 function registro(xs) {
   const VER = 15;
-  const orden = [...xs].sort((a, b) => (a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : (b.score || 0) - (a.score || 0)));
+  /* De lo que mejor va a lo que peor. Las que no tienen resultado (dejaron de cotizar) van al final:
+     con un rendimiento nulo se colarian en medio como si fueran un 0 %, que no es lo que son.
+     A igualdad de rendimiento desempata la fecha de entrada, la mas reciente primero. */
+  const orden = [...xs].sort((a, b) => {
+    if ((a.ret == null) !== (b.ret == null)) return a.ret == null ? 1 : -1;
+    if (a.ret != null && a.ret !== b.ret) return b.ret - a.ret;
+    return a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : 0;
+  });
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Lo que llevamos anotado'));
-  d.appendChild(el('div', 'm', 'Por fecha de entrada, la más reciente primero; las que entraron el mismo día, por su nota de ese día.'));
+  d.appendChild(el('div', 'm', 'De lo que mejor va a lo que peor. Ojo al comparar: la columna «Sesiones» dice cuánto recorrido lleva cada una, y un +5 % en dos sesiones no es lo mismo que un +5 % en quince.'));
   const t = el('table', 'tabla'), h = el('tr');
   ['Acción', 'Entró', 'Nota al entrar', 'Precio al entrar', 'Precio ahora', 'Cambio', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);

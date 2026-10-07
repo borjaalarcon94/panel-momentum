@@ -258,6 +258,33 @@ for (const f of orden) {
   desap.segVeredicto === desap.hoyVeredicto ? ok('las dos pestañas dicen lo mismo sobre ella')
     : mal('se contradicen', desap.segVeredicto + ' vs ' + desap.hoyVeredicto);
 
+  /* El registro se lee para ver que funciono y que no, asi que va de mejor a peor. Las que se
+     quedaron sin desenlace no son un 0 %: van al final, no en medio. */
+  console.log('\nEL REGISTRO VA DE LO QUE MEJOR VA A LO QUE PEOR');
+  const reg = vm.runInContext(`(() => {
+    // se deja una sin precio a proposito: si no, la comprobacion del final pasaria en vacio
+    const xs = entradas();
+    const sinDesenlace = xs.find(a => a.ret > 0);
+    if (sinDesenlace) sinDesenlace.ret = null;
+    const orden = [...xs].sort((a, b) => {
+      if ((a.ret == null) !== (b.ret == null)) return a.ret == null ? 1 : -1;
+      if (a.ret != null && a.ret !== b.ret) return b.ret - a.ret;
+      return a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : 0;
+    });
+    return orden.map(a => ({ t: a.ticker, ret: a.ret }));
+  })()`, ctx);
+  const conRes = reg.filter(x => x.ret != null), sinRes = reg.filter(x => x.ret == null);
+  conRes.every((x, i) => !i || conRes[i - 1].ret >= x.ret)
+    ? ok('las que tienen resultado van de mayor a menor (' + conRes.map(x => x.t).join(' > ') + ')')
+    : mal('el orden no es descendente', conRes.map(x => x.t + ':' + x.ret).join(', '));
+  const indices = reg.map((x, i) => x.ret == null ? i : -1).filter(i => i >= 0);
+  sinRes.length && indices.every(i => i >= reg.length - sinRes.length)
+    ? ok('las que no tienen resultado van al final' + (sinRes.length ? ' (' + sinRes.map(x => x.t).join(', ') + ')' : ''))
+    : mal('una sin resultado se cuela en medio o no hay ninguna que comprobar', indices.join(',') + ' de ' + reg.length);
+  const fuenteRes = fs.readFileSync(path.join(dir, 'resultados.js'), 'utf8');
+  /De lo que mejor va a lo que peor/.test(fuenteRes) ? ok('la tabla dice cómo está ordenada')
+    : mal('la tabla no explica su orden');
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que
