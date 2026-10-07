@@ -181,17 +181,21 @@ function registro(xs) {
   orden.slice(0, VER).forEach(a => {
     const tr = el('tr');
     const td = el('td'); td.appendChild(el('b', null, a.ticker));
-    if (a.fuera) td.appendChild(el('div', 'name', 'ya no está en el top'));
+    /* Una que ha dejado de cotizar no tiene resultado, y la fila tiene que leerse asi: no como una
+       fila a medio rellenar. Se queda por el sesgo de supervivencia, pero se explica sola. */
+    if (a.ret == null) td.appendChild(el('div', 'name', 'dejó de cotizar el ' + fFecha(a.ultimo)));
+    else if (a.fuera) td.appendChild(el('div', 'name', 'ya no está en el top'));
     tr.appendChild(td);
     tr.appendChild(el('td', null, fFecha(a.entrada)));
     tr.appendChild(el('td', null, n(a.score, 0)));
     tr.appendChild(el('td', null, n(a.precio) + ' $'));
-    tr.appendChild(el('td', a.ahora == null ? 'm' : null,
-      a.ahora == null ? n(a.precioUltimo) + ' $ (último)' : n(a.ahora) + ' $'));
-    tr.appendChild(el('td', a.ret == null ? null : a.ret >= 0 ? 'up' : 'down',
-      a.ret == null ? 'sin datos' : pc(a.ret)));
-    const s = el('td'); s.appendChild(el('span', 'est ' + (a.sesiones >= MADUREZ ? 'eok' : 'eoff'),
-      a.sesiones + (a.sesiones >= MADUREZ ? '' : ' de ' + MADUREZ)));
+    tr.appendChild(el('td', a.ahora == null ? 'm' : null, a.ahora == null ? '—' : n(a.ahora) + ' $'));
+    tr.appendChild(el('td', a.ret == null ? 'm' : a.ret >= 0 ? 'up' : 'down', a.ret == null ? '—' : pc(a.ret)));
+    const s = el('td');
+    s.appendChild(a.ret == null
+      ? el('span', 'est ebad', 'sin desenlace')
+      : el('span', 'est ' + (a.sesiones >= MADUREZ ? 'eok' : 'eoff'),
+          a.sesiones + (a.sesiones >= MADUREZ ? '' : ' de ' + MADUREZ)));
     tr.appendChild(s);
     t.appendChild(tr);
   });
