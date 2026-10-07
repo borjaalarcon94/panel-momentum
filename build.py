@@ -14,6 +14,7 @@ GUARDAR = 10          # top que se guarda y se sigue cada dia
 EN_MARCHA = 5         # cumplen todo pero estan muy extendidas: se guardan aparte, no son entrada temprana
 DIAS = 90             # dias del resumen ligero que usa el seguimiento
 SEGUIR_DIAS = 30      # dias cuyos datos frescos van en panel.json (lo que usa el seguimiento normal)
+CIERRE_UTC = 21        # hora UTC a partir de la cual el cierre de hoy ya existe (NY cierra a las 20:00)
 SEGUIR_EXTRA = 90     # hasta aqui se siguen descargando datos, pero van en extra.json: la web solo lo
                       # descarga si tienes una posicion abierta que ya no esta en panel.json
 # Campos necesarios para recomprobar requisitos y repuntuar una accion seguida (el resto no se publica).
@@ -108,6 +109,33 @@ def puntuar(acciones, ctx):
     return {x["ticker"]: x for x in json.loads(out.stdout)}
 
 
+def previos_de(hoy):
+    return [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
+
+
+def sin_cierre_nuevo(hoy, ahora, anteriores, acciones):
+    """Motivo por el que NO hay un cierre nuevo que guardar, o None si si lo hay.
+
+    Un push de codigo dispara el Action a cualquier hora, y con el mercado cerrado TradingView
+    devuelve el cierre anterior con la fecha de hoy. Eso creaba dias fantasma que luego cuentan como
+    sesion y duplican las entradas al medir resultados: ha pasado un domingo y un martes por la manana.
+    """
+    if acciones is None:
+        return None
+    if datetime.date.fromisoformat(hoy).weekday() >= 5:
+        return "Fin de semana, no hay sesion"
+    if ahora.hour < CIERRE_UTC:
+        return f"Son las {ahora:%H:%M} UTC y Nueva York cierra a las 20:00, el cierre de hoy aun no existe"
+    if anteriores:
+        # Ticker a ticker, no la lista entera: la composicion del top puede cambiar (sale una, entra
+        # otra) con los mismos precios, y eso sigue siendo exactamente el mismo cierre.
+        ant = {a["ticker"]: a["precio"] for a in anteriores}
+        comunes = [a for a in acciones if a["ticker"] in ant]
+        if len(comunes) >= 3 and all(ant[a["ticker"]] == a["precio"] for a in comunes):
+            return "Mismos precios que el dia anterior (festivo o mercado cerrado)"
+    return None
+
+
 def cumple(a):
     """Requisitos que no se pueden expresar como filtro simple en el escaner."""
     g = max(a.get("ingresos") or -999, a.get("ingresosq") or -999)
@@ -200,18 +228,11 @@ def main():
                         and (puntos.get(a["ticker"]) or {}).get("extendida")],
                        key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
     comprueba(universo, candidatas, acciones, mercado, ref)
-    # Sabado o domingo no hay cierre nuevo: TradingView devuelve el del viernes. Guardarlo crea un dia
-    # falso que ocupa sitio y que luego cuenta como sesion al medir resultados. El filtro por datos
-    # repetidos no basta: si cambia el codigo de puntuacion, el top sale distinto con los mismos precios.
-    if datetime.date.fromisoformat(hoy).weekday() >= 5:
-        print("Fin de semana: no hay cierre nuevo, no se guarda el dia")
+    motivo = sin_cierre_nuevo(hoy, datetime.datetime.utcnow(),
+                              leer(previos_de(hoy)[-1])["acciones"] if previos_de(hoy) else None, acciones)
+    if motivo:
+        print(motivo + ": no se guarda el dia")
         acciones = None
-    previos = [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
-    if previos and acciones is not None:
-        ant = leer(previos[-1])["acciones"]
-        if [(a["ticker"], a["precio"]) for a in ant] == [(a["ticker"], a["precio"]) for a in acciones]:
-            print("Mismos datos que el dia anterior (festivo): no se guarda")
-            acciones = None
     if acciones is not None:
         (DATOS / f"{hoy}.json").write_text(json.dumps(
             {"acciones": acciones, "enMarcha": en_marcha, "mercado": mercado, "referencia": ref,

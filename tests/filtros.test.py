@@ -56,5 +56,36 @@ comprueba("sin datos del S&P: no publica", falla(lambda: b.comprueba(list(range(
 comprueba("con todo correcto sí publica",
           falla(lambda: b.comprueba(list(range(200)), [sana] * 5, [con(sma200=40, ema50=45)], mercado_ok, ref_ok)), False)
 
+import datetime as _dt
+
+print("\nSOLO SE GUARDA UN DIA SI SU CIERRE YA EXISTE")
+# Han colado tres dias fantasma: un domingo, un martes por la manana y uno con los mismos precios
+# pero distinta composicion del top. Cada uno cuenta como sesion y duplica entradas en Resultados.
+_noche = _dt.datetime(2026, 10, 7, 21, 40)
+_mañana = _dt.datetime(2026, 10, 7, 8, 24)
+_top = [{"ticker": t, "precio": p} for t, p in
+        [("PAYS", 14.36), ("CDNA", 63.79), ("COHU", 73.1), ("FEIM", 87.13), ("BLFS", 38.61)]]
+_otro = [{"ticker": t, "precio": p} for t, p in
+         [("PAYS", 14.50), ("CDNA", 64.00), ("COHU", 73.5), ("FEIM", 88.0), ("BLFS", 39.0)]]
+# el caso real del 7 de octubre: mismos precios, pero sale BLFS y entra IOVA
+_recompuesto = _top[:4] + [{"ticker": "IOVA", "precio": 12.96}]
+
+comprueba("un martes despues del cierre si se guarda",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _otro, _top), None)
+comprueba("un martes por la manana no: el cierre de hoy aun no existe",
+          b.sin_cierre_nuevo("2026-10-07", _mañana, _otro, _top) is not None, True)
+comprueba("un domingo no, aunque sea de noche",
+          b.sin_cierre_nuevo("2026-10-04", _noche, _otro, _top) is not None, True)
+comprueba("un sabado tampoco",
+          b.sin_cierre_nuevo("2026-10-03", _noche, _otro, _top) is not None, True)
+comprueba("mismos precios que ayer (festivo): no se guarda",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _top, _top) is not None, True)
+comprueba("mismos precios pero otra composicion del top: tampoco",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _top, _recompuesto) is not None, True)
+comprueba("el primer dia de todos si se guarda (no hay anterior)",
+          b.sin_cierre_nuevo("2026-10-07", _noche, None, _top), None)
+comprueba("si no hay acciones que guardar, no se inventa un motivo",
+          b.sin_cierre_nuevo("2026-10-07", _mañana, _otro, None), None)
+
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)
