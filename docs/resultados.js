@@ -183,7 +183,7 @@ function registro(xs) {
   d.appendChild(el('div', 'blt', 'Lo que llevamos anotado'));
   d.appendChild(el('div', 'm', 'De lo que mejor va a lo que peor. Ojo al comparar: la columna «Sesiones» dice cuánto recorrido lleva cada una, y un +5 % en dos sesiones no es lo mismo que un +5 % en quince.'));
   const t = el('table', 'tabla'), h = el('tr');
-  ['Acción', 'Entró', 'Nota al entrar', 'Precio al entrar', 'Precio ahora', 'Cambio', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
+  ['Acción', 'Entró', 'Nota al entrar', 'Precio al entrar', 'Precio ahora', 'Cambio', 'S&P 500', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
   orden.slice(0, VER).forEach(a => {
     const tr = el('tr');
@@ -198,6 +198,9 @@ function registro(xs) {
     tr.appendChild(el('td', null, n(a.precio) + ' $'));
     tr.appendChild(el('td', a.ahora == null ? 'm' : null, a.ahora == null ? '—' : n(a.ahora) + ' $'));
     tr.appendChild(el('td', a.ret == null ? 'm' : a.ret >= 0 ? 'up' : 'down', a.ret == null ? '—' : pc(a.ret)));
+    /* Lo que hizo el indice en la ventana de ESA entrada, no desde el principio: cada accion entro un
+       dia distinto. El dato ya se guarda cada dia en el historico, asi que no cuesta ninguna llamada. */
+    tr.appendChild(el('td', 'm', a.sp == null ? '—' : pc(a.sp)));
     const s = el('td');
     s.appendChild(a.ret == null
       ? el('span', 'est ebad', 'sin desenlace')
@@ -207,7 +210,22 @@ function registro(xs) {
     t.appendChild(tr);
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
-  if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' más recientes de ' + orden.length + '.'));
+  if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' primeras de ' + orden.length + '.'));
+  /* Comparacion con el indice: cada entrada contra lo que hizo el S&P 500 en sus mismos dias. Es un
+     dato del registro, no una conclusion: con pocas sesiones esta diferencia es ruido. */
+  const conSp = xs.filter(a => a.sp != null && a.ret != null);
+  if (conSp.length) {
+    const mAcc = media(conSp.map(a => a.ret)), mSp = media(conSp.map(a => a.sp)), dif = mAcc - mSp;
+    const c = el('div', 'blk'); c.style.marginTop = '10px';
+    c.appendChild(el('div', 'blt', 'Comparado con el S&P 500'));
+    const st = el('div', 'stats');
+    st.append(stat('las anotadas', pc(mAcc)), stat('el S&P 500 esos mismos días', pc(mSp)),
+      stat('diferencia', (dif >= 0 ? '+' : '') + n(dif, 1) + ' pt'));
+    c.appendChild(st);
+    c.appendChild(el('p', 'nota', 'Cada acción se compara con lo que hizo el índice desde el día que ella entró, no desde el principio. ' +
+      'Con ' + conSp.length + ' entradas y tan poco recorrido esta diferencia todavía es ruido: lo que la haría significativa está arriba, en el contador.'));
+    d.appendChild(c);
+  }
   return d;
 }
 

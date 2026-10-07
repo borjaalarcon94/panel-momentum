@@ -285,6 +285,34 @@ for (const f of orden) {
   /De lo que mejor va a lo que peor/.test(fuenteRes) ? ok('la tabla dice cómo está ordenada')
     : mal('la tabla no explica su orden');
 
+  /* Comparacion con el indice. El precio del S&P ya se guarda cada dia en el historico, asi que no
+     cuesta ninguna llamada: lo que se comprueba es que el calculo sea el correcto. */
+  console.log('\nLA COMPARACIÓN CON EL S&P 500 SALE DE LOS DATOS YA GUARDADOS');
+  const sp = vm.runInContext(`(() => {
+    const xs = entradas();
+    const con = xs.filter(a => a.sp != null && a.ret != null);
+    const m = v => v.reduce((s, x) => s + x, 0) / v.length;
+    // comprobacion independiente: el S&P de una entrada es su variacion desde el dia que entro
+    const x = con[0];
+    const spyHoy = HIST[FH[0]].spy, spyEntrada = HIST[x.entrada] ? HIST[x.entrada].spy : null;
+    return { n: con.length, total: xs.length,
+      mAcc: m(con.map(a => a.ret)), mSp: m(con.map(a => a.sp)),
+      ticker: x.ticker, sp: x.sp,
+      esperado: spyEntrada ? (spyHoy / spyEntrada - 1) * 100 : null };
+  })()`, ctx);
+  sp.n === sp.total ? ok('las ' + sp.n + ' entradas tienen su dato del índice') : mal('faltan datos del índice', sp.n + ' de ' + sp.total);
+  sp.esperado != null && Math.abs(sp.sp - sp.esperado) < 0.01
+    ? ok('el S&P de ' + sp.ticker + ' se mide desde el día que entró (' + sp.sp.toFixed(2) + ' %)')
+    : mal('el cálculo del índice no cuadra', sp.sp + ' vs ' + sp.esperado);
+  const fuenteSp = fs.readFileSync(path.join(dir, 'resultados.js'), 'utf8');
+  !/fetch\(/.test(fuenteSp.split('cargaPrecios')[2] || '') ? ok('no se descarga nada nuevo para compararlo')
+    : mal('la comparación añade una descarga');
+  await paso('resultados se pinta con la comparación', () => ventana.resultados());
+  /Comparado con el S&P 500/.test(porId.rres.textContent) ? ok('el bloque de comparación aparece')
+    : mal('no aparece el bloque de comparación');
+  /todavía es ruido/.test(porId.rres.textContent) ? ok('y avisa de que con pocas sesiones es ruido')
+    : mal('presenta la diferencia como si fuera una conclusión');
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que
