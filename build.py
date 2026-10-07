@@ -253,6 +253,23 @@ def main():
     for i in range(0, len(antiguos), 400):
         for it in scan({"columns": ["close"], "symbols": {"tickers": antiguos[i:i + 400]}}):
             precios[it["s"]] = redondea(it["d"][0])
+    # Serie diaria de cierres de todo lo que ha pasado por el top. Sin esto, la simulacion de stops de
+    # la pestaña Resultados es ciega justo los dias que importan: una accion se cae del top cuando se
+    # debilita, que es cuando saltaria el stop. El dato ya lo pedimos (precios), solo faltaba guardarlo.
+    # Va en su propio fichero, no en panel.json, porque solo lo necesita esa pestaña y panel.json se
+    # descarga en cada visita. Se recorta a DIAS sesiones para que no crezca sin fin.
+    historicos_precios = {}
+    fp = WEB / "precios.json"
+    if fp.exists():
+        try:
+            historicos_precios = json.loads(fp.read_text()).get("dias", {})
+        except Exception:
+            historicos_precios = {}
+    if acciones is not None:   # en fin de semana o festivo no hay cierre nuevo que guardar
+        historicos_precios[hoy] = {s: redondea(v) for s, v in precios.items()}
+    historicos_precios = {f: v for f, v in sorted(historicos_precios.items())[-DIAS:]}
+    fp.write_text(json.dumps({"dias": historicos_precios}, ensure_ascii=False, separators=(",", ":")))
+
     estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css"))
     version = hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
     panel = {"version": version, "dias": sorted(todos), "historico": historico, "precios": precios, "actual": actual,

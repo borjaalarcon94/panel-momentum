@@ -150,6 +150,36 @@ for (const f of orden) {
   puestos.every((v, i) => v === i + 1) ? ok('el número de cada tarjeta es su posición en la lista')
     : mal('los números no siguen el orden de la lista', puestos.join(', '));
 
+  /* La simulacion de stops era ciega los dias que una accion caia del top, que es justo cuando el
+     stop saltaria. Ahora hay una serie diaria de cierres aparte; esto comprueba que la usa. */
+  console.log('\nLA SIMULACIÓN VE LOS CIERRES FUERA DEL TOP');
+  const antes = vm.runInContext(`(() => {
+    const e = entradas(); const x = e[0];
+    const sinSerie = simula([x])[0];
+    return { clave: x.clave, entrada: x.entrada, sesiones: x.sesiones, cobertura: sinSerie.cobertura };
+  })()`, ctx);
+  typeof antes.cobertura === 'number' ? ok('la simulación informa de cuántos cierres ha visto')
+    : mal('no calcula la cobertura');
+  // Se inventa una serie en la que la accion se desploma despues de salir del top: el stop debe saltar.
+  const conStop = vm.runInContext(`(() => {
+    const e = entradas(); const x = e[0];
+    PRECIOS = {};
+    // caida escalonada que cruza el tope del 15 % en la segunda sesion (solo hay 2 tras la entrada)
+    FH.filter(f => f > x.entrada).sort().forEach((f, i) => { PRECIOS[f] = { [x.clave]: x.precio * (1 - 0.09 * (i + 1)) } });
+    const r = simula([x])[0];
+    PRECIOS = null;
+    return { motivo: r.motivo, conReglas: r.conReglas, cobertura: r.cobertura };
+  })()`, ctx);
+  conStop.motivo === 'stop' ? ok('con la serie completa, una caída fuera del top dispara el stop')
+    : mal('el stop no salta aunque la acción caiga por debajo del tope', JSON.stringify(conStop));
+  conStop.conReglas > -20 ? ok('y la pérdida queda acotada cerca del tope del 15 % (' + conStop.conReglas.toFixed(0) + ' %)')
+    : mal('la pérdida no está acotada', conStop.conReglas);
+  // Sin la serie, esa misma caida no se veria: el stop no saltaria y la perdida seria la de hoy.
+  const sinSerie = vm.runInContext(`(() => { const x = entradas()[0]; PRECIOS = {}; const r = simula([x])[0];
+    PRECIOS = null; return r.motivo })()`, ctx);
+  sinSerie == null ? ok('sin la serie diaria ese mismo desplome pasaba desapercibido')
+    : mal('la prueba no distingue los dos casos', String(sinSerie));
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que

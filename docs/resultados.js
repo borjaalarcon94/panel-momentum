@@ -88,14 +88,34 @@ function discrimina(maduras) {
   return { corte, dif: media(altas.map(a => a.ret)) - media(bajas.map(a => a.ret)), altas, bajas };
 }
 
-/* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice, con los
-   cierres de los dias que tenemos (los que estuvo en el top) y el precio de hoy. */
+/* Serie diaria de cierres de todo lo que ha pasado por el top, incluidos los dias en que ya no esta.
+   Vive aparte y se descarga solo al abrir esta pestaña: panel.json se baja en cada visita y esto no
+   le hace falta a nadie mas. */
+let PRECIOS = null;
+async function cargaPrecios() {
+  if (PRECIOS) return PRECIOS;
+  try { PRECIOS = (await (await fetch('precios.json', { cache: 'no-cache' })).json()).dias || {}; }
+  catch (e) { PRECIOS = {}; }
+  return PRECIOS;
+}
+/* Cierre de una accion un dia dado: primero la serie completa; si no, el registro del top, que solo
+   la tiene los dias que estuvo dentro. */
+function cierre(f, clave) {
+  const p = (PRECIOS || {})[f];
+  if (p && p[clave] != null) return p[clave];
+  const fila = ((HIST[f] || {}).acciones || []).find(y => (y.s || y.t) === clave);
+  return fila && fila.p != null ? fila.p : null;
+}
+
+/* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice. */
 function simula(xs) {
   return xs.map(x => {
-    let maxVisto = x.precio, salida = null, motivo = null, stopPrevio = 0;
+    let maxVisto = x.precio, salida = null, motivo = null, stopPrevio = 0, vistos = 0;
     for (const f of FH.filter(f => f > x.entrada && esSesion(f)).sort()) {
-      const fila = ((HIST[f] || {}).acciones || []).find(y => (y.s || y.t) === x.clave);
-      if (!fila || !fila.p) continue;           // ese dia salio del top: no tenemos su cierre
+      const p = cierre(f, x.clave);
+      if (p == null) continue;                  // no tenemos su cierre ese dia
+      const fila = { p };
+      vistos++;
       maxVisto = Math.max(maxVisto, fila.p);
       const gan = (fila.p / x.precio - 1) * 100, ganMax = (maxVisto / x.precio - 1) * 100;
       // Mismas reglas que las posiciones reales (docs/reglas.js). Sin EMA 50 historica, el stop usa
@@ -106,7 +126,10 @@ function simula(xs) {
       const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
       if (limite != null && devuelto >= limite) { salida = fila.p; motivo = 'devolución'; break }
     }
+    /* Sesiones con cierre frente a sesiones transcurridas: si faltan muchas, la simulacion no ha
+       podido aplicar las reglas y hay que decirlo en vez de dar la media por buena. */
     return { ...x, conReglas: salida != null ? (salida / x.precio - 1) * 100 : x.ret, motivo,
+      vistos, cobertura: x.sesiones ? vistos / x.sesiones : 1,
       alSalirDelTop: x.retAlSalir != null ? x.retAlSalir : x.ret };
   });
 }
@@ -133,6 +156,10 @@ function tablaSimulacion(maduras) {
     t.appendChild(tr);
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  const cob = media(r.map(x => x.cobertura)) * 100;
+  if (cob < 90) d.appendChild(el('div', 'm', 'Aviso: solo tenemos el cierre del ' + n(cob, 0) +
+    ' % de las sesiones de estas entradas, así que las reglas de salida no se han podido aplicar en el resto. ' +
+    'La serie diaria se guarda desde el 7 de octubre de 2026; las entradas anteriores van incompletas.'));
   return d;
 }
 
@@ -166,8 +193,9 @@ function registro(xs) {
   return d;
 }
 
-window.resultados = function () {
+window.resultados = async function () {
   const R = $('rres'); R.replaceChildren();
+  await cargaPrecios();
   const xs = entradas();
   if (!xs.length) {
     R.appendChild(el('div', 'empty', 'Todavía no hay historial. Cada acción que entra en el top queda anotada con su puntuación y su precio, y aquí se compara con lo que hizo después. Vuelve dentro de unas semanas.'));
