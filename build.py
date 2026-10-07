@@ -274,23 +274,41 @@ def main():
         return {a["simbolo"] for f, d in list(todos.items())[-dias_atras:]
                 for a in d["acciones"] + d.get("enMarcha", []) if a.get("simbolo")}
 
+    # Sin cierre nuevo no se publica NADA de media sesion. Todo el sistema (EMA 50, stop, RSI, el
+    # protocolo de salida) esta definido sobre cierres diarios; con un precio de media sesion la
+    # pestaña Seguimiento daba un veredicto y la pestaña Hoy otro sobre la misma accion el mismo dia,
+    # y los stops bailaban hasta el cierre. Se conserva lo del ultimo cierre y se ahorran las llamadas.
+    anterior = {}
+    if motivo:
+        try:
+            anterior = json.loads((WEB / "panel.json").read_text())
+        except Exception:
+            anterior = {}
     recientes = sorted(simbolos_de(SEGUIR_DIAS))
-    antiguos_seguidos = sorted(simbolos_de(SEGUIR_EXTRA) - set(recientes))
-    frescos = {}
-    for lista in (recientes, antiguos_seguidos):
-        for i in range(0, len(lista), 300):
-            for fila in filas(scan({"columns": list(C), "symbols": {"tickers": lista[i:i + 300]}})):
-                frescos[fila["simbolo"]] = {k: v for k, v in fila.items() if k in CAMPOS_SEGUIMIENTO and v is not None}
-    frescos = con_respaldo(frescos, acciones_hoy + en_marcha)
-    actual = {s: v for s, v in frescos.items() if s in set(recientes)}
-    extra = {s: v for s, v in frescos.items() if s in set(antiguos_seguidos)}
-    (WEB / "extra.json").write_text(json.dumps({"actual": extra}, ensure_ascii=False))
-    antiguos = sorted({a["simbolo"] for d in todos.values() for a in d["acciones"]
-                       if a.get("simbolo") and a["simbolo"] not in frescos})
-    precios = {s: a["precio"] for s, a in frescos.items()}
-    for i in range(0, len(antiguos), 400):
-        for it in scan({"columns": ["close"], "symbols": {"tickers": antiguos[i:i + 400]}}):
-            precios[it["s"]] = redondea(it["d"][0])
+    if motivo and anterior.get("actual"):
+        print("Sin cierre nuevo: se conservan los datos de seguimiento del ultimo cierre")
+        actual, precios = anterior["actual"], anterior.get("precios", {})
+        mercado = anterior.get("mercadoHoy") or mercado
+        ref = anterior.get("referenciaHoy") or ref
+        actualizado = anterior.get("actualizado")
+    else:
+        antiguos_seguidos = sorted(simbolos_de(SEGUIR_EXTRA) - set(recientes))
+        frescos = {}
+        for lista in (recientes, antiguos_seguidos):
+            for i in range(0, len(lista), 300):
+                for fila in filas(scan({"columns": list(C), "symbols": {"tickers": lista[i:i + 300]}})):
+                    frescos[fila["simbolo"]] = {k: v for k, v in fila.items() if k in CAMPOS_SEGUIMIENTO and v is not None}
+        frescos = con_respaldo(frescos, acciones_hoy + en_marcha)
+        actual = {s: v for s, v in frescos.items() if s in set(recientes)}
+        extra = {s: v for s, v in frescos.items() if s in set(antiguos_seguidos)}
+        (WEB / "extra.json").write_text(json.dumps({"actual": extra}, ensure_ascii=False))
+        antiguos = sorted({a["simbolo"] for d in todos.values() for a in d["acciones"]
+                           if a.get("simbolo") and a["simbolo"] not in frescos})
+        precios = {s: a["precio"] for s, a in frescos.items()}
+        for i in range(0, len(antiguos), 400):
+            for it in scan({"columns": ["close"], "symbols": {"tickers": antiguos[i:i + 400]}}):
+                precios[it["s"]] = redondea(it["d"][0])
+        actualizado = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")
     # Serie diaria de cierres de todo lo que ha pasado por el top. Sin esto, la simulacion de stops de
     # la pestaña Resultados es ciega justo los dias que importan: una accion se cae del top cuando se
     # debilita, que es cuando saltaria el stop. El dato ya lo pedimos (precios), solo faltaba guardarlo.
@@ -315,8 +333,8 @@ def main():
              "criterios": {"precioMin": 2, "capMin": 300e6, "capMax": CAP_MAX, "volumenMin": 300000,
                            "liquidezMin": LIQUIDEZ_MIN, "rsiMin": 55, "crecimientoMin": CRECIMIENTO_MIN,
                            "maxDesdeMaximo": MAX_DESDE_MAXIMO},
-             "regimen": regimen(mercado),
-             "actualizado": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")}
+             "regimen": anterior.get("regimen") if (motivo and anterior.get("regimen")) else regimen(mercado),
+             "actualizado": actualizado}
     (WEB / "panel.json").write_text(json.dumps(panel, ensure_ascii=False))
     # index.html solo cambia cuando cambia la plantilla o el codigo de la web: los datos se cargan aparte.
     # La version viaja tambien dentro de panel.json: si el navegador sirve un index.html viejo desde su cache,

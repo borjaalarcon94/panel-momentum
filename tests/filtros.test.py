@@ -1,4 +1,5 @@
 """Pruebas de los filtros del proceso diario: python3 tests/filtros.test.py"""
+
 import importlib.util, pathlib, sys
 R = pathlib.Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("b", R / "build.py")
@@ -101,6 +102,20 @@ comprueba("la que si vino no se toca", _r["NASDAQ:PAYS"], {"ticker": "PAYS", "pr
 comprueba("sin top que respaldar no se inventa nada", b.con_respaldo(_escaneo, []), _escaneo)
 comprueba("solo se copian los campos del seguimiento",
           all(k in b.CAMPOS_SEGUIMIENTO for k in _r["NASDAQ:BLFS"]), True)
+
+print("\nSIN CIERRE NUEVO NO SE PUBLICA NADA DE MEDIA SESION")
+# El 7 de octubre a las 15:18 UTC, con la bolsa abierta, un push regeneró panel.json con precios de
+# media sesion: Seguimiento decia "ZETA, COMPRA" y Hoy decia "PAYS, COMPRA" el mismo dia. Todo el
+# sistema esta definido sobre cierres diarios; un precio intradia no puede entrar.
+_fuente = open(R / "build.py").read()
+comprueba("el escaneo de seguimiento solo corre si hay cierre nuevo",
+          "if motivo and anterior.get(\"actual\"):" in _fuente, True)
+comprueba("sin cierre nuevo se reutiliza el 'actual' del ultimo cierre",
+          'actual, precios = anterior["actual"], anterior.get("precios", {})' in _fuente, True)
+comprueba("la fecha de actualizacion tampoco se toca",
+          'actualizado = anterior.get("actualizado")' in _fuente, True)
+comprueba("ni el regimen de mercado",
+          'anterior.get("regimen") if (motivo and anterior.get("regimen"))' in _fuente, True)
 
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)
