@@ -141,17 +141,20 @@ window.parametros = function () {
       ['Impulso entre 20 y 50 % sobre su EMA 50', '+3', 'la zona que históricamente más multiplica'],
       ['Sube entre un 20 y un 70 % en el mes', '+2', 'impulso sano, no parabólico'],
       ['Capitalización por debajo de 1.000 / 3.000 / 6.000 M', '+5 / +3,5 / +2', 'cuanto más pequeña, más recorrido'],
+      ['Capitalización de 6.000 M en adelante', '+0,5', 'el resto también suma algo, para que el bonus no sea todo o nada'],
     ], 'La penalización total está limitada a −15 puntos y la nota final se acota entre 0 y 100.'));
 
   R.appendChild(tabla('4 · Qué significa cada veredicto',
     ['Veredicto', 'Cuándo aparece'], [
       ['COMPRA', 'cumple todo, no está estirada y su EMA 50 queda a menos de un 15 %'],
+      ['Sin datos', 'ha dejado de cotizar con ese símbolo o ha cambiado de nombre: la fuente ya no la devuelve'],
+      ['No comprar', 'ha dado una señal de salida: perdió la EMA 50 o la EMA 21, RSI por debajo de 45, o ha caído un 15 % o más desde su máximo del último mes'],
       ['Compra arriesgada', 'cumple, pero la EMA 50 queda a más del 15 %: el stop es un tope fijo, no un nivel técnico'],
       ['Esperar', 'está a más de un 10 % de su máximo de 52 semanas'],
       ['No comprar aquí', 'demasiado estirada: mejor esperar a que consolide'],
       ['Vigilar', 'cumple, pero su puntuación ha caído más de 8 puntos'],
       ['Ya no cumple', 'ha roto algún requisito obligatorio'],
-    ], 'La lista del día se ordena por prioridad de compra: primero las que marcan COMPRA, después las de vigilar y al final las que no se tocan; dentro de cada grupo, por puntuación. La puntuación mide la calidad de la empresa, no si hoy es buen día para entrar.'));
+    ], 'La pestaña Hoy se ordena por prioridad de compra: primero las que marcan COMPRA, después las de vigilar y al final las que no se tocan; dentro de cada grupo, por puntuación. La pestaña Seguimiento se ordena por puntuación a secas, porque sirve para ver cómo evolucionan, no para decidir la compra del día. La puntuación mide la calidad de la empresa, no si hoy es buen día para entrar.'));
 
   R.appendChild(tabla('5 · Cuándo vender una posición abierta',
     ['Regla', 'Detalle'], [
@@ -161,17 +164,19 @@ window.parametros = function () {
       ['Devolución de ganancias', 'con menos de un 30 % ganado manda solo el stop; entre 30 y 100 % se vende si devuelve la mitad; por encima del 100 %, si devuelve el 40 %'],
       ['Pérdida de tendencia', 'cierre por debajo de la EMA 50 o RSI por debajo de 45'],
       ['Deterioro del negocio', 'deja de cumplir dos o más requisitos'],
-      ['Aviso previo', 'VIGILAR al perder la EMA 21, al acercarse a la devolución límite o si publica resultados en 10 días'],
+      ['Aviso previo', 'VIGILAR al perder la EMA 21, al acercarse al 60 % de la devolución límite o si publica resultados en 10 días'],
+      ['Un solo requisito roto', 'VIGILAR, no vender: hacen falta dos para que sea motivo de venta'],
+      ['Se le queda pequeño el techo', 'VIGILAR si supera los 10.000 M de capitalización, pero nunca es motivo de venta'],
     ], 'Que una ganadora supere el techo de capitalización no cuenta como motivo de venta.'));
 
   R.appendChild(tabla('6 · De dónde salen los datos y qué no cubre',
     ['Asunto', 'Detalle'], [
       ['Fuente', 'TradingView, al cierre de cada sesión'],
-      ['Actualización', 'cada día laborable a las 23:30 (hora de España)'],
+      ['Actualización', 'cada día laborable a las 21:30 UTC: 23:30 en horario de verano y 22:30 en invierno (hora de España)'],
       ['Mercado', 'solo EE. UU.'],
       ['Frecuencia', 'una foto diaria: no hay precios intradía'],
       ['Tus posiciones', 'se guardan solo en este navegador, no en ningún servidor'],
       ['Lo que no ve', 'noticias, fraudes, resultados de ensayos clínicos, demandas o cambios regulatorios'],
-      ['Calibración', 'los umbrales técnicos salen de medir 17.934 situaciones reales entre 2024 y 2026'],
+      ['Calibración', 'los umbrales técnicos salen de 17.934 observaciones semanales de 185 empresas entre 2024 y 2026. Se solapan entre sí y cubren un periodo alcista, así que valen mucho menos que 17.934 casos independientes'],
     ], 'Esto es un sistema de detección de oportunidades para estudiarlas una a una, no una recomendación de compra.'));
 };

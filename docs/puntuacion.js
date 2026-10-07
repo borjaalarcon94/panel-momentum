@@ -1,7 +1,8 @@
 /* Puntuacion 0-100 de "growth despegando". Funcion pura: misma entrada, mismo resultado.
    Bloques: momentum tecnico 25 | aceleracion del crecimiento 25 | calidad fundamental 20 |
             fuerza relativa 15 | volumen y ruptura 15.  Despues: penalizacion por sobreextension
-            (hasta -25) y bonus por arranque temprano (hasta +5). Resultado acotado a 0-100.
+            (acotada a -15, ver Math.min mas abajo) y bonus por impulso y tamano (hasta +10: 5 de
+            impulso y 5 de capitalizacion). Resultado acotado a 0-100.
    Lo que falta no se inventa: el criterio sin dato suma 0 y se avisa como riesgo. */
 (function () {
   const num = v => (typeof v === 'number' && isFinite(v) ? v : null);
