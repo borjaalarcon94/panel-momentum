@@ -136,6 +136,24 @@ for (const f of orden) {
   saltos.length === 0 ? ok('nunca va una de "esperar" por delante de una de "comprar"')
     : mal('orden incoherente en la pestaña', saltos.join(', '));
 
+  /* "COHU (84) puntuan mas alto" salia en plural con una sola accion. */
+  console.log('\nEL AVISO DE LAS QUE QUEDAN FUERA CONCUERDA EN NÚMERO');
+  const conc = vm.runInContext(`(() => {
+    const avisos = [];
+    for (const n of [1, 2]) {
+      const u = n === 1;
+      avisos.push((u ? ' puntúa' : ' puntúan') + ' más alto, pero hoy no ' + (u ? 'es' : 'son') + ' entrada. ' + (u ? 'Sigue' : 'Siguen') + ' aquí, más abajo.');
+    }
+    return avisos;
+  })()`, ctx);
+  /puntúa más alto, pero hoy no es entrada\. Sigue/.test(conc[0]) ? ok('con una sola acción va en singular')
+    : mal('una sola acción sale en plural', conc[0]);
+  /puntúan más alto, pero hoy no son entrada\. Siguen/.test(conc[1]) ? ok('con varias va en plural')
+    : mal('varias acciones salen en singular', conc[1]);
+  const fuentes = ['hoy.js', 'seguimiento.js'].map(f => fs.readFileSync(path.join(dir, f), 'utf8'));
+  fuentes.every(x => /length === 1|length===1/.test(x)) ? ok('las dos pestañas distinguen singular de plural')
+    : mal('alguna pestaña tiene el texto fijo en plural');
+
   /* Se pintaba "#1" por la posicion en pantalla y "TOP #2" por la nota en la misma tarjeta: dos
      numeraciones distintas peleandose. En una tarjeta solo puede haber un numero de puesto. */
   console.log('\nUNA SOLA NUMERACIÓN POR TARJETA');

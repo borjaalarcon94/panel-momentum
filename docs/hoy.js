@@ -90,7 +90,8 @@ const ocultas=v.todas.slice(top.length),peorVisible=Math.min(...top.map(a=>a.sco
 const altasFuera=ocultas.filter(a=>(a.score??0)>peorVisible);
 if(altasFuera.length){const t=el('div','m');
 t.appendChild(el('b',null,altasFuera.slice(0,3).map(a=>a.ticker+' ('+n(a.score,0)+')').join(', ')+(altasFuera.length>3?' y '+(altasFuera.length-3)+' más':'')));
-t.appendChild(el('span',null,' puntúan más alto que alguna de arriba, pero hoy no son entrada. Siguen en el panel, más abajo.'));
+const u=altasFuera.length===1;
+t.appendChild(el('span',null,(u?' puntúa':' puntúan')+' más alto que alguna de arriba, pero hoy no '+(u?'es':'son')+' entrada. '+(u?'Sigue':'Siguen')+' en el panel, más abajo.'));
 L.appendChild(t)}
 // Botón para ver el resto de las guardadas sin salir de la vista
 if(v.todas.length>top.length||S.top>5){const b=el('button','chip ver-mas',S.top>5?'Ver solo las 5 mejores':'Ver las '+v.todas.length+' guardadas');

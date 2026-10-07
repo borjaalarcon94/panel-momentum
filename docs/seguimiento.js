@@ -198,7 +198,8 @@ window.seguimiento = function () {
     const altas = completa.slice(r.length).filter(a => (a.score ?? 0) > peor);
     if (altas.length) { const t = el('div', 'm');
       t.appendChild(el('b', null, altas.slice(0, 3).map(a => a.ticker + ' (' + n(a.score, 0) + ')').join(', ') + (altas.length > 3 ? ' y ' + (altas.length - 3) + ' más' : '')));
-      t.appendChild(el('span', null, ' puntúan más alto, pero hoy no son entrada. Siguen aquí, más abajo.'));
+      const u = altas.length === 1;
+      t.appendChild(el('span', null, (u ? ' puntúa' : ' puntúan') + ' más alto, pero hoy no ' + (u ? 'es' : 'son') + ' entrada. ' + (u ? 'Sigue' : 'Siguen') + ' aquí, más abajo.'));
       R.appendChild(t) }
   }
   if (ocultas > 0 || VER_TODAS) {
