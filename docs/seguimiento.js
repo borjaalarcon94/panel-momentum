@@ -75,13 +75,15 @@ const ETIQUETA = {
 };
 
 window.seguimiento = function () {
-  const lim = +$('per').value, orden = $('segorden').value || 'reco', filtro = $('segest').value;
+  const lim = +$('per').value, orden = $('segorden').value || 'score', filtro = $('segest').value;
   const todo = historial(lim);
   const viva = a => a.estado === 'viable' || a.estado === 'extendida' || a.estado === 'flojea';
   const descartadas = todo.filter(a => !viva(a));
   let r = filtro === 'todas' ? todo : filtro === 'top' ? todo.filter(a => a.enTop) : filtro === 'fuera' ? descartadas : todo.filter(viva);
-  /* "Cual compraria antes" = el mismo criterio que la pestaña Hoy: manda el veredicto y la nota
-     desempata dentro de cada grupo. Si las dos pestañas ordenaran distinto se contradirian. */
+  /* Por defecto manda el momentum: esta pestaña sirve para seguir como evolucionan las que vigilas,
+     y la nota es estable mientras que el veredicto salta con cualquier movimiento del dia (PAYS paso
+     de la 1 a la 4 con un +2,9 %). El orden de compra vive en la pestaña Hoy, que para eso esta.
+     "Las mas recomendables ahora" sigue disponible en el desplegable, con el criterio de Hoy. */
   const clave = {
     reco: a => -(a.prioridad * 1000 + (a.salida && a.salida.senales.length ? 300 : 0) - (a.score ?? 0)),
     score: a => a.score ?? -1e9, ret: a => a.ret, entrada: a => -FH.indexOf(a.entrada), max: a => a.max };

@@ -154,6 +154,30 @@ for (const f of orden) {
   fuentes.every(x => /length === 1|length===1/.test(x)) ? ok('las dos pestañas distinguen singular de plural')
     : mal('alguna pestaña tiene el texto fijo en plural');
 
+  /* Seguimiento ordena por momentum: sirve para ver como evolucionan las que vigilas, no para
+     decidir la compra de hoy, que es lo que hace la pestaña Hoy. */
+  console.log('\nSEGUIMIENTO ORDENA POR MOMENTUM, SIN EXCEPCIONES');
+  porId.segorden.value = 'score'; porId.segest.value = 'vivas'; porId.per.value = 90;
+  ventana.seguimiento();
+  const porNota = vm.runInContext(`(() => {
+    const filas = historial(90).filter(a => ['viable','extendida','flojea'].includes(a.estado));
+    return filas.map(a => a.ticker + ':' + a.score).sort((x, y) => y.split(':')[1] - x.split(':')[1]);
+  })()`, ctx);
+  // el texto de la tarjeta es "#1PAYSEN EL TOP HOY...": hay que casar el ticker exacto, no un [A-Z]+
+  const tickers = porNota.map(x => x.split(':')[0]);
+  const enPantalla = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card'))
+    .map((c, i) => tickers.find(t => c.textContent.startsWith('#' + (i + 1) + t)))
+    .filter(Boolean);
+  const esperados = porNota.map(x => x.split(':')[0]).slice(0, enPantalla.length);
+  enPantalla.join(',') === esperados.join(',')
+    ? ok('el orden es la nota de mayor a menor (' + enPantalla.join(' > ') + ')')
+    : mal('no sigue el orden de nota', enPantalla.join(',') + ' vs ' + esperados.join(','));
+  const fuente = fs.readFileSync(path.join(dir, '..', 'plantilla.html'), 'utf8');
+  /<option value="score" selected>/.test(fuente) ? ok('"Más momentum ahora" es la opción por defecto')
+    : mal('el desplegable no arranca en momentum');
+  !/ordenadas por cuál compraría antes/.test(fuente) ? ok('el subtítulo ya no promete orden de compra')
+    : mal('el subtítulo sigue diciendo que ordena por orden de compra');
+
   /* Se pintaba "#1" por la posicion en pantalla y "TOP #2" por la nota en la misma tarjeta: dos
      numeraciones distintas peleandose. En una tarjeta solo puede haber un numero de puesto. */
   console.log('\nUNA SOLA NUMERACIÓN POR TARJETA');
