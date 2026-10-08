@@ -118,8 +118,8 @@ window.parametros = function () {
       ['RSI 14', '> ' + C.rsiMin, 'hay compradores'],
       ['Crecimiento de ingresos', '≥ ' + C.crecimientoMin + ' % interanual', 'el mayor entre 12 meses y último trimestre'],
       ['Distancia al máximo', 'máximo ' + C.maxDesdeMaximo + ' % por debajo del de 52 semanas', 'cerca de máximos, no rebotando de un suelo'],
-      ['Sectores excluidos', 'navieras, petroleras, mineras, químicas, utilities, REITs y gestoras', 'su crecimiento viene del precio de una materia prima'],
-    ], 'Si falla uno solo, la empresa no aparece. Se analizan unas 250 cada día y suelen pasar entre 40 y 50.'));
+      ['Sectores excluidos (solo al entrar)', 'navieras, petroleras, mineras, químicas, utilities, REITs y gestoras', 'su crecimiento viene del precio de una materia prima. Es un filtro del universo, no un requisito que se vigile después: si una empresa que ya tienes se reclasificase a un sector excluido, el panel no lo marcaría'],
+    ], 'Si falla uno solo, la empresa no aparece. Se analizan unas 250 cada día y suelen pasar entre 40 y 50. De estas diez filas, nueve se comprueban todos los días sobre cada acción (son los «9 requisitos» que verás en las tarjetas); la exclusión de sectores solo se aplica al elegir el top. Además, la capitalización y el precio mínimo se marcan como de solo entrada: que una ganadora supere el techo no es motivo de venta.'));
 
   R.appendChild(tabla('2 · Cómo se calcula la puntuación de 0 a 100',
     ['Bloque', 'Puntos', 'Qué mide'], [
@@ -152,9 +152,9 @@ window.parametros = function () {
       ['Compra arriesgada', 'cumple, pero la EMA 50 queda a más del 15 %: el stop es un tope fijo, no un nivel técnico'],
       ['Esperar', 'está a más de un 10 % de su máximo de 52 semanas'],
       ['No comprar aquí', 'demasiado estirada: mejor esperar a que consolide'],
-      ['Vigilar', 'cumple, pero su puntuación ha caído más de 8 puntos'],
-      ['Ya no cumple', 'ha roto algún requisito obligatorio'],
-    ], 'La pestaña Hoy se ordena por prioridad de compra: primero las que marcan COMPRA, después las de vigilar y al final las que no se tocan; dentro de cada grupo, por puntuación. La pestaña Seguimiento se ordena por puntuación a secas, porque sirve para ver cómo evolucionan, no para decidir la compra del día. La puntuación mide la calidad de la empresa, no si hoy es buen día para entrar.'));
+      ['Vigilar', 'cumple, pero su puntuación ha caído más de 8 puntos desde que entró. Solo aparece en la pestaña Seguimiento: la pestaña Hoy no compara con el día de entrada'],
+      ['Ya no cumple', 'ha roto alguno de los requisitos que se vigilan. La capitalización y el precio mínimo no cuentan aquí: son de solo entrada'],
+    ], 'Se evalúan en cascada y gana el primero que se cumple, en este orden: Sin datos, Ya no cumple, No comprar, No comprar aquí, Vigilar, Esperar, Compra arriesgada y, si no se cumple ninguno, COMPRA. Importa: una acción que esté a más del 10 % de su máximo Y con la EMA 50 lejos muestra «Esperar», no «Compra arriesgada», porque Esperar se evalúa antes. La pestaña Hoy se ordena por prioridad de compra: primero las que marcan COMPRA, después las de vigilar y al final las que no se tocan; dentro de cada grupo, por puntuación. La pestaña Seguimiento se ordena por puntuación a secas, porque sirve para ver cómo evolucionan, no para decidir la compra del día. La puntuación mide la calidad de la empresa, no si hoy es buen día para entrar.'));
 
   R.appendChild(tabla('5 · Cuándo vender una posición abierta',
     ['Regla', 'Detalle'], [

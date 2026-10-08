@@ -78,6 +78,26 @@ minimos.length && Math.min(...minimos) >= 30
   ? ok('consta la fecha en que se escribió, antes de haber datos')
   : mal('se ha quitado la fecha del compromiso');
 
+/* Auditoria externa del 8 oct 2026: la tabla 1 declaraba la exclusion de sectores como requisito,
+   pero window.REQUISITOS devuelve 9 elementos y ninguno es el sector (se aplica en build.py al
+   elegir el universo). Se documento en vez de cambiar la logica. Que no se vuelva a desdibujar. */
+console.log('\nLO QUE SE VIGILA A DIARIO Y LO QUE SOLO FILTRA AL ENTRAR');
+const reqs = (fuente['app.js'].match(/window\.REQUISITOS[\s\S]*?^\};/m) || [''])[0];
+const cuantos = (reqs.match(/\{ t: /g) || []).length;
+cuantos === 9 ? ok('window.REQUISITOS comprueba 9 cosas')
+  : mal('han cambiado los requisitos que se vigilan', cuantos);
+!/sector|industria|REIT/i.test(reqs) ? ok('y ninguna es el sector, como está documentado')
+  : mal('ahora sí comprueba el sector: hay que actualizar la tabla 1');
+/Sectores excluidos \(solo al entrar\)/.test(fuente['parametros.js'])
+  ? ok('la tabla lo declara como filtro de solo entrada')
+  : mal('la tabla vuelve a presentarlo como requisito que se vigila');
+/gana el primero que se cumple/.test(fuente['parametros.js'])
+  ? ok('se documenta el orden de precedencia de los veredictos')
+  : mal('falta el orden de precedencia');
+/son de solo entrada/.test(fuente['parametros.js'])
+  ? ok('«Ya no cumple» aclara qué requisitos no cuentan')
+  : mal('«Ya no cumple» vuelve a ser ambiguo');
+
 console.log('\nLAS REGLAS NO ESTÁN DUPLICADAS');
 const sospechosos = [['perdidaMaxima', /\b15\b.*p[eé]rdida|p[eé]rdida.*\b15\b/i], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/]];
 for (const [nombre, re] of sospechosos) {
