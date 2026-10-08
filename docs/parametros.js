@@ -180,4 +180,33 @@ window.parametros = function () {
       ['Lo que no ve', 'noticias, fraudes, resultados de ensayos clínicos, demandas o cambios regulatorios'],
       ['Calibración', 'los umbrales técnicos salen de 17.934 observaciones semanales de 185 empresas entre 2024 y 2026. Se solapan entre sí y cubren un periodo alcista, así que valen mucho menos que 17.934 casos independientes'],
     ], 'Esto es un sistema de detección de oportunidades para estudiarlas una a una, no una recomendación de compra.'));
+
+  /* Esta seccion no añade reglas al sistema: añade reglas sobre CUANDO se le puede tocar. Con 195
+     numeros ajustables y unas 100 observaciones, siempre se puede encontrar un ajuste que "habria
+     funcionado" en el pasado y que no sobrevive al futuro. Escribirlo antes de tener datos es lo
+     unico que impide moverse la porteria despues. */
+  R.appendChild(tabla('7 · Cuándo se puede cambiar el sistema, y cuándo no',
+    ['Pregunta', 'Hace falta', 'Qué se haría con la respuesta'], [
+      ['¿Gana dinero?', '30 entradas maduras',
+       'si la media es negativa con el índice en positivo, se revisan los criterios de ENTRADA. No se tocan los pesos de la puntuación'],
+      ['¿Bate al S&P 500?', '30 entradas maduras, dos revisiones seguidas',
+       'si pierde contra el índice dos trimestres seguidos, el sistema no justifica el trabajo y lo honesto es comprar el índice'],
+      ['¿La puntuación discrimina?', '60 maduras, al menos 30 por mitad',
+       'si la diferencia entre la mitad alta y la baja es menor que su margen de error, la nota sirve para ordenar pero no para decidir cuánto comprar'],
+      ['¿El protocolo de salida aporta?', '30 entradas maduras',
+       'comparación A/B de las mismas entradas: aguantar, vender al salir del top, o con nuestras reglas. Se adopta la que gane por más del margen de error'],
+      ['¿El stop debería ir con la volatilidad?', '30 maduras con serie diaria completa',
+       'A/B sobre el mismo historial: stop actual (EMA 50 con tope del 15 %) contra uno proporcional al ADR. Solo se cambia si gana claramente'],
+    ], 'El sistema tiene 195 números ajustables (114 umbrales de puntuación, 53 asignaciones de puntos, 22 filtros de entrada y 6 reglas de salida). Con tan pocas observaciones, buscar entre todos ellos el que mejora el pasado es garantía de empeorar el futuro.'));
+
+  R.appendChild(tabla('8 · Reglas para no romper lo que funciona',
+    ['Regla', 'Por qué'], [
+      ['Revisión cada tres meses, no continua', 'mirar los números cada semana lleva a reaccionar al ruido'],
+      ['Un cambio cada vez', 'si se tocan dos cosas a la vez, no se sabe cuál fue'],
+      ['Nunca se ajusta un umbral porque «habría funcionado»', 'con 195 parámetros siempre hay uno que habría funcionado'],
+      ['Los 114 umbrales de puntuación y los 53 puntos no se tocan', 'no habrá nunca datos suficientes para calibrarlos; solo se cambiarían por un motivo conceptual, no estadístico'],
+      ['Cada cambio se anota con fecha y motivo', 'para poder deshacerlo si empeora, y para que se vea si se está tocando demasiado'],
+      ['Si hace falta un cambio para que los números salgan bien, la respuesta es que no salen bien', 'el sistema se juzga con las reglas que tenía, no con las que se le pongan después'],
+    ], 'Esta sección no cambia lo que hace el panel: limita cuándo se le puede tocar. Escrita el 8 de octubre de 2026, antes de tener una sola entrada madura, precisamente para no poder moverla después.'));
+
 };

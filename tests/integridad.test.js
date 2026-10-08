@@ -57,6 +57,27 @@ hora[2] && par.includes('las ' + hora[2] + ':' + hora[1] + ' UTC')
   ? ok('la hora de actualización de la tabla es la del cron (' + hora[2] + ':' + hora[1] + ' UTC)')
   : mal('la hora de la tabla no es la del cron', hora.slice(1).join(':'));
 
+/* El compromiso de cuando se puede tocar el sistema esta escrito antes de tener datos, para no poder
+   moverlo despues. Si alguien lo borra o le baja el liston, que falle una prueba. */
+console.log('\nEL COMPROMISO SOBRE CUÁNDO CAMBIAR EL SISTEMA SIGUE EN PIE');
+const compromiso = fuente['parametros.js'];
+/Cuándo se puede cambiar el sistema/.test(compromiso) ? ok('la sección de cuándo se puede cambiar existe')
+  : mal('se ha borrado la sección de cuándo se puede cambiar');
+/Reglas para no romper lo que funciona/.test(compromiso) ? ok('las reglas para no romperlo siguen')
+  : mal('se han borrado las reglas para no romperlo');
+/195 números ajustables/.test(compromiso) ? ok('se declara cuántos parámetros hay en juego')
+  : mal('falta el recuento de parámetros ajustables');
+/no se tocan/i.test(compromiso) && /114 umbrales/.test(compromiso)
+  ? ok('los umbrales de puntuación siguen declarados como intocables')
+  : mal('se ha levantado la prohibición de tocar los umbrales de puntuación');
+const minimos = [...compromiso.matchAll(/(\d+) entradas maduras/g)].map(m => +m[1]);
+minimos.length && Math.min(...minimos) >= 30
+  ? ok('ninguna pregunta se responde con menos de 30 casos (mínimo declarado: ' + Math.min(...minimos) + ')')
+  : mal('se ha rebajado el mínimo de casos', minimos.join(', '));
+/8 de octubre de 2026, antes de tener una sola entrada madura/.test(compromiso)
+  ? ok('consta la fecha en que se escribió, antes de haber datos')
+  : mal('se ha quitado la fecha del compromiso');
+
 console.log('\nLAS REGLAS NO ESTÁN DUPLICADAS');
 const sospechosos = [['perdidaMaxima', /\b15\b.*p[eé]rdida|p[eé]rdida.*\b15\b/i], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/]];
 for (const [nombre, re] of sospechosos) {
