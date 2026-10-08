@@ -128,6 +128,28 @@ comprueba('la serie nunca rebaja un máximo ya guardado',
   REGLAS.maximoDesdeCompra(lejos, 100, 240, 200, 180), 240);
 comprueba('sin serie no se rompe nada', REGLAS.maximoDesdeCompra(lejos, 100, 150, 200, null), 150);
 
+/* max1m y max3m son maximos INTRADIA y el stop solo actua con cierres: medir la devolucion desde una
+   mecha adelantaba la venta varios puntos. Con datos reales esa mecha esta un 6 % por encima de media
+   y llega al 18 %. Cuando hay serie de cierres, manda ella. */
+console.log('\nLA DEVOLUCIÓN SE MIDE EN CIERRES, NO EN MECHAS INTRADÍA');
+const mecha = { precio: 100, max1m: 118, max3m: 118 };   // cerro a 110, pero hizo mecha a 118
+comprueba('sin serie, la mecha intradía manda (no hay nada mejor)',
+  REGLAS.maximoDesdeCompra(mecha, 80, 80, 20, null), 118);
+comprueba('con serie de cierres, manda el cierre más alto',
+  REGLAS.maximoDesdeCompra(mecha, 80, 80, 20, 110), 110);
+comprueba('la serie no rebaja un máximo ya registrado en maxVisto',
+  REGLAS.maximoDesdeCompra(mecha, 80, 125, 20, 110), 125);
+// Lo que cambia para ti: con la mecha, la devolucion sale inflada y vendes antes.
+const conMecha = REGLAS.evaluaPosicion({ datos: mecha, compra: 50, maxRegistrado: 50, stopPrevio: 0,
+  dias: 20, requisitos: req(), maxSerie: null });
+const conCierre = REGLAS.evaluaPosicion({ datos: mecha, compra: 50, maxRegistrado: 50, stopPrevio: 0,
+  dias: 20, requisitos: req(), maxSerie: 110 });
+comprueba('medido en mechas, la ganancia máxima sale inflada', Math.round(conMecha.ganMax), 136);
+comprueba('medido en cierres, es la real', Math.round(conCierre.ganMax), 120);
+conMecha.devuelto > conCierre.devuelto
+  ? comprueba('y por tanto en mechas devuelves más y vendes antes', true, true)
+  : comprueba('y por tanto en mechas devuelves más y vendes antes', false, true);
+
 // Y lo que de verdad importa: que el veredicto cambie por ello.
 const posicion = (maxSerie) => REGLAS.evaluaPosicion({
   datos: { precio: 150, ema50: 140, ema21: 145, rsi: 60, max1m: 160, max3m: 220 },

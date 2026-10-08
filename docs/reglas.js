@@ -37,14 +37,20 @@
   }
 
   /* Máximo alcanzado desde la compra: lo registrado más los máximos que publica el mercado. */
-  /* maxSerie es el cierre mas alto desde la compra segun la serie diaria guardada. Sin el, pasados
-     90 dias el maximo solo podia salir de lo que la web hubiera visto al abrirse, y la regla de
-     devolucion se quedaba ciega justo en una posicion larga con mucha ganancia. */
+  /* Cuanto llego a ganar una posicion, medido EN CIERRES.
+     maxSerie es el cierre mas alto desde la compra segun la serie diaria guardada. Cuando existe,
+     manda: max1m y max3m son maximos INTRADIA (High.1M de TradingView), y el stop solo actua con
+     cierres, asi que medir la devolucion desde una mecha es medir desde un nivel al que el sistema
+     nunca habria reaccionado. Con datos reales esa mecha esta de media un 6 % por encima del cierre
+     y llega al 18 %, lo que adelantaba la venta varios puntos de ganancia.
+     Sin serie se siguen usando los intradia: mas vale un maximo algo alto que ninguno. */
   function maximoDesdeCompra(datos, compra, maxRegistrado, dias, maxSerie) {
-    const precio = num(datos && datos.precio);
-    const c = [num(maxRegistrado) || num(compra) || 0, precio || 0, num(maxSerie) || 0];
-    if (datos && num(datos.max1m) && dias != null && dias <= 30) c.push(datos.max1m);
-    if (datos && num(datos.max3m) && dias != null && dias <= 90) c.push(datos.max3m);
+    const precio = num(datos && datos.precio), serie = num(maxSerie);
+    const c = [num(maxRegistrado) || num(compra) || 0, precio || 0, serie || 0];
+    if (serie == null) {
+      if (datos && num(datos.max1m) && dias != null && dias <= 30) c.push(datos.max1m);
+      if (datos && num(datos.max3m) && dias != null && dias <= 90) c.push(datos.max3m);
+    }
     return Math.max(...c) || null;
   }
 
