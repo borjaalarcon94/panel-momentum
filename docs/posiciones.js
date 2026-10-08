@@ -8,6 +8,21 @@
        o si la empresa deja de cumplir los requisitos (crecimiento, tendencia, liquidez...). */
 const CLAVE = 'posiciones-v1';   // los umbrales viven en docs/reglas.js
 
+/* Un input type="number" rechaza la coma decimal: si escribes "15,42" el navegador deja el campo
+   vacio y el formulario te dice que pongas el precio, habiendolo puesto. Con teclado español eso
+   pasa siempre. Se usa texto con teclado numerico y se interpreta la coma a mano. */
+function campoNumero(ph, valor) {
+  const i = document.createElement('input');
+  i.type = 'text'; i.inputMode = 'decimal'; i.autocomplete = 'off';
+  if (ph) i.placeholder = ph;
+  if (valor != null && valor !== '') i.value = String(valor).replace('.', ',');
+  return i;
+}
+const comoNumero = v => {
+  const x = Number(String(v == null ? '' : v).trim().replace(/\s/g, '').replace(',', '.'));
+  return isFinite(x) ? x : NaN;
+};
+
 function leerPos() { try { return JSON.parse(localStorage.getItem(CLAVE) || '[]') } catch (e) { return [] } }
 function guardarPos(p) { try { localStorage.setItem(CLAVE, JSON.stringify(p)) } catch (e) {} }
 window.tengoPosicion = t => leerPos().some(p => p.ticker === t && !p.cerrada);
@@ -15,18 +30,18 @@ window.tengoPosicion = t => leerPos().some(p => p.ticker === t && !p.cerrada);
 /* Formulario para corregir una compra: precio medio, fecha y, si quieres, nº de acciones. */
 function editor(p, alCerrar) {
   const d = el('div', 'editor');
-  const iP = document.createElement('input'); iP.type = 'number'; iP.step = 'any'; iP.min = '0'; iP.value = p.precio; iP.style.maxWidth = '120px';
+  const iP = campoNumero('0,00', p.precio); iP.style.maxWidth = '120px';
   const iF = document.createElement('input'); iF.type = 'date'; iF.value = p.fecha; iF.style.maxWidth = '160px';
-  const iN = document.createElement('input'); iN.type = 'number'; iN.step = 'any'; iN.min = '0'; iN.placeholder = 'nº acciones (opcional)'; iN.style.maxWidth = '150px';
+  const iN = campoNumero('nº acciones (opcional)'); iN.style.maxWidth = '150px';
   if (p.acciones) iN.value = p.acciones;
   const fila = el('div', 'row');
   fila.append(el('span', 'm', 'Precio medio'), iP, el('span', 'm', 'Fecha'), iF, iN);
   const guardar = el('button', 'chip', 'Guardar cambios');
   guardar.onclick = () => {
-    const precio = Number(iP.value);
+    const precio = comoNumero(iP.value);
     if (!precio || precio <= 0) return alert('Precio no válido.');
     guardarPos(leerPos().map(x => (x.ticker === p.ticker && !x.cerrada
-      ? { ...x, precio, fecha: iF.value || x.fecha, acciones: Number(iN.value) || undefined, maxVisto: Math.max(x.maxVisto || precio, precio) } : x)));
+      ? { ...x, precio, fecha: iF.value || x.fecha, acciones: comoNumero(iN.value) || undefined, maxVisto: Math.max(x.maxVisto || precio, precio) } : x)));
     alCerrar();
   };
   const borrar = el('button', 'chip', 'Eliminar posición');
@@ -104,12 +119,10 @@ function cajaCartera() {
   const c = window.CARTERA.leer() || {};
   const d = el('div', 'blk');
   const fila = el('div', 'row');
-  const i1 = document.createElement('input'); i1.type = 'number'; i1.min = '0'; i1.placeholder = 'Tamaño de tu cartera'; i1.style.maxWidth = '200px';
-  if (c.total) i1.value = c.total;
-  const i2 = document.createElement('input'); i2.type = 'number'; i2.min = '0.1'; i2.max = '5'; i2.step = '0.1'; i2.style.maxWidth = '140px';
-  i2.value = c.riesgo || 1;
+  const i1 = campoNumero('Tamaño de tu cartera', c.total || ''); i1.style.maxWidth = '200px';
+  const i2 = campoNumero('1,5', c.riesgo || 1); i2.style.maxWidth = '140px';
   const b = el('button', 'chip', 'Guardar');
-  b.onclick = () => { window.CARTERA.guardar({ total: Number(i1.value) || 0, riesgo: Number(i2.value) || 1 }); window.posiciones() };
+  b.onclick = () => { window.CARTERA.guardar({ total: comoNumero(i1.value) || 0, riesgo: comoNumero(i2.value) || 1 }); window.posiciones() };
   fila.append(el('span', 'm', 'Cartera ($)'), i1, el('span', 'm', '% que arriesgas por operación'), i2, b);
   d.appendChild(fila);
   d.appendChild(el('p', 'nota', 'Con esto se calcula cuánto comprar de cada acción y qué parte de tu cartera ocupa cada posición. Los precios del panel son en dólares: pon aquí tu cartera en dólares para que los porcentajes cuadren. Se guarda en tu navegador.'));
@@ -150,8 +163,8 @@ function formularioOperacion(alGuardar) {
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Añadir una operación cerrada'));
   const campo = (etiqueta, tipo, ph) => {
-    const i = document.createElement('input'); i.type = tipo; i.step = 'any'; i.min = '0';
-    if (ph) i.placeholder = ph;
+    const i = tipo === 'number' ? campoNumero(ph || '0,00') : document.createElement('input');
+    if (tipo !== 'number') { i.type = tipo; if (ph) i.placeholder = ph; }
     const w = el('div', 'campo'); w.appendChild(el('span', 'm', etiqueta)); w.appendChild(i);
     return { i, w };
   };
@@ -165,13 +178,13 @@ function formularioOperacion(alGuardar) {
   const guardar = el('button', 'chip main', 'Guardar operación');
   guardar.onclick = () => {
     const ticker = String(tk.i.value || '').trim().toUpperCase();
-    const compra = Number(String(p1.i.value).replace(',', '.')), venta = Number(String(p2.i.value).replace(',', '.'));
+    const compra = comoNumero(p1.i.value), venta = comoNumero(p2.i.value);
     if (!ticker) return alert('Pon el símbolo de la acción.');
     if (!compra || compra <= 0 || !venta || venta <= 0) return alert('Los dos precios tienen que ser mayores que cero.');
     if (!f1.i.value || !f2.i.value) return alert('Pon las dos fechas.');
     if (f2.i.value < f1.i.value) return alert('La venta no puede ser anterior a la compra.');
     const pos = leerPos();
-    pos.push({ ticker, simbolo: ticker, precio: compra, fecha: f1.i.value, acciones: Number(ac.i.value) || undefined,
+    pos.push({ ticker, simbolo: ticker, precio: compra, fecha: f1.i.value, acciones: comoNumero(ac.i.value) || undefined,
       cerrada: f2.i.value, precioSalida: venta, manual: true, maxVisto: Math.max(compra, venta) });
     guardarPos(pos);
     alGuardar();
@@ -274,6 +287,44 @@ function historialOperaciones(cerradas) {
   return R;
 }
 
+/* El panel va un dia por detras: su precio es el del ultimo cierre guardado, no el de ahora. Vender
+   al precio que ensena la web seria anotar una cifra que no es la tuya, y el historial de operaciones
+   es justo lo que mide si esto funciona. Asi que el precio se pide siempre, en blanco, y la fecha
+   por defecto es la de HOY de verdad, no la del ultimo cierre guardado. */
+function formularioVenta(r, alCerrar) {
+  const d = el('div', 'blk'); d.style.marginTop = '10px';
+  d.appendChild(el('div', 'blt', 'Vender ' + r.p.ticker));
+  const campo = (etiqueta, tipo, valor) => {
+    const i = tipo === 'number' ? campoNumero('0,00', valor) : document.createElement('input');
+    if (tipo !== 'number') { i.type = tipo; if (valor != null) i.value = valor; }
+    const w = el('div', 'campo'); w.appendChild(el('span', 'm', etiqueta)); w.appendChild(i);
+    return { i, w };
+  };
+  const hoyReal = new Date().toISOString().slice(0, 10);
+  const pr = campo('¿A qué precio has vendido?', 'number', null);
+  const fe = campo('¿Qué día la vendiste?', 'date', hoyReal);
+  const rej = el('div', 'formop'); rej.append(pr.w, fe.w);
+  d.appendChild(rej);
+  d.appendChild(el('p', 'nota', r.ahora != null
+    ? 'De referencia, su último cierre guardado fue ' + n(r.ahora) + ' $ (del ' + fFecha(FH[0]) + '). Pon el precio real al que has vendido en tu bróker: el panel va un día por detrás y esa cifra casi nunca es la tuya.'
+    : 'Pon el precio real al que has vendido en tu bróker.'));
+  const ok = el('button', 'chip main', 'Confirmar la venta');
+  ok.onclick = () => {
+    const v = comoNumero(pr.i.value);
+    if (!v || v <= 0) return alert('Pon el precio al que has vendido. No lo relleno yo con la cotización del panel porque va con un día de retraso.');
+    if (!fe.i.value) return alert('Pon la fecha de la venta.');
+    if (fe.i.value < r.p.fecha) return alert('La venta no puede ser anterior a la compra (' + fFecha(r.p.fecha) + ').');
+    guardarPos(leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada
+      ? { ...p, cerrada: fe.i.value, precioSalida: v } : p)));
+    alCerrar();
+  };
+  const no = el('button', 'chip', 'Cancelar');
+  no.onclick = alCerrar;
+  const fila = el('div', 'row'); fila.append(ok, no);
+  d.appendChild(fila);
+  return d;
+}
+
 window.posiciones = function () {
   const R = $('rpos'); R.replaceChildren();
   R.appendChild(cajaCartera());
@@ -359,12 +410,11 @@ window.posiciones = function () {
     }
     const acciones = el('div', 'row'); acciones.style.marginTop = '10px';
     const bv = el('button', 'chip', 'Marcar como vendida');
+    let venta = null;
     bv.onclick = () => {
-      const precio = prompt('¿A qué precio has vendido ' + r.p.ticker + '?', r.ahora != null ? n(r.ahora).replace('.', ',') : '');
-      if (precio === null) return;
-      const v = Number(String(precio).replace(',', '.').replace(/[^\d.]/g, '')) || r.ahora;
-      guardarPos(leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada ? { ...p, cerrada: FH[0], precioSalida: v } : p)));
-      window.posiciones();
+      if (venta) { venta.remove(); venta = null; bv.textContent = 'Marcar como vendida'; return }
+      venta = formularioVenta(r, () => { venta = null; window.posiciones() });
+      c.appendChild(venta); bv.textContent = 'Cancelar la venta';
     };
     const be = el('button', 'chip', 'Editar compra');
     const ba = el('button', 'chip', 'He comprado más');

@@ -295,12 +295,13 @@ for (const f of orden) {
     // comprobacion independiente: el S&P de una entrada es su variacion desde el dia que entro
     const x = con[0];
     const spyHoy = HIST[FH[0]].spy, spyEntrada = HIST[x.entrada] ? HIST[x.entrada].spy : null;
-    return { n: con.length, total: xs.length,
+    return { n: con.length, total: xs.length, conPrecio: xs.filter(a => a.ret != null).length,
       mAcc: m(con.map(a => a.ret)), mSp: m(con.map(a => a.sp)),
       ticker: x.ticker, sp: x.sp,
       esperado: spyEntrada ? (spyHoy / spyEntrada - 1) * 100 : null };
   })()`, ctx);
-  sp.n === sp.total ? ok('las ' + sp.n + ' entradas tienen su dato del índice') : mal('faltan datos del índice', sp.n + ' de ' + sp.total);
+  sp.n === sp.conPrecio ? ok('las ' + sp.n + ' entradas con precio tienen su dato del índice')
+    : mal('faltan datos del índice', sp.n + ' de ' + sp.conPrecio + ' con precio');
   sp.esperado != null && Math.abs(sp.sp - sp.esperado) < 0.01
     ? ok('el S&P de ' + sp.ticker + ' se mide desde el día que entró (' + sp.sp.toFixed(2) + ' %)')
     : mal('el cálculo del índice no cuadra', sp.sp + ' vs ' + sp.esperado);
@@ -320,15 +321,61 @@ for (const f of orden) {
   const clases = (porId.lista.hijos || []).filter(c => String(c.className || '').includes('card'))
     .map(c => (String(c.className).match(/v-(ok|warn|bad)/) || [])[1]).filter(Boolean);
   clases.length ? ok('las ' + clases.length + ' tarjetas llevan acento de veredicto') : mal('ninguna tarjeta lleva acento');
-  const tramosNota = vm.runInContext(`(() => vista().todas.slice(0, 5)
-    .map(a => a.score >= 75 ? 'n3' : a.score >= 55 ? 'n2' : 'n1'))()`, ctx);
-  const variedadVieja = new Set(tramosNota).size, variedadNueva = new Set(clases).size;
-  variedadNueva >= variedadVieja
-    ? ok('distingue al menos tanto como el tramo de nota (' + variedadNueva + ' colores frente a ' + variedadVieja + ')')
-    : mal('distingue menos que antes', variedadNueva + ' vs ' + variedadVieja);
+  const esperadas = vm.runInContext(`(() => vista().todas.slice(0, ${clases.length})
+    .map(a => ({ qok: 'ok', qwarn: 'warn', qbad: 'bad' }[VEREDICTO(a, { extendida: a.pt && a.pt.extendida, sinSeguimiento: a.sinSeguimiento }).cls] || 'warn')))()`, ctx);
+  clases.join(',') === esperadas.join(',')
+    ? ok('el acento de cada tarjeta es el de su veredicto (' + clases.join(', ') + ')')
+    : mal('el acento no coincide con el veredicto', clases.join(',') + ' vs ' + esperadas.join(','));
+  // Y sobre la lista completa tiene que distinguir mas que el tramo de nota, que casi nunca varia.
+  const comparativa = vm.runInContext(`(() => {
+    const t = vista().todas;
+    return { nota: new Set(t.map(a => a.score >= 75 ? 'n3' : a.score >= 55 ? 'n2' : 'n1')).size,
+      veredicto: new Set(t.map(a => VEREDICTO(a, { extendida: a.pt && a.pt.extendida, sinSeguimiento: a.sinSeguimiento }).cls)).size };
+  })()`, ctx);
+  comparativa.veredicto >= comparativa.nota
+    ? ok('en la lista entera distingue al menos tanto como el tramo de nota (' + comparativa.veredicto + ' frente a ' + comparativa.nota + ')')
+    : mal('distingue menos que el tramo de nota', comparativa.veredicto + ' vs ' + comparativa.nota);
   const fuenteH = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
   !/score>=75\?' n3'/.test(fuenteH) ? ok('ya no se pinta por tramo de puntuación')
     : mal('sigue pintando por tramo de puntuación');
+
+  /* El panel va un dia por detras. Al vender, la web rellenaba el precio con su ultima cotizacion y
+     bastaba un Enter para anotar una cifra que no era la del broker. Y la fecha era la del ultimo
+     cierre guardado, no la de hoy. El historial de operaciones es lo que mide si esto funciona: si se
+     llena de precios inventados, no mide nada. */
+  console.log('\nAL VENDER, EL PRECIO SE PIDE Y NO SE RELLENA SOLO');
+  const panel3 = JSON.parse(fs.readFileSync(path.join(dir, 'panel.json'), 'utf8'));
+  const sim3 = Object.keys(panel3.actual)[0], dat3 = panel3.actual[sim3];
+  almacen['posiciones-v1'] = JSON.stringify([{ ticker: dat3.ticker, simbolo: sim3, precio: dat3.precio * 0.9,
+    acciones: 10, fecha: panel3.dias[0], maxVisto: dat3.precio }]);
+  await paso('posiciones se pinta con la posición abierta', () => ventana.posiciones());
+  const fuenteP = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  !/prompt\('¿A qué precio has vendido/.test(fuenteP) ? ok('ya no se vende por un prompt de un solo paso')
+    : mal('sigue vendiendo con un prompt');
+  !/precioSalida: v \|\| r\.ahora/.test(fuenteP) && !/\|\| r\.ahora/.test(fuenteP)
+    ? ok('no hay vuelta atrás silenciosa a la cotización del panel')
+    : mal('si el precio no vale, se cuela la cotización del panel');
+  /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/.test(fuenteP)
+    ? ok('la fecha de venta por defecto es la de hoy, no la del último cierre')
+    : mal('la fecha de venta sigue saliendo del último cierre guardado');
+  /cerrada: fe\.i\.value/.test(fuenteP) ? ok('se guarda la fecha que pones tú')
+    : mal('no se guarda la fecha del formulario');
+  /un día por detrás/.test(fuenteP) ? ok('el formulario avisa de que la cotización va con retraso')
+    : mal('no avisa del retraso');
+  almacen['posiciones-v1'] = '[]';
+
+  /* Un input type="number" rechaza la coma decimal: escribes "15,42" con teclado español, el campo se
+     queda vacio y el formulario te pide el precio habiendolo puesto. Me paso probando la venta. */
+  console.log('\nLOS CAMPOS DE PRECIO ACEPTAN LA COMA');
+  const fuenteC = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  !/type = 'number'/.test(fuenteC) ? ok('ningún campo usa type="number"') : mal('queda algún type="number" que rechaza la coma');
+  /inputMode = 'decimal'/.test(fuenteC) ? ok('usan teclado numérico igualmente') : mal('se pierde el teclado numérico en el móvil');
+  const conv = vm.runInContext(`(() => ['15,42', '15.42', ' 15,42 ', '1.234', '', 'abc']
+    .map(x => comoNumero(x)))()`, ctx);
+  conv[0] === 15.42 ? ok('"15,42" se interpreta como 15,42') : mal('la coma no se interpreta', conv[0]);
+  conv[1] === 15.42 ? ok('"15.42" con punto también') : mal('el punto no se interpreta', conv[1]);
+  conv[2] === 15.42 ? ok('con espacios alrededor también') : mal('los espacios rompen el número', conv[2]);
+  Number.isNaN(conv[5]) ? ok('un texto que no es número no cuela como 0') : mal('un texto se convierte en número', conv[5]);
 
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
