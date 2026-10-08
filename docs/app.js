@@ -10,6 +10,41 @@ const n = (v, d = 2) => v == null ? '-' : Number(v).toLocaleString('es-ES', { mi
 const pc = (v, d = 1) => v == null ? '-' : (v >= 0 ? '+' : '') + n(v, d) + ' %';
 const ppt = (v, d = 1) => v == null ? '-' : (v >= 0 ? '+' : '') + n(v, d) + ' pp';
 const cap = v => v == null ? '-' : (v >= 1e9 ? n(v / 1e9, 1) + ' B' : n(v / 1e6, 0) + ' M');
+/* Serie diaria de cierres de todo lo que ha pasado por el top, incluidos los dias en que ya no esta.
+   Vive aparte y se descarga solo al abrir esta pestaña: panel.json se baja en cada visita y esto no
+   le hace falta a nadie mas. */
+let PRECIOS = null;
+async function cargaPrecios() {
+  if (PRECIOS) return PRECIOS;
+  try { PRECIOS = (await (await fetch('precios.json', { cache: 'no-cache' })).json()).dias || {}; }
+  catch (e) { PRECIOS = {}; }
+  return PRECIOS;
+}
+/* Cierre de una accion un dia dado: primero la serie completa; si no, el registro del top, que solo
+   la tiene los dias que estuvo dentro. */
+function cierre(f, clave) {
+  const p = (PRECIOS || {})[f];
+  if (p && p[clave] != null) return p[clave];
+  const fila = ((HIST[f] || {}).acciones || []).find(y => (y.s || y.t) === clave);
+  return fila && fila.p != null ? fila.p : null;
+}
+
+
+/* Cierre mas alto de un valor desde una fecha. Sirve para saber cuanto llego a ganar una posicion sin
+   depender de que abrieras la app ese dia: antes, pasados 90 dias, el maximo se quedaba congelado en
+   el ultimo precio que la web hubiera visto, y la regla de devolucion dejaba de proteger justo en la
+   multibagger de largo plazo, que es donde mas hace falta. */
+function maximoEnSerie(clave, desde) {
+  const dias = PRECIOS || {};
+  let max = 0;
+  for (const f of Object.keys(dias)) {
+    if (f < desde) continue;
+    const p = dias[f] && dias[f][clave];
+    if (p > max) max = p;
+  }
+  return max || null;
+}
+
 /* Un push de codigo en fin de semana hacia que el proceso guardara un dia con el cierre del viernes
    repetido. Ya no ocurre (build.py lo corta), pero los que hay guardados no son sesiones de bolsa:
    ni cuentan como recorrido ni se enseñan con su fecha, porque su precio es el del viernes. */

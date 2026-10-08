@@ -111,5 +111,31 @@ comprueba('sin EMA 50 no se inventa el aviso', tope(100, null).tope, false);
 comprueba('la distancia a la EMA 50 se publica para poder explicarlo',
   Math.round(tope(100, 79).distanciaEma50 * 10) / 10, -21);
 
+/* Pasados 90 dias, el maximo alcanzado solo salia de lo que la web hubiera visto al abrirse: en una
+   posicion larga con mucha ganancia la regla de devolucion se quedaba ciega, que es justo donde mas
+   falta hace. Ahora entra tambien el cierre mas alto de la serie diaria guardada. */
+console.log('\nEL MÁXIMO ALCANZADO NO DEPENDE DE CUÁNDO ABRISTE LA APP');
+const lejos = { precio: 150, max1m: 160, max3m: 220 };
+comprueba('a los 89 días el máximo de 3 meses aún cuenta',
+  REGLAS.maximoDesdeCompra(lejos, 100, 150, 89), 220);
+comprueba('a los 91 días, sin serie, se queda con lo último visto',
+  REGLAS.maximoDesdeCompra(lejos, 100, 150, 91), 150);
+comprueba('a los 91 días, con la serie, recupera el pico real',
+  REGLAS.maximoDesdeCompra(lejos, 100, 150, 91, 220), 220);
+comprueba('a los 200 días también',
+  REGLAS.maximoDesdeCompra(lejos, 100, 150, 200, 220), 220);
+comprueba('la serie nunca rebaja un máximo ya guardado',
+  REGLAS.maximoDesdeCompra(lejos, 100, 240, 200, 180), 240);
+comprueba('sin serie no se rompe nada', REGLAS.maximoDesdeCompra(lejos, 100, 150, 200, null), 150);
+
+// Y lo que de verdad importa: que el veredicto cambie por ello.
+const posicion = (maxSerie) => REGLAS.evaluaPosicion({
+  datos: { precio: 150, ema50: 140, ema21: 145, rsi: 60, max1m: 160, max3m: 220 },
+  compra: 100, maxRegistrado: 150, stopPrevio: 0, dias: 200, requisitos: req(), maxSerie });
+comprueba('sin la serie, una posición que devolvió el 58 % dice mantener', posicion(null).estado, 'mantener');
+comprueba('con la serie, la misma posición dice vender', posicion(220).estado, 'vender');
+comprueba('y el motivo es la devolución',
+  posicion(220).motivos.some(m => m.codigo === 'devuelto'), true);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }

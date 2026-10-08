@@ -104,7 +104,8 @@ function revision(p) {
   const dias = Math.round((new Date(FH[0] + 'T12:00:00Z') - new Date(p.fecha + 'T12:00:00Z')) / 864e5);
   const req = window.REQUISITOS(a);
   const ev = window.REGLAS.evaluaPosicion({ datos: a, compra: p.precio, maxRegistrado: p.maxVisto, stopPrevio: p.stopMax,
-    dias, requisitos: req, diasResultados: window.DIAS_RESULTADOS(a) });
+    dias, requisitos: req, diasResultados: window.DIAS_RESULTADOS(a),
+    maxSerie: maximoEnSerie(p.simbolo || p.ticker, p.fecha) });
   const motivos = ev.motivos.map(window.TEXTO_SENAL), avisos = ev.avisos.map(window.TEXTO_SENAL);
   return { p, a, ahora, req, dias, ...ev, motivos, avisos, maxVisto: ev.maxVisto,
     t: ev.estado === 'vender' ? 'VENDER' : ev.estado === 'vigilar' ? 'VIGILAR' : 'MANTENER',
@@ -325,8 +326,9 @@ function formularioVenta(r, alCerrar) {
   return d;
 }
 
-window.posiciones = function () {
+window.posiciones = async function () {
   const R = $('rpos'); R.replaceChildren();
+  await cargaPrecios();   // el maximo alcanzado sale de la serie diaria, no de cuando abriste la app
   R.appendChild(cajaCartera());
   const abiertas = leerPos().filter(p => !p.cerrada), cerradas = leerPos().filter(p => p.cerrada);
   if (!abiertas.length) {

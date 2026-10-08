@@ -37,20 +37,23 @@
   }
 
   /* Máximo alcanzado desde la compra: lo registrado más los máximos que publica el mercado. */
-  function maximoDesdeCompra(datos, compra, maxRegistrado, dias) {
+  /* maxSerie es el cierre mas alto desde la compra segun la serie diaria guardada. Sin el, pasados
+     90 dias el maximo solo podia salir de lo que la web hubiera visto al abrirse, y la regla de
+     devolucion se quedaba ciega justo en una posicion larga con mucha ganancia. */
+  function maximoDesdeCompra(datos, compra, maxRegistrado, dias, maxSerie) {
     const precio = num(datos && datos.precio);
-    const c = [num(maxRegistrado) || num(compra) || 0, precio || 0];
+    const c = [num(maxRegistrado) || num(compra) || 0, precio || 0, num(maxSerie) || 0];
     if (datos && num(datos.max1m) && dias != null && dias <= 30) c.push(datos.max1m);
     if (datos && num(datos.max3m) && dias != null && dias <= 90) c.push(datos.max3m);
     return Math.max(...c) || null;
   }
 
   /* Evaluación completa de una posición abierta. requisitos: lista de window.REQUISITOS(datos). */
-  function evaluaPosicion({ datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasResultados }) {
+  function evaluaPosicion({ datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasResultados, maxSerie }) {
     const precio = num(datos && datos.precio);
     if (precio == null || compra == null) return { estado: 'sindatos', motivos: [], avisos: [] };
     const gan = (precio / compra - 1) * 100;
-    const maxVisto = maximoDesdeCompra(datos, compra, maxRegistrado, dias);
+    const maxVisto = maximoDesdeCompra(datos, compra, maxRegistrado, dias, maxSerie);
     const ganMax = maxVisto ? (maxVisto / compra - 1) * 100 : gan;
     const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
     const stop = stopDe(datos, compra, stopPrevio);

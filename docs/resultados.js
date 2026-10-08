@@ -92,25 +92,6 @@ function discrimina(maduras) {
   return { corte, dif: media(altas.map(a => a.ret)) - media(bajas.map(a => a.ret)), altas, bajas };
 }
 
-/* Serie diaria de cierres de todo lo que ha pasado por el top, incluidos los dias en que ya no esta.
-   Vive aparte y se descarga solo al abrir esta pestaña: panel.json se baja en cada visita y esto no
-   le hace falta a nadie mas. */
-let PRECIOS = null;
-async function cargaPrecios() {
-  if (PRECIOS) return PRECIOS;
-  try { PRECIOS = (await (await fetch('precios.json', { cache: 'no-cache' })).json()).dias || {}; }
-  catch (e) { PRECIOS = {}; }
-  return PRECIOS;
-}
-/* Cierre de una accion un dia dado: primero la serie completa; si no, el registro del top, que solo
-   la tiene los dias que estuvo dentro. */
-function cierre(f, clave) {
-  const p = (PRECIOS || {})[f];
-  if (p && p[clave] != null) return p[clave];
-  const fila = ((HIST[f] || {}).acciones || []).find(y => (y.s || y.t) === clave);
-  return fila && fila.p != null ? fila.p : null;
-}
-
 /* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice. */
 function simula(xs) {
   return xs.map(x => {

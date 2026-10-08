@@ -162,6 +162,7 @@ window.parametros = function () {
       ['El stop nunca baja', 'se guarda el valor más alto que ha alcanzado, aunque la EMA 50 retroceda'],
       ['Protección del coste', 'superado el 20 % de ganancia, el stop sube a tu precio de compra'],
       ['Devolución de ganancias', 'con menos de un 30 % ganado manda solo el stop; entre 30 y 100 % se vende si devuelve la mitad; por encima del 100 %, si devuelve el 40 %'],
+      ['Cómo se mide lo que llegaste a ganar', 'el cierre más alto desde tu compra, tomado de la serie diaria guardada (90 sesiones) y de los máximos de 1 y 3 meses. Una vez registrado, un máximo no se olvida'],
       ['Pérdida de tendencia', 'cierre por debajo de la EMA 50 o RSI por debajo de 45'],
       ['Deterioro del negocio', 'deja de cumplir dos o más requisitos'],
       ['Aviso previo', 'VIGILAR al perder la EMA 21, al acercarse al 60 % de la devolución límite o si publica resultados en 10 días'],
