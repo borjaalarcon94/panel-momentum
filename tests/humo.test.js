@@ -377,6 +377,37 @@ for (const f of orden) {
   conv[2] === 15.42 ? ok('con espacios alrededor también') : mal('los espacios rompen el número', conv[2]);
   Number.isNaN(conv[5]) ? ok('un texto que no es número no cuela como 0') : mal('un texto se convierte en número', conv[5]);
 
+  /* Resultado mes a mes con el acumulado: es la curva de la cuenta. Si la suma esta mal, la
+     conclusion sobre si vas ganando o perdiendo esta mal. */
+  console.log('\nEL BENEFICIO MENSUAL SUMA BIEN Y ACUMULA');
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: 'AAA', simbolo: 'AAA', precio: 10, acciones: 100, fecha: '2026-08-01', cerrada: '2026-08-20', precioSalida: 13 },
+    { ticker: 'BBB', simbolo: 'BBB', precio: 50, acciones: 10, fecha: '2026-09-05', cerrada: '2026-09-25', precioSalida: 42.5 },
+    { ticker: 'CCC', simbolo: 'CCC', precio: 20, acciones: 25, fecha: '2026-09-10', cerrada: '2026-09-30', precioSalida: 24 },
+    { ticker: 'DDD', simbolo: 'DDD', precio: 8,  acciones: 50, fecha: '2026-10-01', cerrada: '2026-10-07', precioSalida: 9 },
+  ]);
+  await paso('posiciones se pinta con la tabla mensual', () => ventana.posiciones());
+  const mes = porId.rpos.textContent;
+  // agosto +300 · septiembre −75+100 = +25 · octubre +50  ·  acumulado 300, 325, 375
+  /agosto de 2026/.test(mes) ? ok('agrupa por mes de cierre') : mal('no agrupa por mes');
+  /\+300,00 \$/.test(mes) ? ok('agosto suma +300,00 $') : mal('agosto no cuadra');
+  /\+25,00 \$/.test(mes) ? ok('septiembre suma +25,00 $ (−75 y +100)') : mal('septiembre no cuadra');
+  /\+50,00 \$/.test(mes) ? ok('octubre suma +50,00 $') : mal('octubre no cuadra');
+  /\+325,00 \$/.test(mes) ? ok('el acumulado va sumando (300 → 325)') : mal('el acumulado no cuadra');
+  /\+375,00 \$/.test(mes) ? ok('y cierra en +375,00 $') : mal('el acumulado final no cuadra');
+  /1 de 2/.test(mes) ? ok('cuenta las acertadas de cada mes (septiembre 1 de 2)') : mal('no cuenta las acertadas por mes');
+
+  // Un mes con una operación sin nº de acciones: no puede sumarse y hay que decirlo
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: 'AAA', simbolo: 'AAA', precio: 10, acciones: 100, fecha: '2026-08-01', cerrada: '2026-08-20', precioSalida: 13 },
+    { ticker: 'EEE', simbolo: 'EEE', precio: 5, fecha: '2026-08-02', cerrada: '2026-08-22', precioSalida: 6 },
+  ]);
+  await paso('posiciones se pinta con una operación sin nº de acciones', () => ventana.posiciones());
+  /no tiene nº de acciones/.test(porId.rpos.textContent)
+    ? ok('avisa de que esa operación no entra en la suma del mes')
+    : mal('suma el mes sin avisar de que falta una');
+  almacen['posiciones-v1'] = '[]';
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que

@@ -199,6 +199,63 @@ function formularioOperacion(alGuardar) {
 
 /* El historial: cada operacion cerrada con su resultado y, abajo, la suma. Es la respuesta a
    "¿esto esta funcionando?" con tu dinero, no con el backtest. */
+/* Resultado mes a mes, con el acumulado al lado: es la curva de tu cuenta. Una media global esconde
+   que ganaste mucho un mes y perdiste despacio los otros cinco; aqui se ve. Solo salen los meses en
+   los que cerraste algo. */
+function beneficioMensual(cerradas) {
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const porMes = new Map();
+  cerradas.forEach(p => {
+    if (!p.cerrada) return;
+    const clave = p.cerrada.slice(0, 7);
+    const m = porMes.get(clave) || { ops: 0, ganadoras: 0, pyl: 0, sinAcciones: 0 };
+    const ret = p.precioSalida ? (p.precioSalida / p.precio - 1) * 100 : null;
+    const acc = Number(p.acciones) > 0 ? Number(p.acciones) : null;
+    m.ops++;
+    if (ret > 0) m.ganadoras++;
+    if (acc && p.precioSalida) m.pyl += (p.precioSalida - p.precio) * acc; else m.sinAcciones++;
+    porMes.set(clave, m);
+  });
+  if (!porMes.size) return null;
+
+  const d = el('div'); d.style.marginTop = '18px';
+  d.appendChild(el('h2', 'blt', 'Beneficio y pérdida por mes'));
+  d.appendChild(el('p', 'nota', 'Lo que ganaste o perdiste cada mes, contando las operaciones el día que las cerraste. El acumulado es tu curva: lo que llevas desde que empezaste.'));
+  const t = el('table', 'tabla'), h = el('tr');
+  ['Mes', 'Operaciones', 'Acertadas', 'Resultado', 'Acumulado'].forEach(x => h.appendChild(el('th', null, x)));
+  t.appendChild(h);
+  let acumulado = 0, totalOps = 0, totalGan = 0, faltan = 0;
+  [...porMes.entries()].sort().forEach(([clave, m]) => {
+    acumulado += m.pyl; totalOps += m.ops; totalGan += m.ganadoras; faltan += m.sinAcciones;
+    const [anio, mes] = clave.split('-');
+    const tr = el('tr');
+    tr.appendChild(el('td', 'left', MESES[+mes - 1] + ' de ' + anio));
+    tr.appendChild(el('td', null, String(m.ops)));
+    tr.appendChild(el('td', null, m.ganadoras + ' de ' + m.ops));
+    tr.appendChild(el('td', m.sinAcciones === m.ops ? 'm' : m.pyl >= 0 ? 'up' : 'down',
+      m.sinAcciones === m.ops ? '—' : (m.pyl >= 0 ? '+' : '−') + n(Math.abs(m.pyl), 2) + ' $'));
+    tr.appendChild(el('td', acumulado >= 0 ? 'up' : 'down',
+      (acumulado >= 0 ? '+' : '−') + n(Math.abs(acumulado), 2) + ' $'));
+    t.appendChild(tr);
+  });
+  const tr = el('tr', 'total');
+  tr.appendChild(el('td', 'left', el('b', null, 'TOTAL').textContent));
+  tr.appendChild(el('td', null, String(totalOps)));
+  tr.appendChild(el('td', null, totalGan + ' de ' + totalOps));
+  tr.appendChild(el('td', acumulado >= 0 ? 'up' : 'down',
+    (acumulado >= 0 ? '+' : '−') + n(Math.abs(acumulado), 2) + ' $'));
+  tr.appendChild(el('td'));
+  t.appendChild(tr);
+  const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  /* Si a alguna operacion le falta el nº de acciones, su resultado en dinero no se puede sumar y el
+     mes sale corto. Se dice, en vez de dar una cifra incompleta por buena. */
+  if (faltan) d.appendChild(el('div', 'm', faltan === 1
+    ? 'Una operación no tiene nº de acciones, así que no entra en las sumas. Añádelo en su mes para que la cuenta cuadre.'
+    : faltan + ' operaciones no tienen nº de acciones, así que no entran en las sumas. Añádelo para que la cuenta cuadre.'));
+  return d;
+}
+
 function historialOperaciones(cerradas) {
   const R = el('div'); R.style.marginTop = '18px';
   R.appendChild(el('h2', 'blt', 'Mis operaciones cerradas'));
@@ -433,6 +490,8 @@ window.posiciones = async function () {
   });
 
   R.appendChild(historialOperaciones(cerradas));
+  const mensual = beneficioMensual(cerradas);
+  if (mensual) R.appendChild(mensual);
   R.appendChild(copiaSeguridad());
   R.appendChild(el('p', 'nota', 'Tus posiciones se guardan solo en este navegador: haz una copia si cambias de dispositivo.'));
 };
