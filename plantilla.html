@@ -23,12 +23,16 @@
 <div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Hoy</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button><button class="tab" data-v="pos" aria-selected="false">Posiciones</button><button class="tab" data-v="res" aria-selected="false">Resultados</button><button class="tab" data-v="par" aria-selected="false">Parámetros</button></div>
 <section id="vhoy">
 <div class="banner" id="mercado" hidden></div>
-<details id="dsectores"><summary>Sectores con más fuerza</summary><div class="blk" id="sectores" hidden></div></details>
+<!-- El contexto del dia (sectores y cambios) se pliega: abres la app para ver que comprar, y antes
+     de este cambio habia que bajar una pantalla entera para llegar a la primera accion. -->
+<details id="dcontexto"><summary id="scontexto">Cambios de hoy y sectores</summary>
+<details id="dsectores" open><summary>Sectores con más fuerza</summary><div class="blk" id="sectores" hidden></div></details>
 <div class="blk cambios" id="cambios" hidden></div>
-<div class="row"><select id="dia" aria-label="Día"></select><select id="orden" aria-label="Ordenar"><option value="prioridad">Prioridad de compra</option><option value="score">Solo puntuación</option><option value="acel">Más aceleración del crecimiento</option><option value="g">Más crecimiento de ingresos</option><option value="dmax">Más cerca de máximos</option><option value="volrel">Más volumen relativo</option><option value="cambio">Más subida del día</option></select></div>
+</details>
 <p class="resumenlinea" id="stats"></p>
-<div class="row"><button class="main" id="bpdf">Descargar PDF</button><button id="bcsv">Descargar Excel (CSV)</button><span class="sub" id="cuenta" style="margin:auto 0"></span></div>
 <div id="lista"></div>
+<div class="row pie"><select id="dia" aria-label="Día"></select><select id="orden" aria-label="Ordenar"><option value="prioridad">Prioridad de compra</option><option value="score">Solo puntuación</option><option value="acel">Más aceleración del crecimiento</option><option value="g">Más crecimiento de ingresos</option><option value="dmax">Más cerca de máximos</option><option value="volrel">Más volumen relativo</option><option value="cambio">Más subida del día</option></select></div>
+<div class="row pie"><button id="bpdf">Descargar PDF</button><button id="bcsv">Descargar Excel (CSV)</button><span class="sub" id="cuenta" style="margin:auto 0"></span></div>
 <details id="marcha"><summary>Ya en marcha: cumplen todo pero están muy extendidas <span class="sub" id="nmarcha"></span></summary>
 <p class="nota">Buenas empresas que ya se han disparado. Pueden seguir subiendo, pero comprarlas tan lejos de sus medias suele salir caro: lo habitual es que consoliden unas semanas y vuelvan a arrancar desde una base. Cuando eso pase, volverán al top automáticamente.</p>
 <div id="lmarcha"></div></details>

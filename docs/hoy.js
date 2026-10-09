@@ -26,8 +26,25 @@ function cambios(v){
   C.appendChild(el('div','blt','Cambios respecto a '+fFecha(fprev)));
   linea('Entran al top',entran,'up');
   linea('Salen del top',salen,'down');
-  linea('Señales de salida',alertas.slice(0,6),'down');
+  /* Las señales iban en un párrafo corrido de seis avisos seguidos: 281 px de texto rojo imposible
+     de escanear. Una por línea, con el ticker destacado. */
+  if(alertas.length){
+    const d=el('div','cl');d.appendChild(el('span','clt','Señales de salida'));
+    const u=el('ul','bll');
+    alertas.slice(0,6).forEach(t=>{const i=t.indexOf(':'),li=el('li','risk');
+      li.appendChild(el('b',null,t.slice(0,i)));li.appendChild(el('span',null,t.slice(i)));u.appendChild(li)});
+    d.appendChild(u);C.appendChild(d);
+    if(alertas.length>6)C.appendChild(el('div','m','y '+(alertas.length-6)+' más'));
+  }
   if(!entran.length&&!salen.length&&!alertas.length)C.appendChild(el('div','m','Sin cambios: el top es el mismo y ninguna vigilada ha dado señal de salida.'));
+  /* La línea plegada tiene que decir si merece la pena abrirla. */
+  const res=$('scontexto');
+  if(res){const p=[];
+    if(entran.length)p.push(entran.length+(entran.length===1?' entra':' entran'));
+    if(salen.length)p.push(salen.length+(salen.length===1?' sale':' salen'));
+    if(alertas.length)p.push(alertas.length+(alertas.length===1?' señal de salida':' señales de salida'));
+    res.textContent=p.length?'Cambios de hoy · '+p.join(', '):'Cambios de hoy · sin novedades';
+  }
 }
 
 /* Sectores con mas fuerza: mediana de rentabilidad a 3 meses de cada sector del mercado. */

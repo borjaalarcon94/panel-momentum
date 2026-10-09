@@ -408,6 +408,29 @@ for (const f of orden) {
     : mal('suma el mes sin avisar de que falta una');
   almacen['posiciones-v1'] = '[]';
 
+  /* Medido en movil: la primera accion empezaba en el pixel 843 de una pantalla de 812, o sea
+     justo debajo del pliegue. Abres la app para ver que comprar y tenias que bajar una pantalla
+     entera de contexto antes de llegar. */
+  console.log('\nLO PRIMERO QUE SE VE ES LA LISTA, NO EL CONTEXTO');
+  const htmlP = fs.readFileSync(path.join(dir, '..', 'plantilla.html'), 'utf8');
+  const posLista = htmlP.indexOf('<div id="lista">');
+  const posSelectores = htmlP.indexOf('<select id="dia"');
+  const posDescargas = htmlP.indexOf('id="bpdf"');
+  posLista < posSelectores ? ok('la lista va antes que los selectores')
+    : mal('los selectores siguen por delante de la lista');
+  posLista < posDescargas ? ok('y antes que los botones de descarga')
+    : mal('las descargas siguen por delante de la lista');
+  /<details id="dcontexto">/.test(htmlP) ? ok('el contexto del día va plegado')
+    : mal('el contexto del día sigue desplegado');
+  /@media \(max-width:430px\)\{\.tab\{/.test(fs.readFileSync(path.join(dir, 'extra.css'), 'utf8'))
+    ? ok('las pestañas se encogen en móvil para que quepan las cinco')
+    : mal('las pestañas siguen sin caber');
+  const fuenteHoy = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  /scontexto/.test(fuenteHoy) ? ok('la línea plegada resume si hay novedades')
+    : mal('la línea plegada no dice nada');
+  /el\('ul', *'bll'\)|el\('ul','bll'\)/.test(fuenteHoy) ? ok('las señales de salida van en lista, no en párrafo')
+    : mal('las señales siguen en un párrafo corrido');
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que
