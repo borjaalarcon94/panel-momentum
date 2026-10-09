@@ -217,11 +217,15 @@ function beneficioMensual(cerradas) {
     if (acc && p.precioSalida) m.pyl += (p.precioSalida - p.precio) * acc; else m.sinAcciones++;
     porMes.set(clave, m);
   });
-  if (!porMes.size) return null;
-
   const d = el('div'); d.style.marginTop = '18px';
   d.appendChild(el('h2', 'blt', 'Beneficio y pérdida por mes'));
   d.appendChild(el('p', 'nota', 'Lo que ganaste o perdiste cada mes, contando las operaciones el día que las cerraste. El acumulado es tu curva: lo que llevas desde que empezaste.'));
+  /* Sin operaciones cerradas la seccion se devolvia como null y no se dibujaba NADA, asi que no
+     habia forma de saber que existe. La de arriba si se enseña vacia: aqui igual. */
+  if (!porMes.size) {
+    d.appendChild(el('div', 'empty', 'Aún no hay ningún mes cerrado. En cuanto vendas tu primera posición aparecerá aquí el resultado de ese mes, y debajo el acumulado de todos.'));
+    return d;
+  }
   const t = el('table', 'tabla'), h = el('tr');
   ['Mes', 'Operaciones', 'Acertadas', 'Resultado', 'Acumulado'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
@@ -490,8 +494,7 @@ window.posiciones = async function () {
   });
 
   R.appendChild(historialOperaciones(cerradas));
-  const mensual = beneficioMensual(cerradas);
-  if (mensual) R.appendChild(mensual);
+  R.appendChild(beneficioMensual(cerradas));
   R.appendChild(copiaSeguridad());
   R.appendChild(el('p', 'nota', 'Tus posiciones se guardan solo en este navegador: haz una copia si cambias de dispositivo.'));
 };

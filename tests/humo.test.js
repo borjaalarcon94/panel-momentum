@@ -379,6 +379,16 @@ for (const f of orden) {
 
   /* Resultado mes a mes con el acumulado: es la curva de la cuenta. Si la suma esta mal, la
      conclusion sobre si vas ganando o perdiendo esta mal. */
+  /* La seccion se devolvia como null sin operaciones cerradas y no se dibujaba nada: no habia forma
+     de saber que existia. La tabla de operaciones si se enseña vacia; esta tiene que hacer lo mismo. */
+  console.log('\nEL BENEFICIO MENSUAL SE VE AUNQUE NO HAYA OPERACIONES');
+  almacen['posiciones-v1'] = '[]';
+  await paso('posiciones se pinta sin ninguna operación', () => ventana.posiciones());
+  /Beneficio y pérdida por mes/.test(porId.rpos.textContent)
+    ? ok('la sección aparece aunque esté vacía') : mal('la sección desaparece sin operaciones');
+  /Aún no hay ningún mes cerrado/.test(porId.rpos.textContent)
+    ? ok('y explica cuándo se llenará') : mal('no dice nada al estar vacía');
+
   console.log('\nEL BENEFICIO MENSUAL SUMA BIEN Y ACUMULA');
   almacen['posiciones-v1'] = JSON.stringify([
     { ticker: 'AAA', simbolo: 'AAA', precio: 10, acciones: 100, fecha: '2026-08-01', cerrada: '2026-08-20', precioSalida: 13 },
