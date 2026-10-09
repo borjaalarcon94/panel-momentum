@@ -157,28 +157,38 @@ window.seguimiento = function () {
       v.appendChild(u);
       c.appendChild(v);
     }
-    const g = el('div', 'grid');
-    [['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
-     ['Puntuación día a día', ''],
-     ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
-     ['Máx. alcanzado', pc(a.max)], ['Frente a su mejor cierre', pc(a.desdeMax)],
-     ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt'],
-     ['Stop del sistema', a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : '-'],
-     ['Devuelto del máximo', a.devuelto == null || a.devuelto <= 0 ? '—' : a.ret <= 0 ? 'todo · por debajo de su entrada' : n(a.devuelto, 0) + ' %']]
-      .forEach(([k, v]) => {
+    /* Ocho campos ocupaban 172 px y hacian que solo cupiera una tarjeta por pantalla. Se quedan
+       fuera los tres que deciden algo; los otros cinco bajan al desplegable, que ya existe. */
+    const campos = [
+      ['Stop del sistema', a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : '-'],
+      ['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
+      ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
+    ];
+    const detalle = [
+      ['Puntuación día a día', ''],
+      ['Máx. alcanzado', pc(a.max)], ['Frente a su mejor cierre', pc(a.desdeMax)],
+      ['vs S&P 500', a.sp == null ? '-' : (a.ret - a.sp >= 0 ? '+' : '') + n(a.ret - a.sp, 1) + ' pt'],
+      ['Devuelto del máximo', a.devuelto == null || a.devuelto <= 0 ? '—' : a.ret <= 0 ? 'todo · por debajo de su entrada' : n(a.devuelto, 0) + ' %'],
+    ];
+    const rejilla = filas => {
+      const g = el('div', 'grid');
+      filas.forEach(([k, v]) => {
         const m = el('div', 'm', k);
         if (k === 'Puntuación día a día') { const sp = spark((a.serie || []).concat(a.score != null ? [a.score] : [])); m.appendChild(sp || el('span', null, '—')) }
         else m.appendChild(el('span', null, v));
         g.appendChild(m);
       });
-    c.appendChild(g);
+      return g;
+    };
+    c.appendChild(rejilla(campos));
 
     if (a.req) {
-      const b = el('button', 'chip', 'Ver requisitos y señales'); b.style.marginTop = '10px';
+      const b = el('button', 'chip', 'Ver detalle, requisitos y señales'); b.style.marginTop = '10px';
       let abierto = null;
       b.onclick = () => {
-        if (abierto) { abierto.remove(); abierto = null; b.textContent = 'Ver requisitos y señales'; return }
+        if (abierto) { abierto.remove(); abierto = null; b.textContent = 'Ver detalle, requisitos y señales'; return }
         abierto = el('div', 'blk');
+        abierto.appendChild(rejilla(detalle));
         const u = el('ul', 'bll');
         a.req.forEach(x => u.appendChild(el('li', x.ok ? 'good2' : 'risk', (x.ok ? '✓ ' : '✗ ') + x.t + ': ' + x.v)));
         abierto.appendChild(el('div', 'blt', 'Requisitos obligatorios hoy')); abierto.appendChild(u);

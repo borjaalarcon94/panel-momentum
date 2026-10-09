@@ -446,6 +446,28 @@ for (const f of orden) {
   /el\('ul', *'bll'\)|el\('ul','bll'\)/.test(fuenteHoy) ? ok('las señales de salida van en lista, no en párrafo')
     : mal('las señales siguen en un párrafo corrido');
 
+  /* Medido en movil: una tarjeta de Seguimiento ocupaba 710 px en una pantalla de 812, o sea una
+     por pantalla. El veredicto se llevaba 218 px porque la caja era flex en fila y el titulo, con
+     nowrap, dejaba al texto una columna estrechisima: 106 caracteres partidos en ocho lineas. */
+  console.log('\nLAS TARJETAS CABEN EN PANTALLA');
+  const cssT = fs.readFileSync(path.join(dir, 'extra.css'), 'utf8');
+  /@media \(max-width:5\d\dpx\)\{[\s\S]*?\.veredicto\{flex-direction:column/.test(cssT)
+    ? ok('el veredicto se apila en móvil en vez de exprimir el texto')
+    : mal('el veredicto vuelve a ir en fila en móvil');
+  const fuenteS = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+  /const detalle = \[/.test(fuenteS) && /rejilla\(detalle\)/.test(fuenteS)
+    ? ok('Seguimiento deja 3 campos a la vista y el resto en el desplegable')
+    : mal('Seguimiento vuelve a enseñar los 8 campos de golpe');
+  const fuentePos = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /Ver detalle/.test(fuentePos) ? ok('Posiciones tiene su desplegable de detalle')
+    : mal('Posiciones no tiene desplegable');
+  // los textos largos de veredicto se acortaron: que no vuelvan a crecer sin querer
+  const largos = [...fs.readFileSync(path.join(dir, 'app.js'), 'utf8')
+    .matchAll(/t: '(COMPRA|Compra arriesgada|Esperar|Vigilar|No comprar aquí|Sin datos)', d: '([^']*)'/g)]
+    .map(m => [m[1], m[2].length]).filter(([, l]) => l > 115);
+  largos.length === 0 ? ok('ningún veredicto pasa de 115 caracteres de texto fijo')
+    : mal('algún veredicto se ha vuelto a alargar', largos.map(x => x[0] + ': ' + x[1]).join(', '));
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que

@@ -148,14 +148,14 @@ window.VEREDICTO = function (a, extra) {
   const extendida = extra.extendida != null ? extra.extendida : false;
   /* Si la accion ha desaparecido de la fuente de datos (fusion, cambio de simbolo, exclusion), lo
      ultimo que se puede hacer es seguir diciendo COMPRA con el precio del ultimo cierre conocido. */
-  if (extra.sinSeguimiento) return { t: 'Sin datos', d: 'ha dejado de cotizar con este símbolo o ha cambiado de nombre: compruébala en tu bróker antes de hacer nada.', cls: 'qbad', stop };
+  if (extra.sinSeguimiento) return { t: 'Sin datos', d: 'ha dejado de cotizar con este símbolo: compruébala en tu bróker.', cls: 'qbad', stop };
   const fallosReales = (extra.fallos || []).filter(f => !f.entrada);
   if (fallosReales.length) return { t: 'Ya no cumple', d: fallosReales.map(f => f.t.toLowerCase() + ' (' + f.v + ')').join(', '), cls: 'qbad', stop };
   if (sal.senales.length) return { t: 'No comprar', d: sal.senales[0].toLowerCase() + '.', cls: 'qbad', stop };
-  if (extendida) return { t: 'No comprar aquí', d: 'está muy estirada: esperar a que consolide. Si ya la tienes, dejarla correr con el stop en ' + stop + '.', cls: 'qwarn', stop };
-  if (extra.flojea) return { t: 'Vigilar', d: 'sigue cumpliendo, pero ha perdido fuerza. Mantener con stop en ' + stop + '.', cls: 'qwarn', stop };
+  if (extendida) return { t: 'No comprar aquí', d: 'muy estirada: esperar a que consolide. Si ya la tienes, déjala correr.', cls: 'qwarn', stop };
+  if (extra.flojea) return { t: 'Vigilar', d: 'cumple, pero ha perdido fuerza. Mantener.', cls: 'qwarn', stop };
   if (dmax != null && dmax < -window.REGLAS.R.lejosDeMaximo) return { t: 'Esperar', d: 'está a ' + pc(dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn', stop };
-  if (sal.tope) return { t: 'Compra arriesgada', d: 'está un ' + n(-sal.distanciaEma50, 0) + ' % por encima de su EMA 50, así que el stop de ' + stop + ' no es un nivel técnico sino un tope fijo: media posición o esperar un retroceso.', cls: 'qwarn', stop };
+  if (sal.tope) return { t: 'Compra arriesgada', d: 'un ' + n(-sal.distanciaEma50, 0) + ' % sobre su EMA 50: el stop es un tope fijo, no un nivel técnico. Media posición o esperar retroceso.', cls: 'qwarn', stop };
   return { t: 'COMPRA', d: 'buen punto de entrada: stop en ' + stop + '.', cls: 'qok', stop };
 };
 

@@ -457,17 +457,28 @@ window.posiciones = async function () {
       c.appendChild(sb); }
     if (r.ahora != null) {
       const g = el('div', 'grid');
-      const filas = [['Stop', (r.stop ? n(r.stop) + ' $ (' + pc((r.stop / r.ahora - 1) * 100, 0) + ')' : '—')],
-       ['Llegó a ganar', pc(r.ganMax)],
-       ['Ha devuelto', r.ganMax > 0 ? n(r.devuelto, 0) + ' %' + (r.limite ? ' de ' + r.limite + ' %' : '') : '—'],
-       ['Requisitos', r.req.length ? r.req.filter(x => x.ok).length + '/' + r.req.length : '—']];
+      /* El stop ya se ve grande justo encima, en su caja. Aqui van los cuatro numeros que miras
+         para decidir; los demas bajan al desplegable para que la tarjeta quepa en pantalla. */
+      const filas = [];
       if (din) filas.push(
-        ['Acciones', n(din.acciones, din.acciones % 1 ? 2 : 0)],
-        ['Invertido', n(din.invertido, 2) + ' $' + (din.pctCartera != null ? ' · ' + n(din.pctCartera, 1) + ' % de tu cartera' : '')],
+        ['Invertido', n(din.invertido, 2) + ' $' + (din.pctCartera != null ? ' · ' + n(din.pctCartera, 1) + ' %' : '')],
         ['Valor ahora', n(din.valor, 2) + ' $'],
-        ['Si salta el stop', din.riesgo == null ? '—' : 'pierdes ' + n(din.riesgo, 2) + ' $ desde aquí']);
+        ['Si salta el stop', din.riesgo == null ? '—' : '−' + n(din.riesgo, 2) + ' $']);
+      filas.push(['Ha devuelto', r.ganMax > 0 ? n(r.devuelto, 0) + ' %' + (r.limite ? ' de ' + r.limite + ' %' : '') : '—']);
+      const detalle = [['Llegó a ganar', pc(r.ganMax)],
+        ['Requisitos', r.req.length ? r.req.filter(x => x.ok).length + '/' + r.req.length : '—']];
+      if (din) detalle.push(['Acciones', n(din.acciones, din.acciones % 1 ? 2 : 0)]);
       filas.forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
       c.appendChild(g);
+      const verMas = el('button', 'chip', 'Ver detalle'); verMas.style.marginTop = '8px';
+      let abiertoD = null;
+      verMas.onclick = () => {
+        if (abiertoD) { abiertoD.remove(); abiertoD = null; verMas.textContent = 'Ver detalle'; return }
+        abiertoD = el('div', 'grid');
+        detalle.forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); abiertoD.appendChild(m) });
+        c.insertBefore(abiertoD, verMas.nextSibling); verMas.textContent = 'Ocultar detalle';
+      };
+      c.appendChild(verMas);
       /* Sin el numero de acciones no hay importes: se pide, no se deja el hueco en blanco. */
       if (!din) c.appendChild(el('div', 'm', 'Añade cuántas acciones tienes en «Editar compra» y te diré el dinero invertido, lo que vale ahora y cuánto arriesgas.'));
     }

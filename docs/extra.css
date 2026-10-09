@@ -211,3 +211,12 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 /* El resumen del día, plegado: una línea en vez de los 281 px que ocupaba abierto. */
 #dcontexto>summary{cursor:pointer;color:var(--muted);font-size:13px;padding:6px 0}
 #dcontexto[open]>summary{margin-bottom:6px}
+
+/* El veredicto era flex en fila: el titulo ("COMPRA ARRIESGADA", nowrap) se llevaba el ancho y el
+   texto caia en una columna estrechisima, 106 caracteres partidos en ocho lineas y 157 px de alto.
+   En movil se apilan y el texto ocupa el ancho entero. */
+@media (max-width:560px){
+  .veredicto{flex-direction:column;gap:0}
+  .veredicto .vt{white-space:normal;line-height:1.25}
+  .veredicto .vd{line-height:1.35}
+}
