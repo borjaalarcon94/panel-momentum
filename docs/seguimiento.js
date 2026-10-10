@@ -106,7 +106,7 @@ window.seguimiento = function () {
   const med = todo.reduce((s, a) => s + a.ret, 0) / todo.length, pos = todo.filter(a => a.ret > 0).length;
   const st = el('div', 'stats');
   st.append(stat('siguen siendo oportunidad', todo.filter(viva).length), stat('descartadas', descartadas.length),
-    stat('en positivo', Math.round(pos / todo.length * 100) + ' %'), stat('media de todas', pc(med)));
+    stat('en positivo', Math.round(pos / todo.length * 100) + ' %'), stat('media de todas', pc(med), signo(med)));
   R.appendChild(st);
 
   const cs = todo.filter(a => a.sp != null), spMed = cs.length ? cs.reduce((s, a) => s + a.sp, 0) / cs.length : null, gana = cs.filter(a => a.ret > a.sp).length;

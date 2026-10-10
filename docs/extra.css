@@ -220,3 +220,10 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
   .veredicto .vt{white-space:normal;line-height:1.25}
   .veredicto .vd{line-height:1.35}
 }
+
+/* Color en las cifras de resumen: verde gana, rojo pierde, ambar es exposicion (no es una perdida,
+   es lo que te juegas). Solo donde el color significa algo: si se tiñe todo, deja de informar.
+   .warn trae fondo de etiqueta, que en una cifra grande queda mal: aqui solo el color. */
+.stat b.warn{background:none;padding:0;color:var(--warn)}
+.stat b.up{color:var(--up)}
+.stat b.down{color:var(--down)}

@@ -468,6 +468,24 @@ for (const f of orden) {
   largos.length === 0 ? ok('ningún veredicto pasa de 115 caracteres de texto fijo')
     : mal('algún veredicto se ha vuelto a alargar', largos.map(x => x[0] + ': ' + x[1]).join(', '));
 
+  /* Las cifras de resumen salian todas en gris: la ganancia tenia el mismo peso visual que
+     "posiciones abiertas". El color solo donde significa algo. */
+  console.log('\nLAS CIFRAS DE RESUMEN LLEVAN COLOR');
+  const stat3 = /function stat\(k,v,cls\)/.test(fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8'));
+  stat3 ? ok('stat() acepta una clase de color') : mal('stat() sigue sin admitir color');
+  const pos3 = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  const linea = t => (pos3.split('\n').find(l => l.includes(t)) || '');
+  linea("stat('ganancia'").includes('signo(') ? ok('la ganancia se tiñe según su signo')
+    : mal('la ganancia sigue en gris', linea("stat('ganancia'").trim().slice(0, 80));
+  linea("stat('riesgo abierto'").includes("'warn'") ? ok('el riesgo abierto va en ámbar, no en rojo')
+    : mal('el riesgo abierto no está diferenciado');
+  const css3 = fs.readFileSync(path.join(dir, 'extra.css'), 'utf8');
+  /\.stat b\.warn\{background:none/.test(css3) ? ok('el ámbar de las cifras no arrastra fondo de etiqueta')
+    : mal('el ámbar de las cifras lleva fondo');
+  // Y que no se tiña lo que no debe: los recuentos siguen neutros
+  !/stat\('posiciones abiertas', abiertas\.length, /.test(pos3)
+    ? ok('los recuentos siguen sin color') : mal('se está tiñendo todo, el color deja de informar');
+
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.
      T, HIST y FH son "let": viven en el ambito lexico del contexto, no en su objeto global, asi que

@@ -1,5 +1,8 @@
 /* Pestana "Oportunidades del dia": banner de mercado, estadisticas y una tarjeta por accion. */
-function stat(k,v){const s=el('div','stat',k);s.prepend(el('b',null,v));return s}
+/* El tercer argumento tiñe la cifra: 'up' verde, 'down' rojo, 'warn' ambar. Solo donde el color
+   dice algo. Si se tiñe todo, el color deja de significar nada. */
+function stat(k,v,cls){const s=el('div','stat',k);s.prepend(el('b',cls||null,v));return s}
+const signo=v=>v==null?null:v>0?'up':v<0?'down':null;
 function mercado(v){const m=v.mercado||[],B=$('mercado');B.replaceChildren();if(!m.length){B.hidden=true;return}B.hidden=false;
 const nom={SPY:'S&P 500',QQQ:'Nasdaq 100',IWM:'Russell 2000'};let a50=0;
 m.forEach(x=>{if(x.precio>x.ema50)a50++});

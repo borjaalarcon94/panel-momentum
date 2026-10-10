@@ -200,8 +200,8 @@ function registro(xs) {
     const c = el('div', 'blk'); c.style.marginTop = '10px';
     c.appendChild(el('div', 'blt', 'Comparado con el S&P 500'));
     const st = el('div', 'stats');
-    st.append(stat('las anotadas', pc(mAcc)), stat('el S&P 500 esos mismos días', pc(mSp)),
-      stat('diferencia', (dif >= 0 ? '+' : '') + n(dif, 1) + ' pt'));
+    st.append(stat('las anotadas', pc(mAcc), signo(mAcc)), stat('el S&P 500 esos mismos días', pc(mSp), signo(mSp)),
+      stat('diferencia', (dif >= 0 ? '+' : '') + n(dif, 1) + ' pt', signo(dif)));
     c.appendChild(st);
     c.appendChild(el('p', 'nota', 'Cada acción se compara con lo que hizo el índice desde el día que ella entró, no desde el principio. ' +
       'Con ' + conSp.length + ' entradas y tan poco recorrido esta diferencia todavía es ruido: lo que la haría significativa está arriba, en el contador.'));

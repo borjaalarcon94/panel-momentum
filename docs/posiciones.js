@@ -282,10 +282,10 @@ function historialOperaciones(cerradas) {
     st.append(stat('operaciones', ops.length),
       stat('acertadas', ganadoras + ' de ' + ops.length + ' · ' + Math.round(ganadoras / ops.length * 100) + ' %'));
     if (conDinero.length) {
-      st.append(stat('resultado total', (totalPyl >= 0 ? '+' : '−') + n(Math.abs(totalPyl), 2) + ' $'),
-        stat('sobre lo invertido', pc(totalInv ? totalPyl / totalInv * 100 : 0)));
+      st.append(stat('resultado total', (totalPyl >= 0 ? '+' : '−') + n(Math.abs(totalPyl), 2) + ' $', signo(totalPyl)),
+        stat('sobre lo invertido', pc(totalInv ? totalPyl / totalInv * 100 : 0), signo(totalPyl)));
     } else {
-      st.append(stat('resultado medio', pc(ops.reduce((s, o) => s + (o.ret || 0), 0) / ops.length)));
+      st.append(stat('resultado medio', pc(ops.reduce((s, o) => s + (o.ret || 0), 0) / ops.length), signo(ops.reduce((s, o) => s + (o.ret || 0), 0))));
     }
     R.appendChild(st);
     /* Si a alguna le falta el nº de acciones, el total no incluye esa operacion: se dice, en vez de
@@ -408,20 +408,20 @@ window.posiciones = async function () {
     const suma = (xs, f) => xs.reduce((s, x) => s + f(x), 0);
     const st = el('div', 'stats');
     st.append(stat('posiciones abiertas', abiertas.length),
-      stat('a vender', revs.filter(r => r.estado === 'vender').length));
+      stat('a vender', revs.filter(r => r.estado === 'vender').length, revs.some(r => r.estado === 'vender') ? 'down' : null));
     if (con.length === vivos.length && con.length) {
       /* Con el dinero de todas se puede dar la foto real. La media simple de porcentajes engaña
          cuando no has metido lo mismo en cada una: 1000 $ al +2 % y 100 $ al +40 % no es un +21 %. */
       const inv = suma(con, x => x.d.invertido), val = suma(con, x => x.d.valor), rie = suma(con, x => x.d.riesgo || 0);
       const c = window.CARTERA.leer() || {};
       st.append(stat('invertido', n(inv, 0) + ' $' + (c.total ? ' · ' + n(inv / c.total * 100, 0) + ' % de tu cartera' : '')),
-        stat('vale ahora', n(val, 0) + ' $'),
-        stat('ganancia', (val - inv >= 0 ? '+' : '−') + n(Math.abs(val - inv), 0) + ' $ · ' + pc((val / inv - 1) * 100)),
-        stat('riesgo abierto', n(rie, 0) + ' $' + (c.total ? ' · ' + n(rie / c.total * 100, 1) + ' % de tu cartera' : '')));
+        stat('vale ahora', n(val, 0) + ' $', signo(val - inv)),
+        stat('ganancia', (val - inv >= 0 ? '+' : '−') + n(Math.abs(val - inv), 0) + ' $ · ' + pc((val / inv - 1) * 100), signo(val - inv)),
+        stat('riesgo abierto', n(rie, 0) + ' $' + (c.total ? ' · ' + n(rie / c.total * 100, 1) + ' % de tu cartera' : ''), 'warn'));
     } else {
       const med = vivos.length ? suma(vivos, r => r.gan) / vivos.length : null;
-      st.append(stat('resultado medio', med == null ? '—' : pc(med)));
-      if (con.length) st.append(stat('sin nº de acciones', vivos.length - con.length + ' de ' + vivos.length));
+      st.append(stat('resultado medio', med == null ? '—' : pc(med), signo(med)));
+      if (con.length) st.append(stat('sin nº de acciones', vivos.length - con.length + ' de ' + vivos.length, 'warn'));
     }
     st.append(stat('cerradas', cerradas.length));
     R.appendChild(st);
