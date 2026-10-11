@@ -123,7 +123,7 @@ window.parametros = function () {
 
   R.appendChild(tabla('2 · Cómo se calcula la puntuación de 0 a 100',
     ['Bloque', 'Puntos', 'Qué mide'], [
-      ['Momentum técnico', '25', 'orden de las medias, RSI en zona 60-72 y subida en 1 y 3 meses'],
+      ['Momentum técnico', '25', 'orden de las medias, RSI (7 puntos en la zona ideal 60-72; 4,5 entre 72 y 78; 4 entre 55 y 60; 2 por encima de 78) y subida en 1 y 3 meses'],
       ['Aceleración del crecimiento', '25', 'nivel de crecimiento, aceleración del último trimestre, BPA, consistencia anual y previsión del próximo ejercicio'],
       ['Calidad fundamental', '20', 'margen bruto, flujo de caja libre, margen neto, caja frente a deuda y regla del 40'],
       ['Fuerza relativa', '15', 'frente al S&P 500 a 3 y 6 meses y frente a la mediana de su sector'],

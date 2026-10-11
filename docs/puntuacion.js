@@ -38,7 +38,12 @@
                    ['EMA 21 sobre EMA 50', num(a.ema21) && num(a.ema50) && a.ema21 > a.ema50, 3],
                    ['Precio sobre media 200 d', precio && num(a.sma200) && precio > a.sma200, 3]];
     stack.forEach(([t, ok, pt]) => { if (ok) p1 += pt; t1.push(d(t, ok)); });
-    const pRsi = rsi == null ? 0 : rsi >= 60 && rsi <= 72 ? 7 : rsi > 72 && rsi <= 78 ? 4.5 : rsi >= 55 ? 4 : rsi > 78 ? 2 : 0;
+    const pRsi = rsi == null ? 0
+      : rsi > 78 ? 2                    // sobrecomprada: entra, pero suma poco
+      : rsi > 72 ? 4.5                  // caliente
+      : rsi >= 60 ? 7                   // zona ideal
+      : rsi >= 55 ? 4                   // justo por encima del minimo
+      : 0;
     p1 += pRsi;
     t1.push(d('RSI ' + (rsi == null ? 'sin dato' : rsi.toFixed(0)) + (rsi >= 60 && rsi <= 72 ? ' (zona ideal 60-72)' : ''), pRsi >= 4));
     const mes = num(a.mes), tres = num(a.tres);

@@ -72,5 +72,24 @@ comprueba('la puntuación es determinista', p().total, p().total);
 comprueba('no depende del orden de las claves',
   PUNTUA(Object.fromEntries(Object.entries(base).reverse()), ctx).total, p().total);
 
+/* El tramo "RSI > 78" estaba DETRAS de "rsi >= 55" en la cadena de ternarios, que lo capturaba
+   antes: era inalcanzable y un RSI de 95 sacaba los mismos 4 puntos que uno sano de 58. La escalera
+   tiene que bajar de verdad. */
+console.log('\nLA ESCALERA DEL RSI BAJA DE VERDAD');
+const conRsi = rsi => PUNTUA({ ...base, rsi }, ctx).partes.find(x => x.id === 'tec').p;
+const sinRsi = conRsi(40);   // por debajo de 55 el RSI suma 0: sirve de linea base
+const puntosRsi = rsi => conRsi(rsi) - sinRsi;
+comprueba('zona ideal 60-72 da el maximo', puntosRsi(65), 7);
+comprueba('justo por encima del minimo (58) da 4', puntosRsi(58), 4);
+comprueba('caliente (75) da 4,5', puntosRsi(75), 4.5);
+comprueba('sobrecomprada (85) da 2, no 4', puntosRsi(85), 2);
+comprueba('muy sobrecomprada (95) tambien da 2', puntosRsi(95), 2);
+comprueba('por debajo de 55 no suma', puntosRsi(50), 0);
+// y que la escalera sea monotona a partir del pico
+const bajada = [65, 75, 85, 95].map(puntosRsi);
+comprueba('de la zona ideal hacia arriba nunca sube',
+  bajada.every((v, i) => !i || bajada[i - 1] >= v), true);
+comprueba('un RSI de 95 vale menos que uno de 58', puntosRsi(95) < puntosRsi(58), true);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }

@@ -47,3 +47,24 @@ Una reclasificación de sector es rara y cambiar la lógica sin evidencia va con
 
 Eso es exactamente lo que miden las cinco preguntas de la sección 7, y no se puede responder hasta
 tener 30 entradas maduras.
+
+---
+
+## 11 de octubre de 2026 · Tramo del RSI inalcanzable
+
+**Hallazgo.** En la cadena de ternarios que puntúa el RSI, el tramo `rsi > 78 ? 2` estaba **detrás**
+de `rsi >= 55 ? 4`, que lo capturaba antes. Era código muerto: un RSI de 95 sacaba los mismos 4
+puntos que uno sano de 58, cuando la escalera estaba escrita para bajar a 2.
+
+**Por qué se toca pese a la sección 8.** No es cambiar un criterio: es que el código no hacía lo
+que estaba escrito para hacer. Ese es el motivo conceptual que la sección 8 deja abierto. Decisión
+consultada y aprobada por el usuario antes de aplicarla.
+
+**Impacto medido.** 2 puntos sobre 100, y solo a 4 de las 72 acciones guardadas hasta la fecha
+(5 %): XRPN el 2 oct, CDNA el 4 y el 5, RSKD el 9. Ninguna cambia de veredicto por ello. Las
+penalizaciones de −3 y −6 por RSI alto ya funcionaban, así que el exceso estaba parcialmente
+compensado por otra vía.
+
+**Cambio.** Los tramos se reordenan de mayor a menor, sin solapes. Ocho pruebas nuevas, entre ellas
+que la escalera sea monótona desde la zona ideal hacia arriba y que un RSI de 95 valga menos que
+uno de 58. La tabla 2 documenta ahora los cuatro tramos, que antes solo mencionaba la zona ideal.
