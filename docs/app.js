@@ -283,6 +283,7 @@ async function iniciar() {
   await dia(S.dia);
   window.initHoy();
   window.initSeguimiento();
+  if (window.initResultados) window.initResultados();
   window.pinta();
 }
 window.cambiarDia = async f => {

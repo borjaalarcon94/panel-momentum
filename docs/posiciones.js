@@ -197,6 +197,58 @@ function formularioOperacion(alGuardar) {
   return d;
 }
 
+/* Grafica de la curva de la cuenta: resultado acumulado tras cada operacion cerrada. Es la forma
+   mas honesta de ver como vas, porque enseña el CAMINO y no solo el destino: dos historiales que
+   acaban en +500 $ no son iguales si uno subio recto y el otro paso por -800 $ a mitad. */
+function graficaCurva(cerradas) {
+  const ops = cerradas.filter(p => p.cerrada && p.precioSalida && Number(p.acciones) > 0)
+    .map(p => ({ f: p.cerrada, t: p.ticker, pyl: (p.precioSalida - p.precio) * Number(p.acciones) }))
+    .sort((a, b) => (a.f < b.f ? -1 : a.f > b.f ? 1 : 0));
+  if (ops.length < 2) return null;   // con un solo punto no hay curva que enseñar
+
+  let acc = 0;
+  const puntos = [{ f: ops[0].f, v: 0, t: 'inicio' }];
+  ops.forEach(o => { acc += o.pyl; puntos.push({ f: o.f, v: acc, t: o.t }); });
+  const vs = puntos.map(p => p.v);
+  const max = Math.max(...vs, 0), min = Math.min(...vs, 0);
+  const rango = (max - min) || 1;
+  const AN = 100, AL = 42, M = 3;                 // viewBox; el SVG escala al ancho disponible
+  const x = i => M + i * (AN - 2 * M) / (puntos.length - 1);
+  const y = v => M + (AL - 2 * M) - (v - min) / rango * (AL - 2 * M);
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${AN} ${AL}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'curva');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Resultado acumulado: ' + puntos.map(p => Math.round(p.v) + ' $').join(', '));
+  const sube = acc >= 0;
+  const color = sube ? 'var(--up)' : 'var(--down)';
+  const linea = puntos.map((p, i) => `${x(i).toFixed(2)},${y(p.v).toFixed(2)}`).join(' ');
+  /* El relleno va hasta la linea del cero, no hasta el borde: asi se ve de un vistazo cuanto tiempo
+     estuviste por debajo de donde empezaste. */
+  const cero = y(0);
+  svg.innerHTML =
+    `<line x1="0" y1="${cero.toFixed(2)}" x2="${AN}" y2="${cero.toFixed(2)}" stroke="var(--line)" stroke-width="0.5" vector-effect="non-scaling-stroke"/>` +
+    `<polygon points="${x(0).toFixed(2)},${cero.toFixed(2)} ${linea} ${x(puntos.length - 1).toFixed(2)},${cero.toFixed(2)}" fill="${color}" opacity="0.14"/>` +
+    `<polyline points="${linea}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>` +
+    puntos.slice(1).map((p, i) => `<circle cx="${x(i + 1).toFixed(2)}" cy="${y(p.v).toFixed(2)}" r="2.2" fill="${color}" vector-effect="non-scaling-stroke"/>`).join('');
+
+  const d = el('div'); d.style.marginTop = '18px';
+  d.appendChild(el('h2', 'blt', 'Cómo va tu cuenta'));
+  d.appendChild(el('p', 'nota', 'Resultado acumulado después de cada operación cerrada. La línea gris es tu punto de partida.'));
+  const caja = el('div', 'curvacaja'); caja.appendChild(svg); d.appendChild(caja);
+  const pie = el('div', 'curvapie');
+  const peor = Math.min(...vs);
+  pie.append(
+    el('span', null, puntos[0].f ? fFecha(puntos[0].f) : ''),
+    el('span', 'm', ops.length + ' operaciones · peor momento ' + (peor >= 0 ? '+' : '−') + n(Math.abs(peor), 0) + ' $'),
+    el('span', acc >= 0 ? 'up' : 'down', (acc >= 0 ? '+' : '−') + n(Math.abs(acc), 2) + ' $'));
+  d.appendChild(pie);
+  return d;
+}
+
 /* El historial: cada operacion cerrada con su resultado y, abajo, la suma. Es la respuesta a
    "¿esto esta funcionando?" con tu dinero, no con el backtest. */
 /* Resultado mes a mes, con el acumulado al lado: es la curva de tu cuenta. Una media global esconde
@@ -506,6 +558,8 @@ window.posiciones = async function () {
 
   R.appendChild(historialOperaciones(cerradas));
   R.appendChild(beneficioMensual(cerradas));
+  const curva = graficaCurva(cerradas);
+  if (curva) R.appendChild(curva);
   R.appendChild(copiaSeguridad());
   R.appendChild(el('p', 'nota', 'Tus posiciones se guardan solo en este navegador: haz una copia si cambias de dispositivo.'));
 };

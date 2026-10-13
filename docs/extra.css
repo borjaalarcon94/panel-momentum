@@ -86,6 +86,15 @@ details.descartadas .tw{margin-top:8px}
 .tabs{position:sticky;top:0;z-index:6;background:var(--bg);padding-top:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tab{white-space:nowrap;flex:0 0 auto}
+/* Antes eran texto suelto con un subrayado: no parecian pulsables y en el movil costaba acertar.
+   Ahora cada una tiene su caja, borde y fondo propio, y la activa se distingue de lejos. */
+.tabs{gap:6px;border-bottom:1px solid var(--line);padding-bottom:0}
+.tab{border:1px solid transparent;border-bottom:none;border-radius:10px 10px 0 0;
+  background:color-mix(in srgb,var(--card) 55%,transparent);padding:11px 14px;
+  margin-bottom:-1px;transition:background .12s,color .12s}
+.tab:hover{background:var(--card);color:var(--text)}
+.tab[aria-selected=true]{background:var(--card);color:var(--text);font-weight:700;
+  border-color:var(--line);border-bottom:1px solid var(--card);box-shadow:0 -2px 0 var(--up) inset}
 /* Color del borde según la puntuación: permite barrer la lista de un vistazo */
 /* El acento lleva el veredicto: verde se puede comprar, ambar hay que esperar, rojo no se toca.
    Ancho suficiente para distinguirlas de un vistazo sin que la lista parezca un semaforo. */
@@ -204,7 +213,12 @@ h1{padding-right:84px}
 tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 
 /* Las pestañas no cabían en 375 px y "Parámetros" quedaba fuera de pantalla. */
-@media (max-width:430px){.tabs{gap:0}.tab{padding:10px 3px;font-size:12.5px;letter-spacing:-.2px}}
+/* En movil el dedo necesita area: 44 px de alto es el minimo recomendado. Caben las cinco porque
+   la barra ya desplaza en horizontal, y la activa se ve siempre al cambiar de pestaña. */
+@media (max-width:430px){
+  .tabs{gap:4px}
+  .tab{padding:12px 11px;font-size:13.5px;min-height:44px}
+}
 /* Lo que no se usa cada día va al pie, con menos peso visual que la lista. */
 .row.pie{margin-top:14px;opacity:.85}
 .row.pie button{font-size:13px}
@@ -227,3 +241,10 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .stat b.warn{background:none;padding:0;color:var(--warn)}
 .stat b.up{color:var(--up)}
 .stat b.down{color:var(--down)}
+
+/* Curva de la cuenta: el SVG escala al ancho, con alto fijo para que no se deforme en movil. */
+.curvacaja{margin:10px 0 6px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card)}
+.curvacaja svg.curva{display:block;width:100%;height:120px}
+.curvapie{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.curvapie .up{color:var(--up);font-weight:700}
+.curvapie .down{color:var(--down);font-weight:700}

@@ -260,29 +260,48 @@ for (const f of orden) {
 
   /* El registro se lee para ver que funciono y que no, asi que va de mejor a peor. Las que se
      quedaron sin desenlace no son un 0 %: van al final, no en medio. */
-  console.log('\nEL REGISTRO VA DE LO QUE MEJOR VA A LO QUE PEOR');
-  const reg = vm.runInContext(`(() => {
-    // se deja una sin precio a proposito: si no, la comprobacion del final pasaria en vacio
+  /* El registro se puede ordenar de siete formas. Lo que no cambia nunca: las que han dejado de
+     cotizar van al final, porque con el rendimiento a nulo se colarian en medio como un 0 %. */
+  console.log('\nEL REGISTRO SE ORDENA DE VARIAS FORMAS');
+  const ordenes = vm.runInContext('Object.keys(ORDENES)', ctx);
+  ordenes.length >= 5 ? ok('hay ' + ordenes.length + ' formas de ordenar: ' + ordenes.join(', '))
+    : mal('faltan formas de ordenar', ordenes.join(','));
+  const htmlR = fs.readFileSync(path.join(dir, '..', 'plantilla.html'), 'utf8');
+  /<option value="momentum" selected>/.test(htmlR) ? ok('por defecto ordena por momentum')
+    : mal('el orden por defecto no es momentum');
+  // cada orden hace lo que dice, y las sin desenlace quedan siempre al final
+  const pruebas = vm.runInContext(`(() => {
     const xs = entradas();
-    const sinDesenlace = xs.find(a => a.ret > 0);
-    if (sinDesenlace) sinDesenlace.ret = null;
-    const orden = [...xs].sort((a, b) => {
-      if ((a.ret == null) !== (b.ret == null)) return a.ret == null ? 1 : -1;
-      if (a.ret != null && a.ret !== b.ret) return b.ret - a.ret;
-      return a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : 0;
-    });
-    return orden.map(a => ({ t: a.ticker, ret: a.ret }));
+    const sin = xs.find(a => a.ret > 0); if (sin) sin.ret = null;
+    const out = {};
+    for (const k of Object.keys(ORDENES)) {
+      const o = [...xs].sort((a, b) => {
+        if ((a.ret == null) !== (b.ret == null)) return a.ret == null ? 1 : -1;
+        return ORDENES[k].f(a, b) || 0;
+      });
+      const con = o.filter(a => a.ret != null);
+      out[k] = { primeros: o.slice(0, 3).map(a => a.ticker),
+        finalSinDato: o.slice(-1)[0].ret == null,
+        scores: con.map(a => a.score), rets: con.map(a => a.ret) };
+    }
+    return out;
   })()`, ctx);
-  const conRes = reg.filter(x => x.ret != null), sinRes = reg.filter(x => x.ret == null);
-  conRes.every((x, i) => !i || conRes[i - 1].ret >= x.ret)
-    ? ok('las que tienen resultado van de mayor a menor (' + conRes.map(x => x.t).join(' > ') + ')')
-    : mal('el orden no es descendente', conRes.map(x => x.t + ':' + x.ret).join(', '));
-  const indices = reg.map((x, i) => x.ret == null ? i : -1).filter(i => i >= 0);
-  sinRes.length && indices.every(i => i >= reg.length - sinRes.length)
-    ? ok('las que no tienen resultado van al final' + (sinRes.length ? ' (' + sinRes.map(x => x.t).join(', ') + ')' : ''))
-    : mal('una sin resultado se cuela en medio o no hay ninguna que comprobar', indices.join(',') + ' de ' + reg.length);
+  const mom = pruebas.momentum.scores.filter(x => x != null);
+  mom.every((v, i) => !i || mom[i - 1] >= v)
+    ? ok('«momentum» ordena por nota de mayor a menor (' + pruebas.momentum.primeros.join(' > ') + ')')
+    : mal('el orden por momentum no es descendente', mom.slice(0, 6).join(', '));
+  const mej = pruebas.mejor.rets.filter(x => x != null);
+  mej.every((v, i) => !i || mej[i - 1] >= v) ? ok('«las que mejor van» ordena por rendimiento')
+    : mal('el orden por rendimiento falla');
+  const peo = pruebas.peor.rets.filter(x => x != null);
+  peo.every((v, i) => !i || peo[i - 1] <= v) ? ok('«las que peor van» lo hace al revés')
+    : mal('el orden inverso falla');
+  Object.values(pruebas).every(p => p.finalSinDato)
+    ? ok('en los ' + ordenes.length + ' órdenes, las que no cotizan quedan al final')
+    : mal('alguna sin desenlace se cuela en medio',
+        Object.entries(pruebas).filter(([, p]) => !p.finalSinDato).map(([k]) => k).join(', '));
   const fuenteRes = fs.readFileSync(path.join(dir, 'resultados.js'), 'utf8');
-  /De lo que mejor va a lo que peor/.test(fuenteRes) ? ok('la tabla dice cómo está ordenada')
+  /'Ordenado ' \+ modo\.t/.test(fuenteRes) ? ok('la tabla dice cómo está ordenada en cada caso')
     : mal('la tabla no explica su orden');
 
   /* Comparacion con el indice. El precio del S&P ya se guarda cada dia en el historico, asi que no
@@ -485,6 +504,32 @@ for (const f of orden) {
   // Y que no se tiña lo que no debe: los recuentos siguen neutros
   !/stat\('posiciones abiertas', abiertas\.length, /.test(pos3)
     ? ok('los recuentos siguen sin color') : mal('se está tiñendo todo, el color deja de informar');
+
+  /* La curva de la cuenta: resultado acumulado tras cada operacion cerrada. Si la suma esta mal,
+     la conclusion sobre como vas esta mal. */
+  console.log('\nLA CURVA DE LA CUENTA ES CORRECTA');
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: 'AAA', simbolo: 'AAA', precio: 10, acciones: 100, fecha: '2026-07-01', cerrada: '2026-07-20', precioSalida: 13 },
+    { ticker: 'BBB', simbolo: 'BBB', precio: 50, acciones: 20, fecha: '2026-07-25', cerrada: '2026-08-10', precioSalida: 28 },
+    { ticker: 'CCC', simbolo: 'CCC', precio: 20, acciones: 25, fecha: '2026-08-15', cerrada: '2026-08-30', precioSalida: 18 },
+    { ticker: 'DDD', simbolo: 'DDD', precio: 8, acciones: 200, fecha: '2026-09-01', cerrada: '2026-09-20', precioSalida: 11.5 },
+  ]);
+  await paso('posiciones se pinta con la curva', () => ventana.posiciones());
+  const txtC = porId.rpos.textContent;
+  /Cómo va tu cuenta/.test(txtC) ? ok('la sección de la curva aparece') : mal('no aparece la curva');
+  // +300, -440, -50, +700  ->  acumulado 300, -140, -190, 510
+  /peor momento −190 \$/.test(txtC) ? ok('calcula el peor momento de la curva (−190 $)')
+    : mal('el peor momento no cuadra', txtC.slice(0, 200));
+  /\+510,00 \$/.test(txtC) ? ok('y el resultado final acumulado (+510 $)') : mal('el acumulado final no cuadra');
+  /4 operaciones/.test(txtC) ? ok('cuenta las operaciones de la curva') : mal('no cuenta las operaciones');
+  // con una sola operación no hay curva que enseñar
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: 'AAA', simbolo: 'AAA', precio: 10, acciones: 100, fecha: '2026-07-01', cerrada: '2026-07-20', precioSalida: 13 }]);
+  await paso('posiciones se pinta con una sola operación', () => ventana.posiciones());
+  !/Cómo va tu cuenta/.test(porId.rpos.textContent)
+    ? ok('con una sola operación no se dibuja una curva de un punto')
+    : mal('dibuja una curva sin forma con una sola operación');
+  almacen['posiciones-v1'] = '[]';
 
   /* La pestana Resultados nunca se ha visto desbloqueada: hacen falta 30 entradas con 15 sesiones y
      el panel lleva pocos dias. Se fabrica ese historial para comprobar que el camino existe.

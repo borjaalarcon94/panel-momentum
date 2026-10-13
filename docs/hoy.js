@@ -187,5 +187,13 @@ $('vhoy').hidden=v!=='hoy';$('vseg').hidden=v!=='seg';$('vres').hidden=v!=='res'
 if(v==='seg'&&window.seguimiento)window.seguimiento();
 if(v==='pos'&&window.posiciones)window.posiciones();
 if(v==='res'&&window.resultados)window.resultados();
-if(v==='par'&&window.parametros)window.parametros()});
+if(v==='par'&&window.parametros)window.parametros();
+/* La barra desplaza en horizontal y en el movil no caben las cinco: si la pulsada queda fuera, se
+   centra. Va al final y en requestAnimationFrame: hacerlo antes de repintar la seccion no surtia
+   efecto, el cambio de contenido cancelaba el desplazamiento. */
+const centra=()=>{const barra=b.parentElement;
+  if(barra.scrollWidth<=barra.clientWidth)return;
+  const dx=b.getBoundingClientRect().left-barra.getBoundingClientRect().left;
+  barra.scrollLeft=Math.max(0,barra.scrollLeft+dx-(barra.clientWidth-b.offsetWidth)/2)};
+requestAnimationFrame(centra);setTimeout(centra,60)});
 };

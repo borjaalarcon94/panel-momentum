@@ -150,19 +150,30 @@ function tablaSimulacion(maduras) {
 
 /* El registro en bruto. Esto no concluye nada, pero se entiende sin saber estadistica: cada accion que
    ha entrado, con que nota, a que precio y que ha hecho desde entonces. */
+/* Las que han dejado de cotizar no tienen resultado: van siempre al final, ordene como ordene.
+   Con el rendimiento a nulo se colarian en medio como si fueran un 0 %, y no es lo que son. */
+const ORDENES = {
+  momentum: { t: 'por la nota que tenían al entrar, de mayor a menor', f: (a, b) => (b.score ?? -1e9) - (a.score ?? -1e9) },
+  mejor:    { t: 'de lo que mejor va a lo que peor', f: (a, b) => b.ret - a.ret },
+  peor:     { t: 'de lo que peor va a lo que mejor', f: (a, b) => a.ret - b.ret },
+  reciente: { t: 'de la entrada más reciente a la más antigua', f: (a, b) => (a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : 0) },
+  antigua:  { t: 'de la entrada más antigua a la más reciente', f: (a, b) => (a.entrada > b.entrada ? 1 : a.entrada < b.entrada ? -1 : 0) },
+  recorrido:{ t: 'por sesiones de recorrido, de más a menos', f: (a, b) => b.sesiones - a.sesiones },
+  indice:   { t: 'por lo que le sacan al S&P 500 en sus mismos días', f: (a, b) => ((b.ret - b.sp) || -1e9) - ((a.ret - a.sp) || -1e9) },
+};
+
 function registro(xs) {
-  const VER = 15;
-  /* De lo que mejor va a lo que peor. Las que no tienen resultado (dejaron de cotizar) van al final:
-     con un rendimiento nulo se colarian en medio como si fueran un 0 %, que no es lo que son.
-     A igualdad de rendimiento desempata la fecha de entrada, la mas reciente primero. */
+  const sel = $('resorden'), clave = (sel && sel.value) || 'momentum';
+  const modo = ORDENES[clave] || ORDENES.momentum;
+  const verSel = $('resver');
+  const VER = verSel && verSel.value === '0' ? 1e9 : 15;
   const orden = [...xs].sort((a, b) => {
-    if ((a.ret == null) !== (b.ret == null)) return a.ret == null ? 1 : -1;
-    if (a.ret != null && a.ret !== b.ret) return b.ret - a.ret;
-    return a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : 0;
+    if ((a.ret == null) !== (b.ret == null)) return a.ret == null ? 1 : -1;   // sin desenlace, al final
+    return modo.f(a, b) || (a.entrada < b.entrada ? 1 : a.entrada > b.entrada ? -1 : 0);
   });
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Lo que llevamos anotado'));
-  d.appendChild(el('div', 'm', 'De lo que mejor va a lo que peor. Ojo al comparar: la columna «Sesiones» dice cuánto recorrido lleva cada una, y un +5 % en dos sesiones no es lo mismo que un +5 % en quince.'));
+  d.appendChild(el('div', 'm', 'Ordenado ' + modo.t + '. Ojo al comparar: la columna «Sesiones» dice cuánto recorrido lleva cada una, y un +5 % en dos sesiones no es lo mismo que un +5 % en quince.'));
   const t = el('table', 'tabla'), h = el('tr');
   ['Acción', 'Entró', 'Nota al entrar', 'Precio al entrar', 'Precio ahora', 'Cambio', 'S&P 500', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
@@ -191,7 +202,7 @@ function registro(xs) {
     t.appendChild(tr);
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
-  if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' primeras de ' + orden.length + '.'));
+  if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' primeras de ' + orden.length + '. Cambia el desplegable de arriba a «Todas» para verlas todas.'));
   /* Comparacion con el indice: cada entrada contra lo que hizo el S&P 500 en sus mismos dias. Es un
      dato del registro, no una conclusion: con pocas sesiones esta diferencia es ruido. */
   const conSp = xs.filter(a => a.sp != null && a.ret != null);
@@ -209,6 +220,12 @@ function registro(xs) {
   }
   return d;
 }
+
+window.initResultados = function () {
+  const r = $('resorden'), v = $('resver');
+  if (r) r.onchange = () => window.resultados();
+  if (v) v.onchange = () => window.resultados();
+};
 
 window.resultados = async function () {
   const R = $('rres'); R.replaceChildren();
