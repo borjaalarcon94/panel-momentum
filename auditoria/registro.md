@@ -375,3 +375,74 @@ un bootstrap; los IC son anchos y hay que tomárselos como anchos.
 **Dato sobrio que conviene no perder de vista.** Con el protocolo, la mediana es **negativa** en los dos
 tramos (−3,26 % y −2,35 %). La operación típica pierde dinero; el beneficio sale del 9-12 % que son
 pelotazos. Es normal en momentum, pero es lo que hay que tener en la cabeza al fijar expectativas.
+
+---
+
+## 14 de octubre de 2026 (noche, 2) — también se cae el argumento del stop. Lo que queda es la cobertura sectorial
+
+No cambia una línea de código. Tercera rectificación del mismo día sobre el mismo cambio.
+
+**El margen del stop NO predice la rentabilidad.** Era el único argumento cuantitativo que quedaba en
+pie tras retirar el de la rentabilidad. Probado sobre las mismas 32.455 observaciones, 1.239 sin
+solapamiento, partiendo por cuartiles de margen (distancia al stop ÷ volatilidad media de 20 sesiones,
+proxy cierre-a-cierre del ADR) y midiendo el resultado CON el protocolo del panel:
+
+```
+  margen                n    media  mediana   >+20%   <-20%
+  Q1 0,8-2,7 dias     309   +1,21%   -2,35%      6%      2%
+  Q2 2,7-4,0 dias     309   -0,01%   -3,11%      7%      0%
+  Q3 4,0-5,5 dias     309   +1,95%   -2,89%      8%      0%
+  Q4 5,5-29,9 dias    312   +0,54%   -2,84%      7%      0%
+
+  Q4 - Q1: -0,78 pp   IC95 [-4,49, +1,61]   NO excluye el cero
+  dentro de las pequenas, mas margen salio -2,27 pp PEOR (direccion contraria)
+```
+
+No hay patrón monótono y el signo va en contra. **El argumento estructural con el que defendí el cambio
+—"con las grandes el stop es de verdad la media móvil"— no se traduce en mejor resultado.**
+
+Limitación del proxy: la volatilidad cierre-a-cierre es menor que el ADR (que usa máximos y mínimos),
+así que los márgenes de esta tabla están inflados en torno a 1,5x. La zona de verdad peligrosa (menos
+de 1 ADR) es solo una parte de Q1, así que la prueba es algo gruesa. Pero no hay nada que apunte en la
+dirección que yo defendía, y eso es lo que cuenta.
+
+**Lo que SÍ queda, medido con rigor.** No es un argumento de rentabilidad, así que no le afectan las
+tres rectificaciones:
+
+```
+candidatas: 54 (35 pequenas, 19 grandes)
+industrias cubiertas por las pequenas:          18
+industrias que aportan SOLO las grandes:         8   -> +44 % de cobertura
+grandes en industrias que las pequenas no cubren: 9 de 19
+
+las 8 industrias: Computer Peripherals (x2), Internet Software/Services, Semiconductors,
+Information Technology Services, Beverages: Non-Alcoholic, Electronics/Appliances,
+Air Freight/Couriers, Investment Banks/Brokers
+```
+
+El techo producía un **sesgo sectorial involuntario**: excluía sectores enteros cuyas empresas con
+crecimiento son casi todas grandes. Borja lo detectó antes que nadie al preguntar *"¿es raro que no
+haya ninguna acción de semiconductores con momentum?"*, y entonces se le dio una explicación sectorial
+equivocada. La explicación real era el techo. Y "Computer Peripherals" es la industria de SanDisk, la
+empresa concreta que originó toda esta conversación.
+
+**Estado honesto del cambio del techo, al cierre del 14 de octubre:**
+- Rentabilidad: **sin diferencia medible** con el protocolo real (5 de 8 trimestres, IC con el cero dentro).
+- Calidad del stop: **no predice**. Argumento retirado.
+- Grandes aciertos: las grandes tienen significativamente menos (−3,10 pp). **Coste real**, compensado
+  en la media porque las pequeñas también pierden más en las operaciones normales.
+- Cobertura sectorial: **+44 %**, medido. Único beneficio que sobrevive.
+- Supuesto eliminado: el techo nunca estuvo justificado. Quitarlo es correcto por principio aunque la
+  rentabilidad no se mueva.
+
+**Por qué no se revierte esta noche.** Se dijo explícitamente que si las pequeñas salían por delante
+con el protocolo real, se revertía antes del build. No salieron por delante: salió empate. Revertir
+ahora, sobre una medición recién hecha y débil, sería repetir el error de esta mañana en la dirección
+contraria — y es exactamente lo que la sección 8 existe para evitar. La decisión la toman las 30
+entradas maduras de finales de noviembre, partidas por tramo de capitalización, con los datos que ya se
+están guardando en `docs/datos/*.json`.
+
+**Lección de proceso, porque el patrón se repitió tres veces el mismo día.** Las tres equivocaciones
+fueron en la misma dirección: a favor de la conclusión ya adoptada. La evidencia se buscó DESPUÉS de
+que surgiera la idea (la pregunta por SanDisk), y el argumento conceptual se encontró DESPUÉS del
+estadístico, no antes. Ese orden es el que la sección 8 prohíbe, y no se señaló al proponer el cambio.
