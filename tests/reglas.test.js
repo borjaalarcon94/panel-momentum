@@ -12,7 +12,7 @@ function comprueba(nombre, real, esperado) {
   else console.log(`  ✓ ${nombre}`);
 }
 const req = (fallan = []) => [
-  { t: 'Capitalización entre 300 M y 10,0 B', ok: !fallan.includes('cap'), entrada: true },
+  { t: 'Capitalización > 300 M', ok: !fallan.includes('cap'), v: '120 M', entrada: true },
   { t: 'RSI > 55', ok: !fallan.includes('rsi'), v: '50' },
   { t: 'Ingresos +20 % o más', ok: !fallan.includes('ingresos'), v: '5 %' },
   { t: 'A menos del 20 % de su máximo', ok: !fallan.includes('max'), v: '-30 %' },
@@ -159,5 +159,18 @@ comprueba('con la serie, la misma posición dice vender', posicion(220).estado, 
 comprueba('y el motivo es la devolución',
   posicion(220).motivos.some(m => m.codigo === 'devuelto'), true);
 
+/* 14/10/2026: al quitar el techo, el requisito de capitalizacion solo puede romperse por abajo.
+   El aviso existia como 'crecida' ("ha superado el techo") y habria dado el mensaje al reves. */
+console.log('\nCAPITALIZACIÓN ROTA EN UNA POSICIÓN ABIERTA');
+const rc = evalua({ requisitos: req(['cap']), datos: { precio: 110, ema50: 100, ema21: 105, rsi: 60 }, compra: 100 });
+comprueba('avisa, no vende', rc.motivos.map(m => m.codigo), []);
+comprueba('el estado es vigilar', rc.estado, 'vigilar');
+comprueba('el aviso es de capitalización y lleva el valor',
+          rc.avisos.filter(a => a.codigo === 'capitalizacion'), [{ codigo: 'capitalizacion', valor: '120 M' }]);
+comprueba('ya no existe el aviso antiguo "crecida"', rc.avisos.some(a => a.codigo === 'crecida'), false);
+comprueba('romper solo la capitalización no cuenta como "un requisito roto" (es de entrada)',
+          rc.avisos.some(a => a.codigo === 'un-requisito'), false);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
+

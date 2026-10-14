@@ -66,7 +66,10 @@
     const limite = limiteDevolucion(ganMax);
     const ema50 = num(datos.ema50), ema21 = num(datos.ema21), rsi = num(datos.rsi);
     const fallos = (requisitos || []).filter(x => !x.ok && !x.entrada);
-    const crecida = (requisitos || []).find(x => !x.ok && x.entrada && /apitalizaci/.test(x.t));
+    /* Requisito de capitalizacion roto en una posicion abierta. Hasta el 14/10/2026 esto solo podia
+       pasar por arriba (superar el techo de 10 B) y el aviso se llamaba 'crecida'. Sin techo solo puede
+       pasar por abajo: la empresa se ha hundido por debajo del suelo. Sigue siendo aviso, no venta. */
+    const capRota = (requisitos || []).find(x => !x.ok && x.entrada && /apitalizaci/.test(x.t));
 
     const motivos = [], avisos = [];
     if (stop != null && precio < stop) motivos.push({ codigo: 'stop', stop, ema50 });
@@ -75,7 +78,7 @@
     if (limite != null && alMenos(devuelto, limite)) motivos.push({ codigo: 'devuelto', devuelto, ganMax, gan, limite });
     if (fallos.length >= 2) motivos.push({ codigo: 'requisitos', fallos });
 
-    if (crecida) avisos.push({ codigo: 'crecida' });
+    if (capRota) avisos.push({ codigo: 'capitalizacion', valor: capRota.v });
     if (diasResultados != null && diasResultados >= 0 && diasResultados <= 10) avisos.push({ codigo: 'resultados', dias: diasResultados });
     if (!motivos.length) {
       if (fallos.length === 1) avisos.push({ codigo: 'un-requisito', fallo: fallos[0] });

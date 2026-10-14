@@ -91,6 +91,20 @@ for (const f of orden) {
   const guardadas = JSON.parse(almacen['posiciones-v1'] || '[]');
   guardadas.length ? ok('las posiciones siguen guardadas tras pintar') : mal('se han perdido las posiciones al pintar');
 
+  /* 14/10/2026: se quito el techo de capitalizacion. Si vuelve a aparecer, o si la rama de capMax
+     null se rompe, el panel diria que PLTR "no cumple" y la descartaria sola. */
+  console.log('\nSIN TECHO DE CAPITALIZACIÓN');
+  const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
+  const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);
+  mega && mega.ok ? ok('una megacap de 484 B cumple el requisito de capitalización')
+    : mal('una megacap NO cumple el requisito de capitalización', mega && mega.t);
+  grande && grande.ok ? ok('una grande de 13 B también') : mal('una grande de 13 B no cumple', grande && grande.t);
+  micro && !micro.ok ? ok('por debajo del suelo (100 M) sigue sin cumplir') : mal('el suelo de capitalización ya no filtra');
+  mega && !/entre/.test(mega.t) ? ok('el requisito ya no anuncia un rango cerrado: ' + mega.t)
+    : mal('el requisito sigue anunciando un techo', mega && mega.t);
+  mega && mega.entrada ? ok('sigue siendo requisito solo de entrada: crecer no es motivo de venta')
+    : mal('el requisito de capitalización ha dejado de ser solo de entrada');
+
   console.log('\nEL VEREDICTO ES COHERENTE EN LAS DOS VISTAS');
   const v = ventana.VEREDICTO(datos, {});
   const e = ventana.REGLAS.stopDeEntrada(datos);

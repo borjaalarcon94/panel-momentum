@@ -37,8 +37,27 @@ comprueba("una empresa de software entra", b.excluida(sana), False)
 comprueba("una biotecnológica entra", b.excluida(con(sector="Health Technology", industria="Biotechnology")), False)
 
 print("\nCOHERENCIA DE UMBRALES")
-comprueba("el techo de capitalización está en el filtro del escáner",
-          any(f["left"] == "market_cap_basic" and f["right"] == [300e6, b.CAP_MAX] for f in b.FILTROS), True)
+comprueba("el suelo de capitalización del escáner coincide con el documentado",
+          [f["right"] for f in b.FILTROS if f["left"] == "market_cap_basic"], [b.CAP_MIN])
+# 14/10/2026: se quito el techo de 10 B. Si alguien vuelve a meter un limite superior por arriba,
+# estas dos pruebas lo cazan: dejarian de verse PLTR, SHOP o LLY sin que nadie lo hubiera decidido.
+comprueba("no hay techo de capitalización", b.CAP_MAX, None)
+comprueba("el filtro de capitalización no acota por arriba",
+          [f["operation"] for f in b.FILTROS if f["left"] == "market_cap_basic"], ["greater"])
+def acepta_cap(valor):
+    """Evalua los filtros de capitalizacion del escaner contra un valor concreto."""
+    for f in b.FILTROS:
+        if f["left"] != "market_cap_basic":
+            continue
+        if f["operation"] == "greater" and not valor > f["right"]:
+            return False
+        if f["operation"] == "in_range" and not (f["right"][0] <= valor <= f["right"][1]):
+            return False
+    return True
+
+comprueba("el escáner acepta una megacap (PLTR, 484 B)", acepta_cap(484e9), True)
+comprueba("el escáner acepta una grande (HALO, 13 B)", acepta_cap(13e9), True)
+comprueba("el escáner sigue rechazando por debajo del suelo", acepta_cap(100e6), False)
 comprueba("el RSI mínimo del escáner coincide con el documentado",
           [f["right"] for f in b.FILTROS if f["left"] == "RSI"], [55])
 comprueba("se guardan 10 al día", b.GUARDAR, 10)

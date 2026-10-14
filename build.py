@@ -31,11 +31,20 @@ INDUSTRIAS_EXCLUIDAS = ("Real Estate Investment Trusts", "Investment Trusts/Mutu
 
 # Requisitos obligatorios (reducen el universo a empresas en tendencia alcista con crecimiento real).
 # ADR, volumen relativo, aceleracion, margenes y ruptura NO son obligatorios: puntuan (docs/puntuacion.js).
+CAP_MIN = 300e6          # suelo de capitalizacion: por debajo no hay liquidez ni informacion fiable
+CAP_MAX = None           # sin techo. Lo hubo en 10e9 ("una gigante ya no multiplica") hasta el 14 de octubre
+                         # de 2026. Se quito por dos motivos, ver auditoria/registro.md:
+                         #  1. La premisa no se sostuvo al medirla: las de mas de 10 B rindieron igual o mejor.
+                         #  2. El stop es la EMA 50 con tope del 15 %. Las grandes cotizan a 6-22 % de su
+                         #     EMA 50 y las pequenas a 20-40 %, donde el tope muerde y el stop deja de ser
+                         #     tecnico. Con las grandes el stop es de verdad la media movil.
+                         # El sesgo hacia lo pequeno sigue vivo, pero como preferencia blanda: el bonus de
+                         # tamano de puntuacion.js y el desempate por menor capitalizacion de main().
 FILTROS = [
     {"left": "type", "operation": "equal", "right": "stock"},
     {"left": "exchange", "operation": "in_range", "right": ["NASDAQ", "NYSE", "AMEX"]},
     {"left": "close", "operation": "greater", "right": 2},
-    {"left": "market_cap_basic", "operation": "in_range", "right": [300e6, 10e9]},
+    {"left": "market_cap_basic", "operation": "greater", "right": CAP_MIN},
     {"left": "average_volume_10d_calc", "operation": "greater", "right": 300000},
     {"left": "SMA200", "operation": "less", "right": "close"},   # precio sobre media 200
     {"left": "EMA50", "operation": "less", "right": "EMA9"},     # EMA9 > EMA50
@@ -43,7 +52,6 @@ FILTROS = [
 ]
 CRECIMIENTO_MIN = 20     # % interanual, el mayor entre TTM y ultimo trimestre
 MAX_DESDE_MAXIMO = 20    # % por debajo del maximo de 52 semanas
-CAP_MAX = 10e9           # techo de capitalizacion: buscamos empresas que puedan multiplicar, no megacaps
 LIQUIDEZ_MIN = 2e6       # $ negociados al dia de media: hay que poder salir de la posicion
 
 C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "cambio",
@@ -330,7 +338,7 @@ def main():
     version = hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
     panel = {"version": version, "dias": sorted(todos), "historico": historico, "precios": precios, "actual": actual,
              "mercadoHoy": mercado, "referenciaHoy": ref,
-             "criterios": {"precioMin": 2, "capMin": 300e6, "capMax": CAP_MAX, "volumenMin": 300000,
+             "criterios": {"precioMin": 2, "capMin": CAP_MIN, "capMax": CAP_MAX, "volumenMin": 300000,
                            "liquidezMin": LIQUIDEZ_MIN, "rsiMin": 55, "crecimientoMin": CRECIMIENTO_MIN,
                            "maxDesdeMaximo": MAX_DESDE_MAXIMO},
              "regimen": anterior.get("regimen") if (motivo and anterior.get("regimen")) else regimen(mercado),

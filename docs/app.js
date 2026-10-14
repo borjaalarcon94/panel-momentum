@@ -66,9 +66,10 @@ window.REQUISITOS = function (a) {
   const C = CRIT, g = Math.max(a.ingresos ?? -1e9, a.ingresosq ?? -1e9);
   const dmax = a.precio && a.max52 ? (a.precio / a.max52 - 1) * 100 : null;
   return [
-    /* Requisito SOLO de entrada: que una ganadora supere el techo de capitalización no es motivo para vender,
-       faltaría más. Se marca con entrada:true y no cuenta como incumplimiento mientras la tengas. */
-    { t: 'Capitalización entre ' + cap(C.capMin) + ' y ' + cap(C.capMax), ok: a.cap > C.capMin && a.cap <= C.capMax, v: cap(a.cap), entrada: true },
+    /* Requisito SOLO de entrada: se marca con entrada:true y no cuenta como incumplimiento mientras la
+       tengas. Desde el 14/10/2026 no hay techo (C.capMax es null); el suelo sigue siendo obligatorio. */
+    { t: C.capMax ? 'Capitalización entre ' + cap(C.capMin) + ' y ' + cap(C.capMax) : 'Capitalización > ' + cap(C.capMin),
+      ok: a.cap > C.capMin && (!C.capMax || a.cap <= C.capMax), v: cap(a.cap), entrada: true },
     { t: 'Precio > ' + C.precioMin + ' $', ok: a.precio > C.precioMin, v: n(a.precio) + ' $', entrada: true },
     { t: 'Volumen medio > ' + n(C.volumenMin / 1000, 0) + ' mil acciones', ok: a.volmedio > C.volumenMin, v: a.volmedio == null ? '-' : Math.round(a.volmedio / 1000) + ' mil' },
     { t: 'Se negocian > ' + n(C.liquidezMin / 1e6, 0) + ' M$ al día', ok: (a.volmedio || 0) * (a.precio || 0) > C.liquidezMin, v: a.volmedio == null ? '-' : n(a.volmedio * a.precio / 1e6, 1) + ' M$' },
@@ -93,7 +94,7 @@ window.TEXTO_SENAL = function (m) {
     case 'devolviendo': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de su ganancia máxima (vendería al ' + m.limite + ' %)';
     case 'requisitos': return 'ya no cumple ' + m.fallos.length + ' requisitos: ' + m.fallos.map(f => f.t.toLowerCase()).join(', ');
     case 'un-requisito': return 'ha dejado de cumplir: ' + m.fallo.t.toLowerCase() + ' (' + m.fallo.v + ')';
-    case 'crecida': return 'ha superado el techo de capitalización: ya no entraría como nueva, pero eso no es motivo para vender';
+    case 'capitalizacion': return 'su capitalización (' + m.valor + ') ha caído por debajo del mínimo: ya no entraría como nueva, pero eso solo no es motivo de venta';
     case 'resultados': return 'publica resultados en ' + m.dias + ' día' + (m.dias === 1 ? '' : 's') + ': puede abrir con un hueco que el stop no evita';
     case 'caida-mes': return 'ha caído ' + n(Math.abs(m.caida), 0) + ' % desde su máximo del último mes';
     default: return m.codigo;
@@ -261,7 +262,6 @@ async function iniciar() {
   }
   HIST = T.historico || {}; FH = Object.keys(HIST).sort().reverse(); ACT = T.actual || {}; CRIT = T.criterios || {};
   REGIMEN = T.regimen || { favorable: true };
-  window.CRITERIOS_CAPMAX = CRIT.capMax;
   // Con el mercado en contra el momentum falla mucho mas: se muestran menos candidatas.
   if (!REGIMEN.favorable) S.top = 3;   // con el mercado en contra, aún menos
   MHOY = (T.mercadoHoy || []).find(x => x.ticker === 'SPY') || {}; REFHOY = (T.referenciaHoy || {}).sectores || {};

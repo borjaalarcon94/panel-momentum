@@ -110,7 +110,8 @@ window.parametros = function () {
   R.appendChild(tabla('1 · Qué tiene que cumplir para entrar en el top',
     ['Requisito', 'Umbral', 'Por qué'], [
       ['Precio', '> ' + C.precioMin + ' $', 'evita chicharros de céntimos'],
-      ['Capitalización', eur(C.capMin) + ' a ' + eur(C.capMax), 'pequeñas y medianas: una gigante ya no multiplica'],
+      ['Capitalización', C.capMax ? eur(C.capMin) + ' a ' + eur(C.capMax) : 'más de ' + eur(C.capMin),
+       'sin techo desde el 14/10/2026: el tamaño puntúa, pero ya no excluye'],
       ['Volumen medio', '> ' + n(C.volumenMin / 1000, 0) + ' mil acciones', 'que se negocie de verdad'],
       ['Dinero negociado', '> ' + n(C.liquidezMin / 1e6, 0) + ' M$ al día', 'poder salir sin mover el precio'],
       ['Tendencia de fondo', 'precio sobre su media de 200 días', 'solo se compra lo que sube'],
@@ -119,7 +120,7 @@ window.parametros = function () {
       ['Crecimiento de ingresos', '≥ ' + C.crecimientoMin + ' % interanual', 'el mayor entre 12 meses y último trimestre'],
       ['Distancia al máximo', 'máximo ' + C.maxDesdeMaximo + ' % por debajo del de 52 semanas', 'cerca de máximos, no rebotando de un suelo'],
       ['Sectores excluidos (solo al entrar)', 'navieras, petroleras, mineras, químicas, utilities, REITs y gestoras', 'su crecimiento viene del precio de una materia prima. Es un filtro del universo, no un requisito que se vigile después: si una empresa que ya tienes se reclasificase a un sector excluido, el panel no lo marcaría'],
-    ], 'Si falla uno solo, la empresa no aparece. Se analizan unas 250 cada día y suelen pasar entre 40 y 50. De estas diez filas, nueve se comprueban todos los días sobre cada acción (son los «9 requisitos» que verás en las tarjetas); la exclusión de sectores solo se aplica al elegir el top. Además, la capitalización y el precio mínimo se marcan como de solo entrada: que una ganadora supere el techo no es motivo de venta.'));
+    ], 'Si falla uno solo, la empresa no aparece. Se analizan unas 365 cada día y suelen pasar entre 50 y 60. De estas diez filas, nueve se comprueban todos los días sobre cada acción (son los «9 requisitos» que verás en las tarjetas); la exclusión de sectores solo se aplica al elegir el top. Además, la capitalización y el precio mínimo se marcan como de solo entrada: si una que ya tienes deja de cumplirlos, es aviso y no venta.'));
 
   R.appendChild(tabla('2 · Cómo se calcula la puntuación de 0 a 100',
     ['Bloque', 'Puntos', 'Qué mide'], [
@@ -167,8 +168,7 @@ window.parametros = function () {
       ['Deterioro del negocio', 'deja de cumplir dos o más requisitos'],
       ['Aviso previo', 'VIGILAR al perder la EMA 21, al acercarse al 60 % de la devolución límite o si publica resultados en 10 días'],
       ['Un solo requisito roto', 'VIGILAR, no vender: hacen falta dos para que sea motivo de venta'],
-      ['Se le queda pequeño el techo', 'VIGILAR si supera los 10.000 M de capitalización, pero nunca es motivo de venta'],
-    ], 'Que una ganadora supere el techo de capitalización no cuenta como motivo de venta.'));
+    ], 'Crecer de tamaño nunca cuenta como motivo de venta: ya no hay techo de capitalización.'));
 
   R.appendChild(tabla('6 · De dónde salen los datos y qué no cubre',
     ['Asunto', 'Detalle'], [
