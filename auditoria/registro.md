@@ -291,3 +291,87 @@ el panel con el build de esta noche.
 
 **Pruebas.** 353 comprobaciones en verde (de 329 esta mañana). De las 11 nuevas, 6 fallan contra el
 código de hace un rato, verificado revirtiendo solo el código.
+
+---
+
+## 14 de octubre de 2026 (noche) — se rehace el estudio del techo y SE RETIRA su justificación principal
+
+No cambia una línea de código. Corrige el registro: **la entrada de esta mañana justifica el cambio con
+unos números que no se sostienen.** Se dejan ahí para que quede constancia del error, con este aviso.
+
+**Qué estaba mal.** El primer estudio tomaba una observación cada 5 sesiones con horizonte de 63, así
+que cada rentabilidad se solapaba con una docena de vecinas. Se citaron medias sin margen de error.
+Al calcularlo, el IC95 ingenuo de la diferencia (+3,79 pp) era [+2,02, +5,56], pero bastaba un factor
+de inflación de 2,1 para incluir el cero y el típico en ese diseño es de 3 a 8. **La diferencia de
+rentabilidad media que justificó el cambio no era significativa.**
+
+**Estudio rehecho.** 31.350 observaciones de 276 tickers (frente a 3.780), guardando fecha y ticker.
+Tres correcciones: submuestra sin solapamiento (una cada 63 sesiones por ticker), bootstrap por bloques
+de trimestre, y comparación emparejada por trimestre.
+
+**Resultado con rentabilidad CRUDA a 63 sesiones:**
+
+```
+                  n    media  mediana   >+20%   <-20%    peor
+300 M - 10 B    476    5,24%   +0,33%     22%     14%    -65%
+mas de 10 B     692    5,75%   +1,85%     17%      7%    -52%
+
+diferencia grandes - pequenas, bootstrap por trimestre:
+  rentabilidad media            +0,51 pp   IC95 [-2,05, +3,02]   NO significativa
+  desastres   (<-20 %)          -7,26 pp   IC95 [-10,78, -4,46]  SI
+  grandes aciertos (>+20 %)     -5,54 pp   IC95 [-9,31, -2,57]   SI
+emparejado por trimestre: las grandes ganan 4 de 8, +0,16 pp, IC95 [-2,85, +3,17]
+```
+
+**La tabla por años de esta mañana no se replica.** Decía que las grandes iban por delante en 2024,
+2025 y 2026. Hecho bien, por trimestres, ganan en 4 de 8. Era un artefacto del solapamiento.
+
+**Y se retira también el "los grandes aciertos son iguales (17 % frente a 16 %)".** Con la muestra buena
+las grandes tienen un 40 % menos de grandes aciertos, y la diferencia es significativa. El cuadro real
+es: **menos varianza en las dos direcciones**, no una ventaja.
+
+**Resultado aplicando EL PROTOCOLO DE SALIDA DEL PANEL** (stop EMA 50 con tope del 15 %, subida a la
+compra al llegar a +20 %, venta por RSI < 45, venta al devolver 50 %/40 % de la ganancia máxima),
+simulado día a día sobre cierres. Esta es la comparación que debió hacerse desde el principio: comparar
+rentabilidades crudas era medir una estrategia que no se opera.
+
+```
+                  n    media  mediana   >+20%   <-20%    peor
+300 M - 10 B    476    1,45%   -3,26%     12%      1%    -45%
+mas de 10 B     692    2,40%   -2,35%      9%      0%    -38%
+
+diferencia grandes - pequenas:
+  rentabilidad media            +0,92 pp   IC95 [-0,56, +2,16]   NO significativa
+  desastres   (<-20 %)          -0,85 pp   IC95 [-1,99, +0,16]   NO significativa
+  grandes aciertos (>+20 %)     -3,10 pp   IC95 [-5,23, -1,84]   SI
+emparejado por trimestre: las grandes ganan 5 de 8, +0,38 pp, IC95 [-1,60, +2,37]
+```
+
+**El stop se come la ventaja de las grandes.** Los desastres pasan de 14 % frente a 7 % en crudo a 1 %
+frente a 0 % con el protocolo: la protección de las grandes era redundante, el stop ya la daba. Lo que
+sobrevive es que las grandes tienen menos pelotazos. Pero la rentabilidad neta no sufre, porque las
+pequeñas también pierden más en las operaciones normales.
+
+**Conclusión sobre el cambio de hoy: la evidencia de rentabilidad NO lo apoya, y tampoco lo
+contradice.** No hay diferencia medible. Lo que queda en pie son dos argumentos que no dependen de
+estas cifras: el doble de candidatas para que elija la puntuación (32 a 53, sin medir si eso mejora
+algo), y la calidad del stop (en el top simulado del 14 de octubre, 3,72 días de rango de margen las
+grandes contra 2,85 las pequeñas). **No se revierte**, porque nada indica que las pequeñas sean
+mejores con este protocolo.
+
+**Disparador de vigilancia, concreto:** el estudio compara cestas enteras, pero el panel elige el top 10
+de una bolsa mezclada que sale 50/50, así que conserva la cola derecha de las pequeñas. **Si algún día
+el top 10 trae 8 o más de más de 10 B, se está regalando esa cola derecha y hay que reponer el techo.**
+El 14 de octubre salían 5.
+
+**Límites del estudio, dichos antes de usarlo.** (1) Mide el protocolo sobre TODAS las acciones que
+cumplen las condiciones técnicas, no sobre las 10 que elige la puntuación: esas pueden comportarse
+distinto y eso no está medido. (2) Solo cierres: sin huecos de apertura, así que el stop sale mejor
+parado de lo que saldría en real. (3) Sesgo de supervivencia: el escáner solo devuelve lo que sigue
+cotizando, y eso favorece a las pequeñas, así que sus números ya están embellecidos. (4) No incluye la
+regla de venta por dos requisitos roto ni la lógica de VIGILAR. (5) 8 trimestres son pocos bloques para
+un bootstrap; los IC son anchos y hay que tomárselos como anchos.
+
+**Dato sobrio que conviene no perder de vista.** Con el protocolo, la mediana es **negativa** en los dos
+tramos (−3,26 % y −2,35 %). La operación típica pierde dinero; el beneficio sale del 9-12 % que son
+pelotazos. Es normal en momentum, pero es lo que hay que tener en la cabeza al fijar expectativas.
