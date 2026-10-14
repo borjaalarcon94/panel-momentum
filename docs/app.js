@@ -135,6 +135,21 @@ window.TAMANO = function (distanciaStop) {
   return { importe: c.total * pctCartera / 100, pct: pctCartera, riesgo, tope: pctCartera >= 25 };
 };
 
+/* Margen del stop medido en dias de rango de la accion (ADR = recorrido medio diario).
+   No es un umbral calibrado, es una definicion: si el stop esta a menos de 1 ADR, un dia normal lo
+   cruza. Importa porque el tamano de posicion es riesgo / distancia al stop, asi que un stop muy
+   pegado produce la posicion MAS grande justo donde la salida es mas aleatoria. Medido el 14 de
+   octubre de 2026 sobre las 30 en seguimiento: 9 tenian el stop dentro de un dia de rango, y 6 de
+   esas se dimensionaban al 21-25 % de la cartera. Esto solo lo ensena; no cambia ni el stop ni el
+   tamano. Cambiarlos es la pregunta 5 de la seccion 7 y necesita 30 entradas maduras. */
+window.MARGEN_STOP = function (distanciaStop, adr) {
+  const d = typeof distanciaStop === 'number' && isFinite(distanciaStop) ? Math.abs(distanciaStop) : null;
+  const a = typeof adr === 'number' && isFinite(adr) && adr > 0 ? adr : null;
+  if (d == null || a == null) return null;
+  const dias = d / a;
+  return { dias, apretado: dias < 1 };
+};
+
 /* Dias hasta la publicacion de resultados (hueco de precio: el stop no protege de un salto al abrir). */
 window.DIAS_RESULTADOS = function (a, hoy) {
   if (!a || !a.resultados) return null;

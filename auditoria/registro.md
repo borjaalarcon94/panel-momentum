@@ -161,12 +161,21 @@ que el bonus no bloqueaba nada.
 **Coste en llamadas y en repositorio: ninguno.** Sigue siendo la misma llamada al escáner con el
 filtro más ancho, 4 al día. `GUARDAR = 10` es fijo, así que `panel.json` no crece.
 
-**Fallo que introdujo este cambio y se arregló en el mismo commit.** El aviso `crecida` de
-`docs/reglas.js` se disparaba cuando el requisito de capitalización fallaba en una posición abierta, y
-el texto decía "ha superado el techo de capitalización". Sin techo, ese requisito solo puede fallar
-**por abajo**, así que a una acción hundida por debajo de 300 M el panel le habría dicho lo contrario de
-lo que pasaba. Renombrado a `capitalizacion`, con el valor real en el mensaje. Sigue siendo aviso y no
-venta (`entrada: true`).
+**Fallo arreglado en el mismo commit — y era PREEXISTENTE, no lo introdujo este cambio.** El aviso
+`crecida` de `docs/reglas.js` se disparaba cuando el requisito de capitalización fallaba en una posición
+abierta, y el texto decía "ha superado el techo de capitalización". Pero ese requisito podía fallar
+también **por abajo**, y entonces el mensaje decía lo contrario de lo que pasaba. No es hipotético:
+el 14 de octubre, con el techo todavía puesto, SHMD cotizaba con 255 M de capitalización —por debajo
+del suelo de 300 M— y el panel le decía "ha superado el techo de capitalización". Verificado ejecutando
+el código anterior sobre los datos reales de ese día.
+
+Quitar el techo lo convirtió en el único caso posible, que es lo que lo hizo visible. Renombrado a
+`capitalizacion`, con el valor real en el mensaje. Sigue siendo aviso y no venta (`entrada: true`).
+
+**Cómo se encontró.** Diferencial del algoritmo completo, código anterior contra el nuevo, sobre las 30
+acciones en seguimiento: `REQUISITOS`, `VEREDICTO` y `evaluaPosicion`. Resultado: 0 veredictos
+distintos, 0 stops distintos, y una única diferencia —SHMD— que es este mensaje. El resto del
+algoritmo quedó idéntico, como debía: `puntuacion.js` y las cuatro vistas no se tocaron.
 
 **Pruebas.** 329 comprobaciones en verde. Las 13 nuevas se verificaron contra el código anterior: 8
 fallan con el techo puesto (5 en `filtros.test.py`, 3 en `humo.test.js`) y las otras son invariantes
@@ -176,3 +185,66 @@ que el cambio no debía romper (el suelo sigue filtrando, el requisito sigue sie
 más de 10.000 M salen sistemáticamente peor que las pequeñas en el registro propio, se vuelve a poner
 el techo. `tests/filtros.test.py` tiene dos comprobaciones que impiden que alguien lo reponga sin
 decidirlo.
+
+---
+
+## 14 de octubre de 2026 — el margen del stop y el tope del 25 % se hacen visibles
+
+**No cambia ningún umbral, ninguna regla ni ningún peso.** Solo se muestra información que el panel ya
+tenía y no decía. Se añade `window.MARGEN_STOP(distancia, adr)`, función pura.
+
+**El hallazgo.** El tamaño de posición es `riesgo ÷ distancia al stop`, acotado al 25 % de la cartera.
+Eso significa que **cuanto más pegado está el stop, más grande es la posición**. Pero un stop pegado no
+es un stop más seguro si cae dentro del ruido diario de la acción: es una salida casi garantizada por
+nada. La fórmula pone el máximo de dinero justo donde la salida es más aleatoria.
+
+Medido el 14 de octubre sobre las 30 acciones en seguimiento, comparando la distancia al stop contra el
+ADR (recorrido medio diario):
+
+```
+        stop    ADR   días de rango   % cartera
+XRPN   10,3 %  41,1 %      0,25          9,7 %
+ABSI    2,4 %   9,5 %      0,26         25,0 %   <- tope, y no se avisaba
+BAND    3,6 %   7,4 %      0,49         25,0 %   <- tope, y no se avisaba
+QMCO    6,6 %  12,3 %      0,54         15,2 %
+PGEN    4,1 %   6,1 %      0,68         24,2 %
+SHMD    8,4 %  12,2 %      0,69         11,9 %
+YDES   15,0 %  21,1 %      0,71          6,7 %
+FEIM    4,6 %   5,9 %      0,78         21,7 %
+COHU    4,4 %   4,8 %      0,91         22,7 %
+...
+HNGE   12,7 %   3,5 %      3,61          7,9 %
+```
+
+**9 de 30 (30 %) tienen el stop dentro de un solo día de rango. 6 de esas se dimensionaban al 21-25 %
+de la cartera.**
+
+**El umbral no está calibrado, es una definición.** ADR es el recorrido medio de un día; un stop a menos
+de 1 ADR lo cruza un día normal. No se ha ajustado a ningún resultado, así que no es sobreajuste.
+
+**Qué se muestra ahora.** En la tarjeta de Hoy y en cada posición abierta: `· margen de X,X días de
+rango`, y en ámbar `: un día normal lo cruza` cuando es menos de 1. Además, cuando el tope del 25 %
+muerde se dice: antes el importe que se mostraba no era el que salía del riesgo, era el máximo por
+concentración, y eso no se decía en ninguna parte.
+
+**Lo que NO se hace, y por qué.** No se toca el stop ni la fórmula de tamaño. Eso es exactamente la
+pregunta 5 de la sección 7 (A/B del stop proporcional al ADR) y necesita 30 entradas maduras con serie
+diaria completa (≈ finales de noviembre de 2026). Cambiar hoy la fórmula sería calibrar sobre una
+observación de un día. La medición queda registrada en la propia tabla de la sección 7 para que la
+pregunta llegue ya enmarcada con números.
+
+**Fallo de mi propio código, cazado antes de publicar.** La primera versión leía el ADR de `r.datos.adr`
+en `posiciones.js`, y ese campo se llama `r.a`. El aviso no habría salido nunca en la pestaña Posiciones
+y nadie lo habría notado, porque un aviso que no aparece se parece mucho a un aviso que no hace falta.
+Hay una comprobación en `humo.test.js` que ata el nombre del campo.
+
+**Pendiente, y hoy imposible.** El aviso `caida-mes` de `senalesDeMercado` mide la caída desde `max1m`,
+que es un máximo **intradía** de TradingView. Es el mismo defecto que se corrigió en `maximoDesdeCompra`
+el 11 de octubre (los máximos intradía quedan de media un 6,3 % por encima del cierre, hasta 18,5 %), y
+hace que el aviso salte antes de lo que debería. Arreglarlo requiere un máximo mensual calculado sobre
+cierres, o sea 22 sesiones en `docs/precios.json`. El 14 de octubre había **6**. Se puede hacer a
+principios de noviembre de 2026; antes no, y por eso no se ha hecho.
+
+**Pruebas.** 342 comprobaciones en verde. De las 12 nuevas, 8 fallan contra el código anterior
+(verificado revirtiendo solo el código y dejando las pruebas, porque un `git stash` revertía también el
+fichero de pruebas y el chequeo no valía nada).

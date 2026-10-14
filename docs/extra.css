@@ -162,6 +162,7 @@ details.descartadas .tw{margin-top:8px}
 .stopbox .vl{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
 .stopbox .ds{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .stopbox.lejos{background:var(--warnbg);border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+.stopbox .ds.aviso{color:var(--warn);font-weight:600}
 
 /* Puntuación: círculo en lugar de etiqueta */
 .score{margin-top:8px;display:inline-flex;align-items:baseline;gap:3px;padding:5px 11px;border-radius:999px;

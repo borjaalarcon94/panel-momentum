@@ -196,7 +196,7 @@ window.parametros = function () {
       ['¿El protocolo de salida aporta?', '30 entradas maduras',
        'comparación A/B de las mismas entradas: aguantar, vender al salir del top, o con nuestras reglas. Se adopta la que gane por más del margen de error'],
       ['¿El stop debería ir con la volatilidad?', '30 maduras con serie diaria completa',
-       'A/B sobre el mismo historial: stop actual (EMA 50 con tope del 15 %) contra uno proporcional al ADR. Solo se cambia si gana claramente'],
+       'A/B sobre el mismo historial: stop actual (EMA 50 con tope del 15 %) contra uno proporcional al ADR. Solo se cambia si gana claramente. Medido el 14/10/2026 sobre las 30 en seguimiento: 9 tenían el stop a menos de un día de rango (ADR), y 6 de esas se dimensionaban al 21-25 % de la cartera, porque el tamaño es riesgo ÷ distancia al stop. Mientras no haya datos, el panel solo lo avisa; no cambia ni el stop ni el tamaño'],
     ], 'El sistema tiene 195 números ajustables (114 umbrales de puntuación, 53 asignaciones de puntos, 22 filtros de entrada y 6 reglas de salida). Con tan pocas observaciones, buscar entre todos ellos el que mejora el pasado es garantía de empeorar el futuro.'));
 
   R.appendChild(tabla('8 · Reglas para no romper lo que funciona',

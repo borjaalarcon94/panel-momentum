@@ -506,6 +506,11 @@ window.posiciones = async function () {
       sb.appendChild(el('span', 'vl', n(r.stop) + ' $'));
       sb.appendChild(el('span', 'ds', pc((r.stop / r.ahora - 1) * 100, 0) + ' desde el precio actual'));
       if (r.gan >= window.REGLAS.R.gananciaProteger) sb.appendChild(el('span', 'ds', '· ya protege tu compra'));
+      /* Con la posicion ya abierta, saber si el stop esta dentro del ruido diario cambia lo que haces:
+         un stop a menos de un dia de rango salta por nada, no porque la tendencia se haya roto. */
+      const mg = window.MARGEN_STOP((r.stop / r.ahora - 1) * 100, (r.a || {}).adr);
+      if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
+        '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.apretado ? ': un día normal lo cruza' : '')));
       c.appendChild(sb); }
     if (r.ahora != null) {
       const g = el('div', 'grid');

@@ -93,6 +93,40 @@ for (const f of orden) {
 
   /* 14/10/2026: se quito el techo de capitalizacion. Si vuelve a aparecer, o si la rama de capMax
      null se rompe, el panel diria que PLTR "no cumple" y la descartaria sola. */
+  /* El tamano de posicion es riesgo / distancia al stop, asi que un stop muy pegado pide la posicion
+     MAS grande justo donde la salida es mas aleatoria. 14/10/2026: 9 de las 30 en seguimiento tenian
+     el stop dentro de un dia de rango y 6 de esas se dimensionaban al 21-25 %. Esto solo lo ensena. */
+  console.log('\nMARGEN DEL STOP EN DÍAS DE RANGO');
+  const MG = typeof ventana.MARGEN_STOP === 'function' ? ventana.MARGEN_STOP : () => null;
+  typeof ventana.MARGEN_STOP === 'function' ? ok('window.MARGEN_STOP existe') : mal('window.MARGEN_STOP no existe');
+  const absi = MG(-2.4, 9.5), hnge = MG(-12.7, 3.5), justo = MG(-5, 5);
+  absi && absi.apretado ? ok('un stop a 2,4 % con ADR 9,5 % se marca como apretado (0,3 días)')
+    : mal('no detecta un stop dentro del ruido de un día', JSON.stringify(absi));
+  hnge && !hnge.apretado ? ok('un stop a 12,7 % con ADR 3,5 % no se marca (3,6 días)') : mal('marca un stop holgado');
+  justo && !justo.apretado && Math.abs(justo.dias - 1) < 1e-9
+    ? ok('justo en 1 ADR no se marca: el umbral es "menos de un día"') : mal('el límite de 1 ADR no es el esperado');
+  MG(-5, null) === null && MG(null, 5) === null && MG(-5, 0) === null
+    ? ok('sin ADR o sin distancia no se inventa un margen') : mal('devuelve algo sin datos suficientes');
+  MG(5, 5) && Math.abs(MG(5, 5).dias - 1) < 1e-9 ? ok('el signo de la distancia no importa') : mal('el signo de la distancia altera el margen');
+
+  /* El tope del 25 % se aplicaba en silencio: el importe que se mostraba no era el que salia del
+     riesgo, era el maximo por concentracion, y no se decia. */
+  console.log('\nEL TOPE DEL 25 % DE LA CARTERA SE AVISA');
+  ventana.CARTERA.guardar({ total: 1500, riesgo: 1 });
+  const TM = typeof ventana.TAMANO === 'function' ? ventana.TAMANO : () => null;
+  const tApretado = TM(-2.4), tHolgado = TM(-12.7);
+  tApretado && tApretado.tope ? ok('con el stop a 2,4 % el tamaño toca el tope y lo marca')
+    : mal('el tope del 25 % no se señala', JSON.stringify(tApretado));
+  tApretado && Math.abs(tApretado.pct - 25) < 1e-9 ? ok('y el porcentaje queda en 25, no en 42') : mal('el tope no acota');
+  tHolgado && !tHolgado.tope ? ok('con el stop a 12,7 % no hay tope (7,9 %)') : mal('marca tope donde no lo hay');
+  const srcHoy = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  /tam\.tope/.test(srcHoy) ? ok('la tarjeta de Hoy usa el aviso de tope') : mal('hoy.js calcula el tope y no lo muestra');
+  /MARGEN_STOP/.test(srcHoy) ? ok('la tarjeta de Hoy muestra el margen del stop') : mal('hoy.js no muestra el margen');
+  const srcPos = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /MARGEN_STOP\(\(r\.stop \/ r\.ahora - 1\) \* 100, \(r\.a \|\| \{\}\)\.adr\)/.test(srcPos)
+    ? ok('Posiciones lo lee del campo que existe (r.a.adr, no r.datos)')
+    : mal('Posiciones lee el ADR de un campo que no existe: el aviso nunca saldría');
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);
