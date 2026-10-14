@@ -501,16 +501,18 @@ window.posiciones = async function () {
     q.appendChild(el('span', 'vt', r.t));
     q.appendChild(el('span', 'vd', r.d));
     c.appendChild(q);
-    if (r.stop) { const sb = el('div', 'stopbox');
+    if (r.stop) {
+      /* Con la posicion ya abierta, saber si el stop esta dentro del ruido diario cambia lo que haces:
+         un stop a menos de un dia de rango salta por nada, no porque la tendencia se haya roto. Tiñe
+         la caja en ambar, igual que en la pestaña Hoy: un stop poco fiable tiene que parecerlo. */
+      const mg = window.MARGEN_STOP((r.stop / r.ahora - 1) * 100, (r.a || {}).adr);
+      const sb = el('div', 'stopbox' + (mg && mg.apretado ? ' lejos' : ''));
       sb.appendChild(el('span', 'et', 'Stop'));
       sb.appendChild(el('span', 'vl', n(r.stop) + ' $'));
       sb.appendChild(el('span', 'ds', pc((r.stop / r.ahora - 1) * 100, 0) + ' desde el precio actual'));
-      if (r.gan >= window.REGLAS.R.gananciaProteger) sb.appendChild(el('span', 'ds', '· ya protege tu compra'));
-      /* Con la posicion ya abierta, saber si el stop esta dentro del ruido diario cambia lo que haces:
-         un stop a menos de un dia de rango salta por nada, no porque la tendencia se haya roto. */
-      const mg = window.MARGEN_STOP((r.stop / r.ahora - 1) * 100, (r.a || {}).adr);
       if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
         '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.apretado ? ': un día normal lo cruza' : '')));
+      if (r.gan >= window.REGLAS.R.gananciaProteger) sb.appendChild(el('span', 'ds', '· ya protege tu compra'));
       c.appendChild(sb); }
     if (r.ahora != null) {
       const g = el('div', 'grid');

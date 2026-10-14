@@ -91,5 +91,17 @@ comprueba('de la zona ideal hacia arriba nunca sube',
   bajada.every((v, i) => !i || bajada[i - 1] >= v), true);
 comprueba('un RSI de 95 vale menos que uno de 58', puntosRsi(95) < puntosRsi(58), true);
 
+/* Sin techo de capitalizacion entran empresas de billones. "1141,0 B" no se lee. */
+console.log('\nLA CAPITALIZACIÓN DE UNA MEGACAP SE LEE');
+const tam = c => window.PUNTUA({ cap: c, precio: 10, ema50: 9 }, {}).tamano.texto.split(':')[0];
+comprueba('1,14 billones se muestra en T', tam(1141e9), 'Capitalización 1,14 T');
+comprueba('484 B sigue en B', tam(484e9), 'Capitalización 484,0 B');
+comprueba('el limite esta en 1 T', tam(999e9), 'Capitalización 999,0 B');
+comprueba('justo en 1 T ya cambia', tam(1e12), 'Capitalización 1,00 T');
+comprueba('por debajo de 1 B sigue en M', tam(870e6), 'Capitalización 870 M');
+comprueba('los puntos de tamaño no cambian con el formato',
+          window.PUNTUA({ cap: 1141e9, precio: 10, ema50: 9 }, {}).tamano.puntos, 0.5);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
+

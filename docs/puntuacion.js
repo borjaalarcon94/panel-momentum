@@ -160,7 +160,8 @@
     // ── Bonus por tamano: cuanto mas pequena, mas recorrido tiene para multiplicar ────
     const cap = num(a.cap);
     const pTam = cap == null ? 0 : cap < 1e9 ? 5 : cap < 3e9 ? 3.5 : cap < 6e9 ? 2 : 0.5;
-    const tamTxt = cap == null ? '' : 'Capitalización ' + (cap >= 1e9 ? (cap / 1e9).toFixed(1).replace('.', ',') + ' B' : Math.round(cap / 1e6) + ' M') + (cap < 3e9 ? ': tamaño pequeño, mucho recorrido si acierta' : cap < 6e9 ? ': tamaño medio' : ': ya es grande, menos recorrido');
+    // Mismos tramos que cap() en app.js: por encima del billon se lee en T, no en miles de B.
+    const tamTxt = cap == null ? '' : 'Capitalización ' + (cap >= 1e12 ? (cap / 1e12).toFixed(2).replace('.', ',') + ' T' : cap >= 1e9 ? (cap / 1e9).toFixed(1).replace('.', ',') + ' B' : Math.round(cap / 1e6) + ' M') + (cap < 3e9 ? ': tamaño pequeño, mucho recorrido si acierta' : cap < 6e9 ? ': tamaño medio' : ': ya es grande, menos recorrido');
 
     const bruto = partes.reduce((s, x) => s + x.p, 0);
     const sinPenalizar = Math.max(0, Math.min(100, Math.round((bruto + bon + pTam) * 10) / 10));

@@ -248,3 +248,46 @@ principios de noviembre de 2026; antes no, y por eso no se ha hecho.
 **Pruebas.** 342 comprobaciones en verde. De las 12 nuevas, 8 fallan contra el código anterior
 (verificado revirtiendo solo el código y dejando las pruebas, porque un `git stash` revertía también el
 fichero de pruebas y el chequeo no valía nada).
+
+---
+
+## 14 de octubre de 2026 — un stop poco fiable ahora lo parece, y las megacaps se leen
+
+Dos arreglos de presentación. **Ningún umbral, ninguna regla y ningún peso cambian.** El segundo toca
+`puntuacion.js`, pero solo la cadena de texto: los puntos de tamaño no se tocan, y hay una prueba que
+lo ata (`los puntos de tamaño no cambian con el formato`).
+
+**1. Incoherencia que introduje yo mismo esta misma tarde.** Dije que el margen del stop en días de
+rango "pesa más que la puntuación", y lo pinté como un texto gris diminuto al final de la caja,
+mientras la nota va en un círculo grande. La interfaz contradecía el consejo.
+
+El código ya tenía el patrón resuelto: cuando al stop le muerde el tope del 15 %, la caja entera se
+tiñe de ámbar (clase `lejos`) y se añade "· media posición o esperar un retroceso". Un stop dentro del
+ruido de un día es **el mismo problema o peor** —con el tope al menos el stop está a un 15 %, que es
+espacio de sobra en términos absolutos— así que recibe el mismo trato. No es un patrón nuevo ni un
+umbral nuevo: 1 ADR es una definición, y el tratamiento ya existía en el propio código.
+
+Además el margen se ha movido: ahora va **pegado al stop y antes del importe a comprar**. Califica al
+stop, y si el stop no es fiable el dinero que viene detrás tampoco lo es. Antes se leía después.
+Aplicado igual en Hoy y en Posiciones.
+
+**2. Legibilidad con el techo quitado.** `cap()` mostraba 1,14 billones como "1141,0 B", que no se lee.
+Se añade el tramo T por encima de 1e12, en `app.js` y en el texto de tamaño de `puntuacion.js`, con los
+mismos tramos en los dos sitios. No es hipotético: LLY está en el escaneo de hoy con 1.141 B y 50 % de
+crecimiento de ingresos.
+
+**Dos pruebas mías que no servían para nada, cazadas antes de publicar.** Son del mismo tipo que las
+otras dos de hoy y conviene tenerlas apuntadas:
+- Un bloque de 6 comprobaciones quedó insertado **dentro del `if (fallos) { ... }`** de
+  `puntuacion.test.js`, así que solo se habría ejecutado cuando ya hubiera fallos: nunca. El contador
+  seguía diciendo 31 de 31 y todo parecía correcto.
+- Las comprobaciones nuevas de `humo.test.js` reventaban la suite con un `TypeError` en vez de dar un
+  `✗`, porque llamaban a `MARGEN_STOP` sin comprobar que existiera. Hacían fallar el build, que es lo
+  importante, pero ocultaban las comprobaciones siguientes.
+
+**Renderizado con megacaps, que nadie había probado.** Se inyectaron PLTR (484 B), LLY (1.141 B) y SHOP
+(220 B) en `panel.json` y se pintaron las cinco pestañas: sin errores. Es el estado en el que quedará
+el panel con el build de esta noche.
+
+**Pruebas.** 353 comprobaciones en verde (de 329 esta mañana). De las 11 nuevas, 6 fallan contra el
+código de hace un rato, verificado revirtiendo solo el código.

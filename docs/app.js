@@ -9,7 +9,8 @@ const $ = id => document.getElementById(id);
 const n = (v, d = 2) => v == null ? '-' : Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pc = (v, d = 1) => v == null ? '-' : (v >= 0 ? '+' : '') + n(v, d) + ' %';
 const ppt = (v, d = 1) => v == null ? '-' : (v >= 0 ? '+' : '') + n(v, d) + ' pp';
-const cap = v => v == null ? '-' : (v >= 1e9 ? n(v / 1e9, 1) + ' B' : n(v / 1e6, 0) + ' M');
+/* Sin techo de capitalizacion entran empresas de billones: 1141,0 B no se lee, 1,14 T si. */
+const cap = v => v == null ? '-' : v >= 1e12 ? n(v / 1e12, 2) + ' T' : v >= 1e9 ? n(v / 1e9, 1) + ' B' : n(v / 1e6, 0) + ' M';
 /* Serie diaria de cierres de todo lo que ha pasado por el top, incluidos los dias en que ya no esta.
    Vive aparte y se descarga solo al abrir esta pestaña: panel.json se baja en cada visita y esto no
    le hace falta a nadie mas. */

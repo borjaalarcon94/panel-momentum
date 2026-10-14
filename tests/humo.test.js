@@ -109,6 +109,24 @@ for (const f of orden) {
     ? ok('sin ADR o sin distancia no se inventa un margen') : mal('devuelve algo sin datos suficientes');
   MG(5, 5) && Math.abs(MG(5, 5).dias - 1) < 1e-9 ? ok('el signo de la distancia no importa') : mal('el signo de la distancia altera el margen');
 
+  /* Un stop poco fiable tiene que PARECERLO. El codigo ya pintaba la caja en ambar cuando al stop
+     le muerde el tope del 15 % (clase 'lejos'); un stop dentro del ruido de un dia es el mismo
+     problema o peor, asi que recibe el mismo trato. No es un umbral nuevo: 1 ADR es una definicion. */
+  console.log('\nUN STOP POCO FIABLE SE VE POCO FIABLE');
+  const srcHoy2 = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  const srcPos2 = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /sal\.tope\s*\|\|\s*\(mg\s*&&\s*mg\.apretado\)/.test(srcHoy2)
+    ? ok('Hoy tiñe la caja en ámbar también con el stop apretado') : mal('Hoy solo tiñe por el tope del 15 %');
+  /stopbox'\s*\+\s*\(mg && mg\.apretado \? ' lejos' : ''\)/.test(srcPos2)
+    ? ok('Posiciones tiñe la caja en ámbar con el stop apretado') : mal('Posiciones nunca tiñe la caja');
+  // El margen califica al stop: tiene que leerse ANTES del importe a comprar, no despues
+  srcHoy2.indexOf('MARGEN_STOP') < srcHoy2.indexOf("window.TAMANO(o.d)")
+    ? ok('en Hoy el margen se lee antes del importe que recomienda') : mal('el margen aparece después del dinero');
+  srcPos2.indexOf('MARGEN_STOP') < srcPos2.indexOf('ya protege tu compra')
+    ? ok('en Posiciones el margen va pegado al stop') : mal('en Posiciones el margen queda al final');
+  /\.stopbox \.ds\.aviso\{color:var\(--warn\)/.test(fs.readFileSync(path.join(dir, 'extra.css'), 'utf8'))
+    ? ok('el estilo del aviso existe y usa la variable del tema') : mal('falta el estilo .ds.aviso');
+
   /* El tope del 25 % se aplicaba en silencio: el importe que se mostraba no era el que salia del
      riesgo, era el maximo por concentracion, y no se decia. */
   console.log('\nEL TOPE DEL 25 % DE LA CARTERA SE AVISA');

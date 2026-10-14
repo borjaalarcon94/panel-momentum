@@ -144,19 +144,24 @@ c.appendChild(vd);
 if(a.pt&&a.pt.razones.length)c.appendChild(el('div','clave','➜ '+a.pt.razones[0]));
 const sal=window.SALIDA(a);
 const o=sal.opciones[0];
-if(o){const sb=el('div','stopbox'+(sal.tope?' lejos':''));
+if(o){
+/* Margen del stop en dias de rango, calculado antes de pintar porque decide el color de la caja.
+   Un stop dentro del ruido de un dia es un stop poco fiable, igual que uno al que le muerde el tope
+   del 15 %: el codigo ya trataba ese caso en ambar, y este es el mismo problema o peor. */
+const mg=window.MARGEN_STOP(o.d,a.adr);
+const dudoso=sal.tope||(mg&&mg.apretado);
+const sb=el('div','stopbox'+(dudoso?' lejos':''));
 sb.appendChild(el('span','et','Stop'));
 sb.appendChild(el('span','vl',n(o.v)+' $'));
 sb.appendChild(el('span','ds',pc(o.d,0)+' desde aquí'));
+/* Va pegado al stop y antes del dinero: califica al stop, y si el stop no es fiable el importe
+   que viene detras tampoco lo es. */
+if(mg)sb.appendChild(el('span','ds'+(mg.apretado?' aviso':''),'· margen de '+n(mg.dias,1)+' días de rango'+(mg.apretado?': un día normal lo cruza':'')));
 const tam=window.TAMANO(o.d);
 if(tam&&v.cls==='qok'){sb.appendChild(el('span','et','Comprar'));sb.appendChild(el('span','vl',n(tam.importe,0)));sb.appendChild(el('span','ds',n(tam.pct,1)+' % de tu cartera'));
 /* El tope del 25 % se aplicaba en silencio: el numero que veias no era el que salia de tu riesgo,
    era el maximo por concentracion. Ahora se dice. */
 if(tam.tope)sb.appendChild(el('span','ds','· tope: no más de un cuarto de la cartera en una sola'))}
-/* Margen del stop en dias de rango. El tamano de posicion crece cuando el stop esta cerca, asi que
-   el caso peligroso (stop dentro del ruido de un dia) es justo el que mas dinero pide. */
-const mg=window.MARGEN_STOP(o.d,a.adr);
-if(mg)sb.appendChild(el('span','ds'+(mg.apretado?' aviso':''),'· margen de '+n(mg.dias,1)+' días de rango'+(mg.apretado?': un día normal lo cruza':'')));
 if(sal.tope)sb.appendChild(el('span','ds','· media posición o esperar un retroceso'));
 c.appendChild(sb)}
 const nr=a.pt?a.pt.riesgos.length:0;
