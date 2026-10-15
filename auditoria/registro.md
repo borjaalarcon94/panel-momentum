@@ -446,3 +446,64 @@ están guardando en `docs/datos/*.json`.
 fueron en la misma dirección: a favor de la conclusión ya adoptada. La evidencia se buscó DESPUÉS de
 que surgiera la idea (la pregunta por SanDisk), y el argumento conceptual se encontró DESPUÉS del
 estadístico, no antes. Ese orden es el que la sección 8 prohíbe, y no se señaló al proponer el cambio.
+
+---
+
+## 15 de octubre de 2026 — verificación: la predicción contra el listado real
+
+No cambia código. Queda registrado porque sirve para saber cuánto fiarse de las simulaciones futuras.
+
+**Predicción hecha el 14/10 a las 19:38 UTC** (22 min antes del cierre, con precios de media sesión)
+**contra el top real del build de las 21:59 UTC** con el cierre del 14:
+
+```
+  #   predicho            real
+  1.  CDNA  88,5          PAYS  87,0
+  2.  PAYS  87,0          PLTR  87,0  *
+  3.  PLTR  86,5          HALO  85,0  *
+  4.  HALO  84,0          CDNA  84,0
+  5.  SLDE  83,0          SLDE  83,0   =
+  6.  HNGE  80,5          HNGE  80,5   =
+  7.  P     79,5          P     80,0   = *
+  8.  FIGS  77,5          FIGS  78,0   =
+  9.  SHOP  77,5          SHOP  78,0   = *
+ 10.  TEAM  77,0          TEAM  77,0   = *
+
+composicion: 10 de 10 (ni una fuera, ni una de mas)
+puesto exacto: 6 de 10 (el top 4 se reordeno)
+grandes: 5 de 5 acertadas -> PLTR, HALO, P, SHOP, TEAM
+```
+
+**Qué se aprende para la próxima.** Una simulación a 22 minutos del cierre es fiable para la
+composición y para contar cuántas grandes entran, y poco fiable para el orden de los primeros puestos,
+donde unas décimas de puntuación bailan el ranking. Conviene no presentar el orden como predicción.
+
+**Disparador de vigilancia: NO se activa.** 5 de 10 por encima de 10 B; el umbral está en 8.
+
+**Los cambios del 14 funcionan sobre datos reales.** 353 comprobaciones en verde con megacaps dentro.
+El aviso ámbar sale en 10 de las 35 en seguimiento y en 0 del top 10. El mensaje de SHMD (231 M, por
+debajo del suelo) dice ahora "ha caído por debajo del mínimo" y no "ha superado el techo".
+
+**Margen del stop en el top 10 real:** grandes 3,70 días de rango, pequeñas 3,01. Ninguna por debajo de
+1 día: el mejor top en calidad de stop registrado hasta la fecha. (Sigue sin ser un argumento de
+rentabilidad: el 14 de octubre se midió que el margen NO predice el resultado.)
+
+**Y empeora el problema de la fórmula de tamaño.** De las 10 con aviso ámbar, **7 tocan el tope del
+25 %**, frente a 2 de 9 el día anterior:
+
+```
+        stop    ADR  margen   % cartera
+XRPN   3,0 %  45,2 %   0,07     25,0 %  tope
+ELMT   1,0 %   8,4 %   0,13     25,0 %  tope
+QMCO   3,7 %  12,3 %   0,30     25,0 %  tope
+FWDI   2,3 %   7,2 %   0,32     25,0 %  tope
+XMTR   2,2 %   5,9 %   0,37     25,0 %  tope
+PGEN   2,4 %   6,1 %   0,39     25,0 %  tope
+COHU   2,9 %   5,5 %   0,53     25,0 %  tope
+```
+
+ELMT tiene el stop a **un 1,0 %** con un ADR del 8,4 %. Hoy ninguna de esas 10 está en el top 10, así
+que el panel no muestra importe de compra para ellas (solo aparece con veredicto COMPRA) y los dos
+conjuntos son disjuntos. **El día que una entre al top con señal de compra, el panel pedirá un cuarto
+de la cartera con un stop de ruido.** Es lo primero que hay que resolver cuando lleguen las 30 entradas
+maduras (pregunta 5 de la sección 7).
