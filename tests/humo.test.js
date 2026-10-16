@@ -145,6 +145,25 @@ for (const f of orden) {
     ? ok('Posiciones lo lee del campo que existe (r.a.adr, no r.datos)')
     : mal('Posiciones lee el ADR de un campo que no existe: el aviso nunca saldría');
 
+  /* Y que las pantallas lo DIGAN, en vez de pintar un "+5 % desde aqui" sobre un stop que no existe. */
+  console.log('\nUN STOP INVÁLIDO SE DICE, NO SE DISFRAZA');
+  const siSal = ventana.SALIDA({ precio: 8.88, ema50: 9.28, ema21: 9, adr: 9.5 });
+  siSal.invalido ? ok('SALIDA propaga el stop inválido') : mal('SALIDA no marca el stop inválido');
+  siSal.opciones[0] && /Sin stop válido/.test(siSal.opciones[0].t)
+    ? ok('y la primera opción se llama «Sin stop válido», no «Stop del sistema»')
+    : mal('sigue llamándose stop del sistema', siSal.opciones[0] && siSal.opciones[0].t);
+  siSal.opciones[0] && siSal.opciones[0].invalido ? ok('la opción lleva la marca') : mal('la opción no lleva la marca');
+  ventana.TAMANO(siSal.opciones[0].d) === null
+    ? ok('y no se calcula ningún importe de compra sobre ese stop') : mal('calcula un importe sobre un stop inválido');
+  const srcHoy4 = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  const srcSeg4 = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+  /sal\.invalido\?null:window\.MARGEN_STOP/.test(srcHoy4)
+    ? ok('Hoy no calcula margen de rango sobre un stop que no existe') : mal('Hoy calcula el margen igual');
+  /sin stop válido: el precio ya está por debajo de su EMA 50/.test(srcHoy4)
+    ? ok('Hoy explica por qué no hay stop') : mal('Hoy no lo explica');
+  /sin stop válido \(bajo la EMA 50\)/.test(srcSeg4)
+    ? ok('Seguimiento también, en vez de un porcentaje positivo') : mal('Seguimiento sigue mostrando el porcentaje');
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);

@@ -160,7 +160,11 @@ window.seguimiento = function () {
     /* Ocho campos ocupaban 172 px y hacian que solo cupiera una tarjeta por pantalla. Se quedan
        fuera los tres que deciden algo; los otros cinco bajan al desplegable, que ya existe. */
     const campos = [
-      ['Stop del sistema', a.salida && a.salida.opciones[0] ? n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')' : '-'],
+      /* Con el stop invalido (precio bajo la EMA 50) no se muestra una distancia positiva, que se
+         leeria como un stop normal: se dice que no hay stop valido y por que. */
+      ['Stop del sistema', !a.salida || !a.salida.opciones[0] ? '-'
+        : a.salida.opciones[0].invalido ? 'sin stop válido (bajo la EMA 50)'
+        : n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')'],
       ['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
       ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
     ];
@@ -194,7 +198,7 @@ window.seguimiento = function () {
         abierto.appendChild(el('div', 'blt', 'Requisitos obligatorios hoy')); abierto.appendChild(u);
         if (a.salida && a.salida.opciones.length) {
           const s2 = el('ul', 'bll');
-          a.salida.opciones.forEach(o => s2.appendChild(el('li', null, o.t + ': ' + n(o.v) + ' $ (' + pc(o.d, 0) + ') — ' + o.nota)));
+          a.salida.opciones.forEach(o => s2.appendChild(el('li', o.invalido ? 'risk' : null, o.t + ': ' + n(o.v) + ' $' + (o.invalido ? '' : ' (' + pc(o.d, 0) + ')') + ' — ' + o.nota)));
           abierto.appendChild(el('div', 'blt', 'Dónde poner el stop')); abierto.appendChild(s2);
         }
         if (a.pt || true) { const p = estadoHoy(a.clave);

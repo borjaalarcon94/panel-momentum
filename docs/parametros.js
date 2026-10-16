@@ -160,6 +160,7 @@ window.parametros = function () {
   R.appendChild(tabla('5 · Cuándo vender una posición abierta',
     ['Regla', 'Detalle'], [
       ['Stop inicial', 'la EMA 50, sin arriesgar nunca más de un 15 % desde tu precio de compra'],
+      ['Sin stop válido', 'si el precio ya cotiza por debajo de su EMA 50, el stop calculado sale por encima del precio: entrar ahí sería entrar ya saltado. No es un stop, es la prueba de que la tendencia está rota, y el panel lo dice así en vez de mostrar una distancia positiva. Nunca se calcula tamaño de posición sobre un stop inválido'],
       ['El stop nunca baja', 'se guarda el valor más alto que ha alcanzado, aunque la EMA 50 retroceda'],
       ['Protección del coste', 'superado el 20 % de ganancia, el stop sube a tu precio de compra'],
       ['Devolución de ganancias', 'con menos de un 30 % ganado manda solo el stop; entre 30 y 100 % se vende si devuelve la mitad; por encima del 100 %, si devuelve el 40 %'],

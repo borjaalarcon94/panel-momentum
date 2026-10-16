@@ -148,12 +148,16 @@ if(o){
 /* Margen del stop en dias de rango, calculado antes de pintar porque decide el color de la caja.
    Un stop dentro del ruido de un dia es un stop poco fiable, igual que uno al que le muerde el tope
    del 15 %: el codigo ya trataba ese caso en ambar, y este es el mismo problema o peor. */
-const mg=window.MARGEN_STOP(o.d,a.adr);
-const dudoso=sal.tope||(mg&&mg.apretado);
+/* Con el precio por debajo de la EMA 50 el stop sale por encima: no hay stop valido y no se
+   pinta ni distancia ni margen ni importe, porque todo eso se calcula sobre un stop que no existe. */
+const mg=sal.invalido?null:window.MARGEN_STOP(o.d,a.adr);
+const dudoso=sal.invalido||sal.tope||(mg&&mg.apretado);
 const sb=el('div','stopbox'+(dudoso?' lejos':''));
 sb.appendChild(el('span','et','Stop'));
-sb.appendChild(el('span','vl',n(o.v)+' $'));
-sb.appendChild(el('span','ds',pc(o.d,0)+' desde aquí'));
+sb.appendChild(el('span','vl',sal.invalido?'—':n(o.v)+' $'));
+sb.appendChild(el('span','ds'+(sal.invalido?' aviso':''),sal.invalido
+  ?'sin stop válido: el precio ya está por debajo de su EMA 50 ('+n(a.ema50)+' $)'
+  :pc(o.d,0)+' desde aquí'));
 /* Va pegado al stop y antes del dinero: califica al stop, y si el stop no es fiable el importe
    que viene detras tampoco lo es. */
 if(mg)sb.appendChild(el('span','ds'+(mg.apretado?' aviso':''),'· margen de '+n(mg.dias,1)+' días de rango'+(mg.apretado?': un día normal lo cruza':'')));

@@ -666,3 +666,60 @@ anterior; el resto son invariantes.
 del coste y no el tope del 15 %. Y esperaba que el stop cambiara con la EMA 50 por encima del tope,
 donde manda la EMA 50 y no cambia nada. El código estaba bien; mis expectativas, mal. El efecto real
 resultó ser **más grande** que el que había supuesto.
+
+---
+
+## 16 de octubre de 2026 (4) — auditoría de stops y señales. Un stop sin sentido en pantalla
+
+Petición: revisar que los stops y las señales de MANTENER / COMPRAR / VENDER estén bien.
+
+**Método: invariantes sobre los datos reales, no lectura del código.** Se montan `reglas.js`,
+`puntuacion.js`, `app.js` y `posiciones.js` en un contexto y se comprueba que no se contradicen.
+
+**1. Stops y veredictos de entrada — 36 acciones, 6 invariantes cada una.** Encontró un fallo:
+
+```
+ABSI: stop de entrada 9,28 $ POR ENCIMA del precio 8,88 $
+AXTI: 70,50 sobre 57,91    BAND: 54,18 sobre 49,60    COHU: 59,75 sobre 54,90
+FEIM: 75,02 sobre 69,98    QMCO: 24,62 sobre 21,61    SHMD:  4,08 sobre  3,01
+```
+
+7 de 36. La causa: `stopDeEntrada` llama a `stopDe(datos, precio, null)`, que devuelve
+`max(EMA 50, precio × 0,85)`. Si el precio ya cotiza **por debajo** de su EMA 50, ese máximo es la
+EMA 50 y queda por encima del precio. No es un stop: entrar ahí sería entrar ya saltado.
+
+**El dinero nunca estuvo en juego**, y conviene decirlo con precisión: las 7 daban ya "Ya no cumple",
+y `TAMANO` devuelve null con una distancia positiva, así que el panel no proponía ningún importe. Era
+un **número sin sentido en pantalla**: Seguimiento mostraba "Stop del sistema: 9,28 $ (+5 %)", un
+porcentaje positivo que se lee exactamente igual que un stop normal.
+
+**Arreglado en el origen.** `stopDeEntrada` devuelve `invalido: stop >= precio`, `SALIDA` lo propaga, y
+las pantallas lo dicen: en Hoy el valor es «—» con «sin stop válido: el precio ya está por debajo de su
+EMA 50 (9,28 $)» en ámbar, y en Seguimiento «sin stop válido (bajo la EMA 50)». Con el stop inválido no
+se calcula ni margen en días de rango ni importe de compra, porque las dos cosas se calculaban sobre un
+stop que no existe.
+
+**2. Posiciones abiertas — 216 simulaciones (36 acciones × 6 precios de compra), 6 invariantes cada
+una: sin ninguna contradicción.** Lo comprobado:
+- `vender` siempre trae al menos un motivo; `vigilar` trae avisos y ningún motivo; `mantener` no trae ni
+  motivos ni avisos.
+- Si el precio está por debajo del stop, el estado es `vender`. Sin excepciones.
+- El stop nunca queda por debajo del 85 % del precio de compra (el tope del 15 % declarado).
+- Con ganancia ≥ 20 %, el stop nunca queda por debajo del precio de compra (protección del coste).
+- El trinquete aguanta: con un `stopPrevio` más alto, el stop nunca baja.
+- Todo motivo y todo aviso tiene texto legible; ninguno se mostraría con el código crudo.
+
+**3. Coherencia del color con el texto:** los 8 veredictos posibles se pintan con la clase que les
+corresponde. Sin fallos.
+
+**4. Ciclo de venta parcial — conservación del dinero.** Cuatro ciclos completos (compra, promedio,
+una o dos ventas parciales, resto abierto) comprobando que **realizado + latente = dinero que entra −
+dinero que sale**, al céntimo. Cuadra en los cuatro, incluidos los que pierden.
+
+**Pruebas.** 425 comprobaciones en verde (de 411). De las 14 nuevas, 10 fallan contra el código
+anterior; las otras 4 son invariantes que ya se cumplían y ahora quedan fijadas.
+
+**Alcance de esta auditoría, dicho con precisión.** Se han revisado la **cadena del stop**
+(`stopDe`, `stopDeEntrada`, el trinquete, el tope del 15 %, la protección del coste), la **cascada de
+veredictos** y la **aritmética de las ventas parciales y el promedio**. NO se ha revisado la puntuación
+(114 umbrales, intactos), ni la pestaña Resultados más allá de que se pinta, ni el régimen de mercado.

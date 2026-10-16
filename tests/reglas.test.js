@@ -171,6 +171,24 @@ comprueba('ya no existe el aviso antiguo "crecida"', rc.avisos.some(a => a.codig
 comprueba('romper solo la capitalización no cuenta como "un requisito roto" (es de entrada)',
           rc.avisos.some(a => a.codigo === 'un-requisito'), false);
 
+/* 16/10/2026: con el precio por DEBAJO de su EMA 50, el stop de entrada sale por ENCIMA del precio.
+   No es un stop: entrarias ya saltado. Pasaba con 7 de las 36 seguidas y la web mostraba
+   "Stop del sistema: 9,28 $ (+5 %)", un porcentaje positivo que se lee como si fuera un stop normal. */
+console.log('\nSTOP DE ENTRADA INVÁLIDO CUANDO EL PRECIO PIERDE LA EMA 50');
+const sInv = REGLAS.stopDeEntrada({ precio: 8.88, ema50: 9.28, ema21: 9 });
+comprueba('se marca como inválido', sInv.invalido, true);
+comprueba('y la distancia sale positiva, que es la señal del problema', sInv.distancia > 0, true);
+const sOk = REGLAS.stopDeEntrada({ precio: 200.5, ema50: 180, ema21: 190 });
+comprueba('con el precio sobre la EMA 50 es válido', sOk.invalido, false);
+comprueba('y la distancia es negativa', sOk.distancia < 0, true);
+comprueba('justo en la EMA 50 también es inválido (stop = precio, margen cero)',
+          REGLAS.stopDeEntrada({ precio: 100, ema50: 100 }).invalido, true);
+comprueba('un céntimo por encima ya es válido',
+          REGLAS.stopDeEntrada({ precio: 100.01, ema50: 100 }).invalido, false);
+/* El tamaño de posición ya devolvía null con distancia positiva, así que el dinero nunca estuvo en
+   juego. Se comprueba para que siga siendo así. */
+comprueba('con el stop inválido no se puede calcular distancia negativa', sInv.distancia < 0, false);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
 

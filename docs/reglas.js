@@ -114,7 +114,14 @@
     if (stop == null || precio == null) return null;
     const distanciaEma50 = ema50 ? (ema50 / precio - 1) * 100 : null;
     const tope = distanciaEma50 != null && !alMenos(distanciaEma50, -R.perdidaMaxima);
-    return { stop, distancia: (stop / precio - 1) * 100, ema21: num(datos.ema21), ema50, distanciaEma50, tope };
+    /* Si el precio ya cotiza por DEBAJO de su EMA 50, el stop calculado sale por ENCIMA del precio:
+       entrarias ya saltado. No es un stop, es la prueba de que la tendencia esta rota. Se marca como
+       invalido para que la web diga eso en vez de un "+5 % desde aqui", que no significa nada.
+       Pasaba con 7 de las 36 seguidas el 16/10/2026 (ABSI, AXTI, BAND, COHU, FEIM, QMCO, SHMD); todas
+       daban ya "Ya no cumple" y el tamaño de posicion era null, asi que el dinero nunca estuvo en
+       juego: era un numero sin sentido en pantalla. */
+    const invalido = stop >= precio;
+    return { stop, distancia: (stop / precio - 1) * 100, ema21: num(datos.ema21), ema50, distanciaEma50, tope, invalido };
   }
 
   raiz.REGLAS = { R, alMenos, limiteDevolucion, stopDe, maximoDesdeCompra, evaluaPosicion, senalesDeMercado, stopDeEntrada };

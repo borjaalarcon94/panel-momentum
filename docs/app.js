@@ -106,10 +106,16 @@ window.TEXTO_SENAL = function (m) {
 window.SALIDA = function (a) {
   const e = window.REGLAS.stopDeEntrada(a) || {};
   const opciones = [];
-  if (e.stop != null) opciones.push({ t: 'Stop del sistema (EMA 50, con tope del ' + window.REGLAS.R.perdidaMaxima + ' %)', v: e.stop, d: e.distancia, nota: 'es el que gestionará tu posición si entras' });
+  /* Con el precio por debajo de la EMA 50 el stop sale por encima del precio: no es un stop. Se
+     etiqueta como tal en vez de mostrar una distancia positiva, que se lee como si fuese un stop. */
+  if (e.stop != null) opciones.push({ t: e.invalido
+      ? 'Sin stop válido: el precio ya está por debajo de su EMA 50'
+      : 'Stop del sistema (EMA 50, con tope del ' + window.REGLAS.R.perdidaMaxima + ' %)',
+    v: e.stop, d: e.distancia, invalido: !!e.invalido,
+    nota: e.invalido ? 'la EMA 50 queda por encima del precio: entrar aquí sería entrar ya saltado' : 'es el que gestionará tu posición si entras' });
   if (e.ema21 != null && a.precio) opciones.push({ t: 'Cierre bajo la EMA 21', v: e.ema21, d: (e.ema21 / a.precio - 1) * 100, nota: 'referencia más ceñida si quieres apurar' });
   if (a.atr && a.precio) opciones.push({ t: 'Dos veces su rango diario (ATR)', v: a.precio - 2 * a.atr, d: ((a.precio - 2 * a.atr) / a.precio - 1) * 100, nota: 'referencia por volatilidad' });
-  return { opciones, tope: !!e.tope, distanciaEma50: e.distanciaEma50 != null ? e.distanciaEma50 : null,
+  return { opciones, tope: !!e.tope, invalido: !!e.invalido, distanciaEma50: e.distanciaEma50 != null ? e.distanciaEma50 : null,
     senales: window.REGLAS.senalesDeMercado(a).map(window.TEXTO_SENAL) };
 };
 
