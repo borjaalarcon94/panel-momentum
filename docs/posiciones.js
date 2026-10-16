@@ -57,18 +57,11 @@ function editor(p, alCerrar) {
   return d;
 }
 
-/* Comprar mas de la misma: recalcula el precio medio ponderado por numero de acciones. */
-window.ampliarCompra = function (p, alCerrar) {
-  const precio = Number(String(prompt('¿A qué precio has comprado ahora ' + p.ticker + '?', '') || '').replace(',', '.'));
-  if (!precio || precio <= 0) return;
-  const nuevas = Number(String(prompt('¿Cuántas acciones has comprado ahora?', '') || '').replace(',', '.'));
-  if (!nuevas || nuevas <= 0) return alert('Para calcular el precio medio necesito el número de acciones.');
-  const previas = Number(p.acciones) || Number(String(prompt('¿Cuántas acciones tenías antes, a ' + n(p.precio) + ' $?', '') || '').replace(',', '.'));
-  if (!previas || previas <= 0) return alert('Sin el número de acciones anterior no puedo calcular el precio medio.');
-  const total = previas + nuevas, medio = (p.precio * previas + precio * nuevas) / total;
-  guardarPos(leerPos().map(x => (x.ticker === p.ticker && !x.cerrada ? { ...x, precio: medio, acciones: total } : x)));
-  alCerrar();
-};
+/* Comprar mas de la misma. Hasta el 16/10/2026 esto eran tres prompt() encadenados que recalculaban
+   el precio medio y lo guardaban SIN DECIR que al hacerlo mueven el stop, el nivel del +20 % y la
+   regla de devolucion, que se miden todos contra el precio medio. Ahora es formularioAnadir(), que
+   ensena el stop de antes y el de despues antes de confirmar. La aritmetica es la misma, en
+   window.NUEVO_PROMEDIO y probada aparte. */
 
 window.anotarCompra = function (a, alGuardar) {
   const precio = prompt('¿A qué precio compraste ' + a.ticker + '?', n(a.precio).replace('.', ','));
@@ -115,6 +108,23 @@ window.ACCIONES_POR_IMPORTE = function (importe, precio, total) {
   return isFinite(t) && t > 0 ? Math.min(nn, t) : nn;
 };
 
+/* Promedio ponderado al añadir a una posicion. Funcion pura y expuesta para poder probarla.
+   AQUI SI CAMBIA EL PRECIO MEDIO, al contrario que en una venta parcial, y eso MUEVE EL PROTOCOLO:
+   el stop (EMA 50 con tope del 15 % desde la compra), el nivel al que el stop sube a tu precio de
+   compra (+20 %) y la regla de devolucion se miden todos contra el precio medio. Promediar al alza
+   los sube; promediar a la baja los baja. Por eso el formulario ensena el stop de antes y de despues
+   en vez de cambiarlo por la espalda. */
+window.NUEVO_PROMEDIO = function (accA, precioA, accB, precioB) {
+  const a = Number(accA), pa = Number(precioA), b = Number(accB), pb = Number(precioB);
+  if (![a, pa, b, pb].every(x => isFinite(x)) || a < 0 || b <= 0 || pa <= 0 || pb <= 0) return null;
+  const acciones = a + b;
+  if (!(acciones > 0)) return null;
+  const precio = (a * pa + b * pb) / acciones;
+  return { acciones: Math.round(acciones * 1e6) / 1e6,
+           precio: Math.round(precio * 1e6) / 1e6,
+           invertido: Math.round((a * pa + b * pb) * 100) / 100 };
+};
+
 /* Nº de acciones: entero sin decimales, y hasta 4 cuando sale fraccionado (pasa al vender por
    importe: 400 $ a 16,30 $ son 24,5399 acciones). El numero que se ve es el que se guarda. */
 const nAcc = v => v == null ? '-' : (Number(v) % 1 === 0 ? n(v, 0) : n(Math.round(v * 1e4) / 1e4, 4).replace(/0+$/, '').replace(/,$/, ''));
@@ -123,7 +133,10 @@ function partesVendidas(p) {
   const xs = leerPos().filter(x => x.parcial && x.cerrada && x.ticker === p.ticker && x.fecha === p.fecha);
   const acciones = xs.reduce((s, x) => s + (Number(x.acciones) || 0), 0);
   const cobrado = xs.reduce((s, x) => s + (Number(x.acciones) || 0) * (Number(x.precioSalida) || 0), 0);
-  const pyl = xs.reduce((s, x) => s + (Number(x.acciones) || 0) * ((Number(x.precioSalida) || 0) - p.precio), 0);
+  /* Con el precio medio DE ESA VENTA (x.precio), no con el actual: si despues promedias comprando
+     mas, el precio medio sube y el beneficio de una venta ya hecha no puede recalcularse. Cada
+     registro parcial guarda el suyo. */
+  const pyl = xs.reduce((s, x) => s + (Number(x.acciones) || 0) * ((Number(x.precioSalida) || 0) - (Number(x.precio) || 0)), 0);
   return { n: xs.length, acciones, cobrado, pyl };
 }
 
@@ -609,6 +622,117 @@ function formularioVenta(r, alCerrar) {
   return d;
 }
 
+/* Añadir a una posicion (promediar). A diferencia de la venta parcial, ESTO CAMBIA EL PRECIO MEDIO
+   y por tanto mueve el stop, el nivel del +20 % y la regla de devolucion. El formulario ensena las
+   dos versiones, antes y despues, porque cambiar el stop de alguien sin decirlo es inaceptable. */
+function formularioAnadir(r, alCerrar) {
+  const d = el('div', 'blk'); d.style.marginTop = '10px';
+  d.appendChild(el('div', 'blt', 'Añadir a tu posición de ' + r.p.ticker));
+  const campo = (etiqueta, tipo, valor) => {
+    const i = tipo === 'number' ? campoNumero('0,00', valor) : document.createElement('input');
+    if (tipo !== 'number') { i.type = tipo; if (valor != null) i.value = valor; }
+    const w = el('div', 'campo'); w.appendChild(el('span', 'm', etiqueta)); w.appendChild(i);
+    return { i, w };
+  };
+  const hoyReal = new Date().toISOString().slice(0, 10);
+  const tiene = Number(r.p.acciones) > 0 ? Number(r.p.acciones) : null;
+  const pr = campo('¿A qué precio has comprado?', 'number', r.ahora != null ? r.ahora : null);
+  const ac = campo('¿Cuántas acciones añades?', 'number', null);
+  const im = campo('…o ¿cuánto has invertido?', 'number', null);
+  const fe = campo('¿Qué día compraste?', 'date', hoyReal);
+  const rej = el('div', 'formop'); rej.append(pr.w, ac.w, im.w, fe.w);
+  d.appendChild(rej);
+
+  const pon = (c, x) => { c.value = x == null ? '' : String(Math.round(x * 1e4) / 1e4).replace('.', ','); };
+  ac.i.addEventListener('input', () => {
+    const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
+    pon(im.i, v > 0 && nn > 0 ? nn * v : null); pinta();
+  });
+  im.i.addEventListener('input', () => {
+    pon(ac.i, window.ACCIONES_POR_IMPORTE(comoNumero(im.i.value), comoNumero(pr.i.value), null)); pinta();
+  });
+  pr.i.addEventListener('input', () => {
+    const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
+    pon(im.i, v > 0 && nn > 0 ? nn * v : null); pinta();
+  });
+
+  const vista = el('div', 'previo');
+  const pinta = () => {
+    vista.replaceChildren();
+    if (!tiene) {
+      vista.appendChild(el('div', 'm', 'Esta posición no tiene nº de acciones anotado. Añádelo con «Corregir la compra»: sin saber cuántas tienes no se puede calcular el precio medio.'));
+      return;
+    }
+    const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
+    const np = window.NUEVO_PROMEDIO(tiene, r.p.precio, nn, v);
+    if (!np) { vista.appendChild(el('div', 'm', 'Pon el precio y las acciones (o el importe) para ver cómo te quedaría.')); return; }
+    const fila = (et, val, cls) => { const f = el('div', 'pf'); f.appendChild(el('span', 'et', et)); f.appendChild(el('span', 'vl' + (cls ? ' ' + cls : ''), val)); vista.appendChild(f); };
+    const sube = np.precio > r.p.precio;
+    fila('Añades', nAcc(nn) + ' acciones a ' + n(v) + ' $ · ' + n(nn * v, 2) + ' $');
+    fila('Pasas a tener', nAcc(np.acciones) + ' acciones');
+    fila('Precio medio', n(r.p.precio) + ' $ → ' + n(np.precio) + ' $',  sube ? 'down' : 'up');
+    fila('Capital invertido', n(tiene * r.p.precio, 2) + ' $ → ' + n(np.invertido, 2) + ' $');
+    if (r.ahora != null) {
+      fila('Valor a precio de hoy', n(np.acciones * r.ahora, 2) + ' $');
+      const ganN = (r.ahora / np.precio - 1) * 100;
+      fila('Ganancia', pc(r.gan) + ' → ' + pc(ganN), ganN >= 0 ? 'up' : 'down');
+    }
+    /* El dato que de verdad hay que ver: como queda el stop. Se recalcula con las MISMAS reglas. */
+    const antes = window.REGLAS.stopDe(r.a || { precio: r.ahora }, r.p.precio, r.p.stopMax);
+    const desp = window.REGLAS.stopDe(r.a || { precio: r.ahora }, np.precio, r.p.stopMax);
+    if (antes != null && desp != null) {
+      fila('Tu stop', n(antes) + ' $ → ' + n(desp) + ' $' + (Math.abs(desp - antes) < 0.005 ? ' (igual)' : desp > antes ? ' (sube)' : ' (baja)'),
+        Math.abs(desp - antes) < 0.005 ? null : desp > antes ? 'down' : null);
+      if (r.ahora != null) fila('Riesgo abierto', n(Math.max(0, (r.ahora - antes) * tiene), 2) + ' $ → ' + n(Math.max(0, (r.ahora - desp) * np.acciones), 2) + ' $', 'down');
+    }
+    /* La regla de devolucion se mide contra el precio medio: si el medio sube, la ganancia maxima
+       medida se encoge, y por debajo del +30 % la regla DEJA DE APLICARSE. Eso es perder una
+       proteccion sin enterarse, asi que se dice con los numeros delante. */
+    const mv = Number(r.p.maxVisto) || Number(r.maxVisto) || null;
+    if (mv) {
+      const lA = window.REGLAS.limiteDevolucion((mv / r.p.precio - 1) * 100);
+      const lB = window.REGLAS.limiteDevolucion((mv / np.precio - 1) * 100);
+      if (lA !== lB) fila('Regla de devolución',
+        (lA == null ? 'no aplica' : 'vender al devolver el ' + lA + ' %') + ' → ' +
+        (lB == null ? 'DEJA DE APLICAR' : 'vender al devolver el ' + lB + ' %'), lB == null ? 'down' : null);
+    }
+    if (sube) vista.appendChild(el('div', 'm', 'Promediar al alza SUBE tu precio medio, y con él el stop y el nivel del +20 %. Tu ganancia en % baja aunque no hayas perdido nada: es la misma acción sobre un coste mayor. Y ojo con la regla de devolución: se mide contra el precio medio, así que subirlo encoge la ganancia máxima medida y por debajo del +30 % la regla deja de aplicarse, con lo que te quedas solo con el stop. Revisa las dos líneas de arriba antes de confirmar.'));
+    else vista.appendChild(el('div', 'm', 'Estás promediando A LA BAJA: añadir a una que ha caído. Este panel busca fuerza, no rebajas, y bajar el precio medio también BAJA tu stop, así que aguantas más caída antes de salir. Si la acción está en VIGILAR o VENDER, lo que dice el sistema es lo contrario de añadir.'));
+    const vend = partesVendidas(r.p);
+    if (vend.acciones > 0) vista.appendChild(el('div', 'm', 'Ojo: ya vendiste ' + nAcc(vend.acciones) + ' acciones de esta posición. Esa venta mantiene su propio resultado (' + (vend.pyl >= 0 ? '+' : '−') + n(Math.abs(vend.pyl), 2) + ' $) y no se recalcula con el nuevo precio medio.'));
+  };
+  d.appendChild(vista); pinta();
+
+  const ok = el('button', 'chip main', 'Confirmar la compra');
+  ok.onclick = () => {
+    const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
+    if (!tiene) return alert('Primero anota cuántas acciones tienes, con «Corregir la compra».');
+    if (!(v > 0)) return alert('Pon el precio al que has comprado.');
+    if (!(nn > 0)) return alert('Pon cuántas acciones añades, o el importe invertido.');
+    if (!fe.i.value) return alert('Pon la fecha de la compra.');
+    const np = window.NUEVO_PROMEDIO(tiene, r.p.precio, nn, v);
+    if (!np) return alert('No he podido calcular el precio medio con esos datos.');
+    if (!confirm('Añades ' + nAcc(nn) + ' acciones a ' + n(v) + ' $.\n\n' +
+        'Pasas de ' + nAcc(tiene) + ' a ' + nAcc(np.acciones) + ' acciones.\n' +
+        'Tu precio medio pasa de ' + n(r.p.precio) + ' $ a ' + n(np.precio) + ' $.\n\n' +
+        'Eso mueve tu stop y la cuenta de la devolución, porque se miden contra el precio medio. ¿Confirmas?')) return;
+    guardarPos(leerPos().map(p => {
+      if (!(p.ticker === r.p.ticker && !p.cerrada)) return p;
+      /* Se guarda el desglose de compras para que el precio medio sea auditable y no un numero
+         que aparecio sin mas. La fecha de la posicion NO cambia: sigue siendo cuando la abriste. */
+      const compras = (p.compras && p.compras.length ? p.compras
+        : [{ fecha: p.fecha, precio: p.precio, acciones: tiene }]).concat([{ fecha: fe.i.value, precio: v, acciones: nn }]);
+      return { ...p, precio: np.precio, acciones: np.acciones, compras };
+    }));
+    alCerrar();
+  };
+  const no = el('button', 'chip', 'Cancelar');
+  no.onclick = alCerrar;
+  const fila = el('div', 'row'); fila.append(ok, no);
+  d.appendChild(fila);
+  return d;
+}
+
 window.posiciones = async function () {
   const R = $('rpos'); R.replaceChildren();
   await cargaPrecios();   // el maximo alcanzado sale de la serie diaria, no de cuando abriste la app
@@ -659,6 +783,11 @@ window.posiciones = async function () {
     izq.appendChild(el('div', 'name', 'comprada el ' + fFecha(r.p.fecha) + (r.dias ? ' · ' + r.dias + (r.dias === 1 ? ' día' : ' días') : '')));
     /* Si ya has soltado parte, hay que verlo aqui: el % de ganancia de la tarjeta es solo de lo que
        te queda, y sin esta linea parece que la operacion va peor de lo que va. */
+    /* Si has promediado, el precio medio es un numero calculado: hay que poder ver de donde sale. */
+    if (r.p.compras && r.p.compras.length > 1) {
+      izq.appendChild(el('div', 'name', 'precio medio de ' + r.p.compras.length + ' compras: ' +
+        r.p.compras.map(x => nAcc(x.acciones) + ' a ' + n(x.precio) + ' $').join(' + ')));
+    }
     const vend = partesVendidas(r.p);
     if (vend.acciones > 0) {
       const tot = vend.acciones + (Number(r.p.acciones) || 0);
@@ -730,7 +859,12 @@ window.posiciones = async function () {
     };
     const be = el('button', 'chip', 'Editar compra');
     const ba = el('button', 'chip', 'He comprado más');
-    ba.onclick = () => window.ampliarCompra(r.p, window.posiciones);
+    let anade = null;
+    ba.onclick = () => {
+      if (anade) { anade.remove(); anade = null; ba.textContent = 'He comprado más'; return }
+      anade = formularioAnadir(r, () => { anade = null; window.posiciones() });
+      c.appendChild(anade); ba.textContent = 'Cancelar la compra';
+    };
     let abierto = null;
     be.onclick = () => {
       if (abierto) { abierto.remove(); abierto = null; return }

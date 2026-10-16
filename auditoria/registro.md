@@ -600,3 +600,69 @@ cuando la función no existía, en vez de dar `✗` y seguir. Corregido con la m
 se puso para `MARGEN_STOP`.
 
 **Pruebas.** 390 comprobaciones en verde (de 373). Las 15 nuevas fallan contra el código anterior.
+
+---
+
+## 16 de octubre de 2026 (3) — añadir a una posición: ya existía, y cambiaba el stop sin decirlo
+
+**Corrección de algo que dije mal.** Afirmé que "añadir a una posición" no existía y que era lo único
+que faltaba. **Existía desde antes**, en `window.ampliarCompra`: tres `prompt()` encadenados que
+recalculaban el precio medio ponderado y lo guardaban. La aritmética era correcta.
+
+**Lo que estaba mal era lo que no decía.** Cambiar el precio medio **mueve el protocolo**, porque el
+stop, el nivel del +20 % al que el stop sube al precio de compra y la regla de devolución se miden
+todos contra ese precio. La versión de `prompt()` lo cambiaba sin avisar de nada.
+
+**Cuánto lo mueve, medido.** Con precio 20 $ y la EMA 50 lejos, promediar de 10 $ a 15 $:
+
+```
+stop            10,00 $  ->  15,00 $
+distancia       50 %     ->  25 %      (la mitad de margen)
+```
+
+No es un efecto de segundo orden: superado el +20 % de ganancia el stop sube **al precio de compra**
+(`gananciaProteger`), así que promediar al alza lo arrastra directamente. Por debajo del +20 % manda el
+tope del 15 % desde la compra, que también sigue al medio (17,00 → 21,25 en el caso probado).
+
+**Y una consecuencia que no había visto nadie: promediar al alza puede DESACTIVAR la regla de
+devolución.** Se mide contra el precio medio, así que subirlo encoge la ganancia máxima medida, y por
+debajo del +30 % la regla deja de aplicarse. Con un máximo visto de 26 $:
+
+```
+precio medio 10 $  (+160 %)  ->  vender al devolver el 40 %
+precio medio 20 $  (+30 %)   ->  vender al devolver el 50 %
+precio medio 21 $  (+23,8 %) ->  NO APLICA: solo queda el stop
+```
+
+Perder una protección sin enterarse es peor que no tenerla. El formulario ahora enseña esa línea con
+los dos números cuando el límite cambia.
+
+**Qué se ha hecho.** `window.ampliarCompra` (prompt) se retira y se sustituye por `formularioAnadir()`,
+en línea como el de venta: precio, nº de acciones **o importe invertido** (atados por
+`ACCIONES_POR_IMPORTE`), fecha, y previsualización en vivo con acciones nuevas y totales, precio medio
+antes → después, capital invertido, valor a precio de hoy, ganancia en % antes → después, **stop antes →
+después**, riesgo abierto antes → después y la línea de la regla de devolución. La aritmética se extrae
+a `window.NUEVO_PROMEDIO`, pura y probada.
+
+Se avisa en los dos sentidos: al alza, de lo que sube el stop y de la devolución; a la baja, de que
+bajar el precio medio **baja el stop** y de que este panel busca fuerza y no rebajas, así que añadir a
+una que está en VIGILAR o VENDER es lo contrario de lo que dice el sistema. **Se avisa, no se bloquea.**
+
+**Se guarda el desglose `compras: [{fecha, precio, acciones}]`** y la tarjeta lo muestra ("precio medio
+de 2 compras: 100 a 10,00 $ + 20 a 20,00 $"). Un precio medio calculado tiene que ser auditable. La
+fecha de la posición NO cambia: sigue siendo la de apertura.
+
+**Fallo latente arreglado antes de que el promedio lo activara.** `partesVendidas` calculaba la ganancia
+realizada de las ventas parciales con el precio medio **actual** (`p.precio`) en vez de con el de esa
+venta (`x.precio`). Hoy daban el mismo número porque el precio medio no cambiaba nunca; en cuanto se
+puede promediar, el beneficio de una venta ya hecha se habría reescrito solo. Comprobado con una
+posición que vendió 40 a 25 $ con coste 10 $ y luego promedió a 15 $: mantiene su +600 $.
+
+**Pruebas.** 411 comprobaciones en verde (de 390). De las 21 nuevas, 13 fallan contra el código
+anterior; el resto son invariantes.
+
+**Dos aserciones mías equivocadas, corregidas.** Esperaba que el stop fuera `compra × 0,85` (8,50 y
+12,75) y la realidad era 10,00 y 15,00, porque con la ganancia por encima del +20 % manda la protección
+del coste y no el tope del 15 %. Y esperaba que el stop cambiara con la EMA 50 por encima del tope,
+donde manda la EMA 50 y no cambia nada. El código estaba bien; mis expectativas, mal. El efecto real
+resultó ser **más grande** que el que había supuesto.

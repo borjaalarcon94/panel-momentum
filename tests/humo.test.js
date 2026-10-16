@@ -493,6 +493,87 @@ for (const f of orden) {
   abierta && abierta.precio === 10 ? ok('y en el almacén tampoco se ha tocado') : mal('se ha alterado el precio de compra guardado');
   abierta && Number(abierta.acciones) === 60 ? ok('quedan 60 acciones en la posición abierta') : mal('el nº de acciones no cuadra');
 
+  /* Añadir a una posicion (promediar). Al contrario que la venta parcial, ESTO SI cambia el precio
+     medio, y con el el stop, el nivel del +20 % y la regla de devolucion. Antes del 16/10/2026 eran
+     tres prompt() que lo cambiaban sin decirlo. */
+  console.log('\nAÑADIR A UNA POSICIÓN: LA ARITMÉTICA');
+  const apP = (a, pa, b, pb) => (typeof ventana.NUEVO_PROMEDIO === 'function' ? ventana.NUEVO_PROMEDIO(a, pa, b, pb) : undefined);
+  typeof ventana.NUEVO_PROMEDIO === 'function'
+    ? ok('window.NUEVO_PROMEDIO existe y es pública') : mal('la media ponderada no es una función probable');
+  const ap1 = apP(50, 10, 50, 20);
+  ap1 && ap1.precio === 15 && ap1.acciones === 100 && ap1.invertido === 1500
+    ? ok('50 a 10 $ + 50 a 20 $ → 100 acciones a 15 $, 1.500 $ invertidos') : mal('la media ponderada falla', JSON.stringify(ap1));
+  const ap2 = apP(50, 10, 25, 16);
+  ap2 && ap2.precio === 12 && ap2.acciones === 75
+    ? ok('50 a 10 $ + 25 a 16 $ → 75 acciones a 12 $ (ponderada, no la media simple de 13)') : mal('no pondera por acciones', JSON.stringify(ap2));
+  const ap3 = apP(50, 20, 50, 10);
+  ap3 && ap3.precio === 15 ? ok('promediar a la baja también: 20 $ y 10 $ → 15 $') : mal('a la baja falla');
+  apP(50, 10, 0, 20) === null && apP(50, 10, 50, 0) === null && apP(-1, 10, 5, 10) === null
+    ? ok('con datos inválidos no se inventa un precio medio') : mal('devuelve algo con datos inválidos');
+
+  /* Esto es lo que antes se cambiaba por la espalda: el stop. */
+  console.log('\nAÑADIR A UNA POSICIÓN: MUEVE EL STOP Y HAY QUE DECIRLO');
+  /* Superado el +20 % de ganancia el stop sube AL PRECIO DE COMPRA (reglas.js, gananciaProteger).
+     Asi que promediar al alza sube el stop directamente, y mucho: no es un efecto de segundo orden. */
+  const apStop = (compra, ema50) => ventana.REGLAS.stopDe({ precio: 20, ema50 }, compra, null);
+  const sA = apStop(10, 5), sB = apStop(15, 5);
+  sA === 10 && sB === 15
+    ? ok('con la EMA 50 lejos: promediar de 10 $ a 15 $ sube el stop de 10,00 $ a 15,00 $')
+    : mal('el stop no sigue al precio medio', sA + ' / ' + sB);
+  // con el precio en 20, la distancia al stop pasa del 50 % al 25 %: se parte por la mitad
+  Math.abs((1 - sA / 20) * 100 - 50) < 1e-9 && Math.abs((1 - sB / 20) * 100 - 25) < 1e-9
+    ? ok('y la distancia al stop pasa del 50 % al 25 %: la mitad de margen') : mal('la distancia no cuadra');
+  // si la EMA 50 esta por encima, manda ella y promediar no mueve nada
+  apStop(10, 18) === 18 && apStop(15, 18) === 18
+    ? ok('si la EMA 50 está por encima manda ella y promediar no mueve el stop') : mal('la EMA 50 no manda cuando debe');
+  // y por debajo del +20 % manda el tope del 15 % desde la compra, que tambien sigue al medio
+  const u1 = ventana.REGLAS.stopDe({ precio: 21, ema50: 5 }, 20, null);
+  const u2 = ventana.REGLAS.stopDe({ precio: 21, ema50: 5 }, 25, null);
+  Math.abs(u1 - 17) < 1e-9 && Math.abs(u2 - 21.25) < 1e-9
+    ? ok('por debajo del +20 % manda el tope del 15 %, que también sigue al precio medio (17,00 → 21,25)')
+    : mal('el tope del 15 % no sigue al precio medio', u1 + ' / ' + u2);
+
+  /* Consecuencia menos obvia: la regla de devolucion se mide contra el precio medio, asi que
+     promediar al alza puede DESACTIVARLA, porque la ganancia maxima medida se encoge. */
+  console.log('\nPROMEDIAR AL ALZA PUEDE DESACTIVAR LA REGLA DE DEVOLUCIÓN');
+  const lim = (maxVisto, compra) => ventana.REGLAS.limiteDevolucion((maxVisto / compra - 1) * 100);
+  lim(26, 10) === 40 ? ok('con medio 10 $ y máximo 26 $ (+160 %) el límite es devolver el 40 %') : mal('el límite con 10 $ no cuadra', String(lim(26, 10)));
+  lim(26, 20) === 50 ? ok('con medio 20 $ (+30 %) pasa a ser el 50 %') : mal('el límite con 20 $ no cuadra', String(lim(26, 20)));
+  lim(26, 21) === null
+    ? ok('y con medio 21 $ (+23,8 %) la regla deja de aplicarse: manda solo el stop')
+    : mal('la regla de devolución no se desactiva', String(lim(26, 21)));
+
+  const apSrc = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /Tu stop'/.test(apSrc) && /stopDe\(r\.a \|\| \{ precio: r\.ahora \}, np\.precio/.test(apSrc)
+    ? ok('el formulario calcula y enseña el stop de después') : mal('el formulario no enseña el stop nuevo');
+  /Promediar al alza SUBE tu precio medio/.test(apSrc)
+    ? ok('y avisa de lo que implica promediar al alza') : mal('no avisa al promediar al alza');
+  /promediando A LA BAJA/.test(apSrc)
+    ? ok('y avisa de que promediar a la baja va contra la estrategia') : mal('no avisa al promediar a la baja');
+  !/window\.ampliarCompra = function/.test(apSrc)
+    ? ok('ya no queda la versión de prompt() que lo cambiaba sin decirlo') : mal('sigue la versión antigua a base de prompt()');
+  /compras/.test(apSrc) && /compras\.length > 1/.test(apSrc)
+    ? ok('se guarda y se muestra el desglose: el precio medio es auditable') : mal('no se guarda el desglose de compras');
+  /Regla de devolución'/.test(apSrc) && /DEJA DE APLICAR/.test(apSrc)
+    ? ok('y el formulario avisa cuando la regla de devolución se desactiva')
+    : mal('no avisa de que promediar puede desactivar la regla de devolución');
+
+  /* Una venta parcial anterior no se puede recalcular con el precio medio nuevo. */
+  console.log('\nPROMEDIAR NO REESCRIBE UNA VENTA YA HECHA');
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: datos.ticker, simbolo: sim, precio: 15, acciones: 60, fecha: '2026-09-01',
+      compras: [{ fecha: '2026-09-01', precio: 10, acciones: 100 }, { fecha: '2026-10-05', precio: 20, acciones: 20 }] },
+    { ticker: datos.ticker, simbolo: sim, precio: 10, acciones: 40, fecha: '2026-09-01',
+      cerrada: '2026-09-20', precioSalida: 25, parcial: true, id: 'pW' },
+  ]);
+  await paso('posiciones se pinta con venta parcial y promedio posterior', () => ventana.posiciones());
+  const tprom = porId.rpos.textContent;
+  /realizado \+600,00 \$/.test(tprom)
+    ? ok('la venta de 40 a 25 $ mantiene su +600,00 $ (coste 10 $, no el medio nuevo de 15 $)')
+    : mal('el beneficio realizado se recalcula con el precio medio nuevo', (tprom.match(/realizado [^·]*/) || [''])[0]);
+  /precio medio de 2 compras: 100 a 10,00 \$ \+ 20 a 20,00 \$/.test(tprom)
+    ? ok('y la tarjeta enseña de dónde sale el precio medio') : mal('no se ve el desglose de compras');
+
   /* Vender por IMPORTE. El caso que lo motiva, con sus numeros: 500 $ invertidos (50 acciones a
      10 $), la posicion vale 800 $ (precio 16 $), se venden 400 $. */
   console.log('\nVENDER POR IMPORTE: EL EJEMPLO CONCRETO');
