@@ -513,15 +513,18 @@ function formularioVenta(r, alCerrar) {
   const rej = el('div', 'formop'); rej.append(pr.w, ac.w, im.w, fe.w);
   d.appendChild(rej);
 
-  const redondea4 = x => Math.round(x * 1e4) / 1e4;
-  const pon = (campoI, x) => { campoI.value = x == null ? '' : String(redondea4(x)).replace('.', ','); };
+  /* Las acciones a 4 decimales (pueden ser fraccionadas) y el dinero a 2: si no, al ir y volver
+     entre los dos campos sale "6000,0026" en un campo que es euros. */
+  const pon = (campoI, x, dec) => { campoI.value = x == null ? '' : String(Math.round(x * Math.pow(10, dec)) / Math.pow(10, dec)).replace('.', ','); };
+  const ponAcc = (campoI, x) => pon(campoI, x, 4);
+  const ponEur = (campoI, x) => pon(campoI, x, 2);
   /* Un campo actualiza al otro. Asignar .value por codigo no dispara 'input', asi que no hay bucle. */
   const deAccionesAImporte = () => {
     const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
-    pon(im.i, v > 0 && nn > 0 ? nn * v : null);
+    ponEur(im.i, v > 0 && nn > 0 ? nn * v : null);
   };
   const deImporteAAcciones = () => {
-    pon(ac.i, window.ACCIONES_POR_IMPORTE(comoNumero(im.i.value), comoNumero(pr.i.value), total));
+    ponAcc(ac.i, window.ACCIONES_POR_IMPORTE(comoNumero(im.i.value), comoNumero(pr.i.value), total));
   };
 
   /* Atajos: lo normal al necesitar liquidez es soltar la mitad o un tercio, no una cifra exacta. */
@@ -530,7 +533,7 @@ function formularioVenta(r, alCerrar) {
     fr.appendChild(el('span', 'm', 'Vender'));
     [['la mitad', 2], ['un tercio', 3], ['dos tercios', 1.5], ['todo', 1]].forEach(([t, div]) => {
       const b = el('button', 'chip', t);
-      b.onclick = () => { pon(ac.i, total / div); deAccionesAImporte(); pinta(); };
+      b.onclick = () => { ponAcc(ac.i, total / div); deAccionesAImporte(); pinta(); };
       fr.appendChild(b);
     });
     /* El caso mas natural con una que sube mucho: sacar el capital que pusiste y dejar corriendo
@@ -541,7 +544,7 @@ function formularioVenta(r, alCerrar) {
       if (!(v > 0)) return alert('Pon primero el precio al que has vendido: hace falta para saber cuántas acciones son.');
       const inv = total * r.p.precio;
       if (v * total <= inv) return alert('A ' + n(v) + ' $ la posición entera vale ' + n(v * total, 2) + ' $ y pusiste ' + n(inv, 2) + ' $: no hay ganancia que dejar corriendo. Tendrías que vender todo y aun así no recuperarías lo invertido.');
-      pon(ac.i, window.ACCIONES_POR_IMPORTE(inv, v, total)); deAccionesAImporte(); pinta();
+      ponAcc(ac.i, window.ACCIONES_POR_IMPORTE(inv, v, total)); deAccionesAImporte(); pinta();
     };
     fr.appendChild(recup);
     d.appendChild(fr);
@@ -643,17 +646,20 @@ function formularioAnadir(r, alCerrar) {
   const rej = el('div', 'formop'); rej.append(pr.w, ac.w, im.w, fe.w);
   d.appendChild(rej);
 
-  const pon = (c, x) => { c.value = x == null ? '' : String(Math.round(x * 1e4) / 1e4).replace('.', ','); };
+  // acciones a 4 decimales, dinero a 2: si no, al ir y volver entre los campos sale "6000,0026"
+  const ponN = (c, x, d) => { c.value = x == null ? '' : String(Math.round(x * Math.pow(10, d)) / Math.pow(10, d)).replace('.', ','); };
+  const pon = (c, x) => ponN(c, x, 4);
+  const ponEur = (c, x) => ponN(c, x, 2);
   ac.i.addEventListener('input', () => {
     const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
-    pon(im.i, v > 0 && nn > 0 ? nn * v : null); pinta();
+    ponEur(im.i, v > 0 && nn > 0 ? nn * v : null); pinta();
   });
   im.i.addEventListener('input', () => {
     pon(ac.i, window.ACCIONES_POR_IMPORTE(comoNumero(im.i.value), comoNumero(pr.i.value), null)); pinta();
   });
   pr.i.addEventListener('input', () => {
     const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
-    pon(im.i, v > 0 && nn > 0 ? nn * v : null); pinta();
+    ponEur(im.i, v > 0 && nn > 0 ? nn * v : null); pinta();
   });
 
   const vista = el('div', 'previo');
@@ -830,7 +836,12 @@ window.posiciones = async function () {
       if (din) filas.push(
         ['Invertido', n(din.invertido, 2) + ' $' + (din.pctCartera != null ? ' · ' + n(din.pctCartera, 1) + ' %' : '')],
         ['Valor ahora', n(din.valor, 2) + ' $'],
-        ['Si salta el stop', din.riesgo == null ? '—' : '−' + n(din.riesgo, 2) + ' $']);
+        /* "Si salta el stop: −1.024,84 $" se lee como una perdida, y con el stop por encima del
+           precio de compra saltar el stop es GANAR. Se dice con cuanto te quedas, y entre
+           parentesis lo que devuelves desde el valor de ahora, que es lo que esa cifra media. */
+        ['Si salta el stop', din.riesgo == null || r.stop == null ? '—'
+          : ((x) => (x >= 0 ? '+' : '−') + n(Math.abs(x), 2) + ' $' + (din.riesgo > 0 ? ' (−' + n(din.riesgo, 2) + ' desde ahora)' : ''))
+            ((r.stop - r.p.precio) * din.acciones)]);
       filas.push(['Ha devuelto', r.ganMax > 0 ? n(r.devuelto, 0) + ' %' + (r.limite ? ' de ' + r.limite + ' %' : '') : '—']);
       const detalle = [['Llegó a ganar', pc(r.ganMax)],
         ['Requisitos', r.req.length ? r.req.filter(x => x.ok).length + '/' + r.req.length : '—']];

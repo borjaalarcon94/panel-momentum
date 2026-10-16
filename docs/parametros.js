@@ -26,7 +26,7 @@ function textoParametros() {
     'Generado el ' + new Date().toLocaleString('es-ES') + ' · versión del código ' + (T.version || '') + ' · datos del ' + (T.actualizado || ''),
     '',
     'OBJETIVO DECLARADO DEL SISTEMA',
-    'Encontrar empresas pequeñas y medianas de EE. UU. que crecen deprisa y están empezando a despegar en bolsa,',
+    'Encontrar empresas de EE. UU. que crecen deprisa y están empezando a despegar en bolsa, de cualquier tamaño por encima de 300 M (el tamaño puntúa, pero desde el 14/10/2026 ya no excluye),',
     'para comprarlas pronto, aguantar la subida y salir cuando se agota el impulso. Horizonte de semanas a meses.',
     'No es una recomendación de compra ni asesoramiento financiero.',
     '',
@@ -61,7 +61,7 @@ function descargarPdf() {
       doc.setFontSize(16); doc.text('Growth con momentum · parámetros', 14, 18);
       doc.setFontSize(9); doc.setTextColor(110);
       doc.text('Versión del código ' + (T.version || '') + ' · datos del ' + (T.actualizado || '') + ' · generado el ' + new Date().toLocaleDateString('es-ES'), 14, 24);
-      doc.text('Objetivo: empresas pequeñas y medianas de EE. UU. que crecen deprisa y empiezan a despegar, para comprar pronto, aguantar la subida y salir cuando se agota el impulso. No es una recomendación de compra.', 14, 29, { maxWidth: 182 });
+      doc.text('Objetivo: empresas de EE. UU. que crecen deprisa y empiezan a despegar, para comprar pronto, aguantar la subida y salir cuando se agota el impulso. Cualquier tamaño por encima de 300 M: el tamaño puntúa pero no excluye, sin techo desde el 14/10/2026. No es una recomendación de compra.', 14, 29, { maxWidth: 182 });
       let y = 40;
       SECCIONES.forEach(sec => {
         doc.autoTable({ startY: y, head: [sec.cabeceras], body: sec.filas,

@@ -25,6 +25,24 @@ for (const u of usadas) definidas.has(u) ? ok('window.' + u + ' está definida')
 /* 16/10/2026: sin techo de capitalizacion entran empresas de billones. app.js y puntuacion.js ya
    tienen el tramo T; export.js tenia su propio formateador SIN el tramo, aunque estaba muerto. Si
    alguien escribe otro que divida por 1e9 sin cubrir 1e12, volveria a salir "1141,0 B". */
+/* 16/10/2026, encontrado abriendo la web en un navegador de verdad: el subtitulo decia "Las 5
+   empresas PEQUEÑAS Y MEDIANAS" justo encima de PLTR, 481,8 B. Y el texto del PDF que lee la
+   auditoria externa decia lo mismo, o sea que describia un sistema que ya no es el que corre.
+   Ninguna prueba sobre el DOM de juguete podia verlo: son cadenas estaticas. */
+console.log('\nNINGÚN TEXTO PROMETE UN SISTEMA QUE YA NO ES');
+{
+  const plantilla = fs.readFileSync(path.join(__dirname, '..', 'plantilla.html'), 'utf8');
+  const todos = { 'plantilla.html': plantilla, ...fuente };
+  const viejos = [];
+  for (const [f, src] of Object.entries(todos)) {
+    if (/peque(ñ|n)as y medianas/i.test(src)) viejos.push(f + ': dice "pequeñas y medianas" y ya no hay techo');
+    // un numero fijo de empresas en el titular: el top se reduce a 3 con el mercado en contra
+    for (const m of src.matchAll(/Las (\d+) empresas/g)) viejos.push(f + ': promete un número fijo ("Las ' + m[1] + ' empresas") y el top varía con el régimen');
+  }
+  viejos.length === 0 ? ok('ni "pequeñas y medianas" ni un número fijo de empresas en los titulares')
+    : mal('un texto describe un sistema que ya no es el que corre', viejos.join(' | '));
+}
+
 console.log('\nTODO FORMATEADOR DE CAPITALIZACIÓN CUBRE EL BILLÓN');
 {
   const malos = [];
