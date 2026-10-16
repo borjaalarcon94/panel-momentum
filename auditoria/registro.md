@@ -813,3 +813,60 @@ bloques. Arreglado guardando y restaurando el estado anterior.
 - **El comportamiento real del navegador.** Todo esto corre sobre un DOM de juguete. No he abierto la
   web en un navegador de verdad ni comprobado el diseño en un móvil físico.
 - **Los datos de TradingView.** Se comprueba que llegan y son coherentes, no que sean correctos.
+
+---
+
+## 16 de octubre de 2026 (6) — abierta en un navegador de verdad
+
+Última capa que las pruebas no tocan: todas corren sobre un DOM de juguete. Se abre la web publicada,
+se recorren las cinco pestañas, se crea una posición de prueba y se usan los formularios.
+
+**Cuatro defectos que ninguna prueba podía cazar**, los tres primeros porque son cadenas estáticas y
+el cuarto porque solo se ve con una posición ganadora delante:
+
+**1. El titular describía un sistema que ya no existe.** «Las 5 empresas **pequeñas y medianas** de
+EE. UU. con más momentum», justo encima de PLTR con 481,8 B. En cuatro sitios: la meta descripción
+(que además decía "Las 10"), el subtítulo visible, el objetivo de Parámetros y **el texto del PDF que
+lee la auditoría externa**. Ese último es el peor: una auditoría externa partiría de una descripción
+falsa del sistema.
+
+**2. El aviso de modo defensivo decía "se muestran solo 5 candidatas"** con el 5 escrito a mano, y con
+el mercado en contra el top baja a 3. En pantalla se leía «solo 5 candidatas» y debajo «Top 3».
+Atado a `S.top`.
+
+**3. "Si salta el stop: −1.024,84 $"** en una posición comprada a 120 con el stop en 180. Si salta ese
+stop se **ganan 3.000 $**. La cifra era lo que devuelves desde el valor actual, pero con el signo menos
+delante se lee como una pérdida, en la pantalla donde está el dinero. Ahora dice con cuánto te quedas y,
+entre paréntesis, lo que devuelves desde ahora.
+
+**4. "6000,0026"** en el campo de importe al ir y volver entre acciones e importe: los dos se
+redondeaban a 4 decimales. Acciones a 4 (pueden ser fraccionadas), dinero a 2.
+
+**Guardas nuevas** en `integridad.test.js`: ningún fichero puede decir «pequeñas y medianas», ni «Las N
+empresas», ni «se muestran solo N candidatas» con el número escrito a mano.
+
+### Corrección de algo que afirmé sin comprobar
+
+Dije que el stop inválido **se veía** en Seguimiento como «Stop del sistema: 9,28 $ (+5 %)».
+**Comprobado en el navegador: esas 7 acciones no aparecen en ninguna pestaña**, solo se cuentan como
+«16 descartadas». Lo deduje del código sin comprobar si esas fichas llegan a pintarse. El arreglo sigue
+siendo correcto, pero es **defensivo**: no corregía nada que estuviera viéndose.
+
+### Lo verificado funcionando
+
+- Cero errores de consola en las cinco pestañas.
+- Tema oscuro por defecto; las cinco pestañas pintan.
+- Las 18 fichas vivas de Seguimiento: todos los stops con porcentaje **negativo**, ninguno positivo.
+- Resultados dice «11 sesiones guardadas» y «ninguna con las 15 de recorrido»: el día fantasma retirado
+  se refleja, y no promete conclusiones que no tiene.
+- **Venta parcial por importe, en vivo:** 4.000 $ a 200,50 $ = 19,9501 acciones (40 %), realizado
+  +1.605,98 $, quedan 30,0499, precio medio intacto en 120,00 $, capital dentro 3.605,99 $. Al céntimo.
+- **«Recuperar lo invertido»:** 29,9252 acciones, cobras exactamente los 6.000 $ invertidos y quedan
+  20,0748 acciones (4.025 $), que es la ganancia entera corriendo.
+- **Móvil (375 px):** sin desbordamiento horizontal, tarjetas apiladas, pestañas con scroll y altura
+  táctil suficiente.
+
+**Pruebas.** 437 comprobaciones en verde.
+
+**Sigue sin comprobarse:** un móvil físico (esto es emulación), navegadores que no sean Chromium, y el
+valor de los 114 umbrales, que necesita las entradas maduras de la primavera de 2027.

@@ -36,6 +36,8 @@ console.log('\nNINGÚN TEXTO PROMETE UN SISTEMA QUE YA NO ES');
   const viejos = [];
   for (const [f, src] of Object.entries(todos)) {
     if (/peque(ñ|n)as y medianas/i.test(src)) viejos.push(f + ': dice "pequeñas y medianas" y ya no hay techo');
+    // el aviso de modo defensivo tenia el 5 escrito a mano y el top baja a 3 con el mercado en contra
+    for (const m of src.matchAll(/se muestran solo (\d+) candidatas/g)) viejos.push(f + ': el aviso defensivo dice "' + m[1] + ' candidatas" a mano y el top varía');
     // un numero fijo de empresas en el titular: el top se reduce a 3 con el mercado en contra
     for (const m of src.matchAll(/Las (\d+) empresas/g)) viejos.push(f + ': promete un número fijo ("Las ' + m[1] + ' empresas") y el top varía con el régimen');
   }

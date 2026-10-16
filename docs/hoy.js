@@ -11,7 +11,7 @@ B.appendChild(el('span','bt',bien?'Mercado a favor':'Modo defensivo'));
 m.forEach(x=>{const s2=el('span','mki2');s2.appendChild(el('b',null,nom[x.ticker]||x.ticker));
 s2.appendChild(el('span',x.cambio>=0?'up':'down',' '+pc(x.cambio,2)));
 s2.appendChild(el('span','m',' · '+(x.precio>x.ema50?'✓':'✗')+' media 50 d'));B.appendChild(s2)});
-B.appendChild(el('span','m',bien?'El S&P está sobre su media de 200 días y la mayoría de índices sobre la de 50.':'El S&P ha perdido su media de 200 días. El momentum funciona mucho peor así: se muestran solo 5 candidatas y conviene reducir el tamaño de cada posición.'))}
+B.appendChild(el('span','m',bien?'El S&P está sobre su media de 200 días y la mayoría de índices sobre la de 50.':'El S&P ha perdido su media de 200 días. El momentum funciona mucho peor así: se muestran solo '+S.top+' candidatas y conviene reducir el tamaño de cada posición.'))}
 
 /* Que ha cambiado respecto al dia anterior: entradas, salidas y senales de salida en las vigiladas. */
 function cambios(v){
