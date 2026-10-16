@@ -205,8 +205,27 @@ for (const f of orden) {
     ? ok('Hoy no calcula margen de rango sobre un stop que no existe') : mal('Hoy calcula el margen igual');
   /sin stop válido: el precio ya está por debajo de su EMA 50/.test(srcHoy4)
     ? ok('Hoy explica por qué no hay stop') : mal('Hoy no lo explica');
-  /sin stop válido \(bajo la EMA 50\)/.test(srcSeg4)
+  /sin stop válido/.test(srcSeg4) && /EMA 50/.test(srcSeg4)
     ? ok('Seguimiento también, en vez de un porcentaje positivo') : mal('Seguimiento sigue mostrando el porcentaje');
+
+  /* Lo pedido: la caja del stop se ve, y "compra arriesgada" dice a que precio deja de serlo. */
+  console.log('\nLA CAJA DEL STOP Y EL PRECIO DE ENTRADA SIN TOPE');
+  const esSrcH = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  const esSrcS = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+  const esCss = fs.readFileSync(path.join(dir, 'extra.css'), 'utf8');
+  /stopbox grande/.test(esSrcS) ? ok('Seguimiento saca el stop a su propia caja, fuera de la rejilla')
+    : mal('en Seguimiento el stop sigue perdido entre otros datos');
+  /\.stopbox\.grande\{[^}]*border-width:2px/.test(esCss) ? ok('y la caja va recuadrada y más grande') : mal('falta el estilo de la caja grande');
+  !/\['Stop del sistema',/.test(esSrcS) ? ok('ya no está como una celda más de la rejilla') : mal('sigue en la rejilla de tres datos');
+  /Entrada sin tope/.test(esSrcH) && /Entrada sin tope/.test(esSrcS)
+    ? ok('las dos pantallas dicen el precio de entrada sin tope') : mal('falta el precio de entrada en alguna pantalla');
+  /precioSinTope/.test(esSrcH) && /retrocesoNecesario/.test(esSrcH)
+    ? ok('Hoy ya no dice solo «esperar un retroceso» sin decir hasta dónde') : mal('Hoy no dice hasta dónde esperar');
+  const esSal = ventana.SALIDA({ precio: 15.60, ema50: 13.00, ema21: 14, adr: 4.5 });
+  esSal.tope && Math.round(esSal.precioSinTope * 100) / 100 === 14.95
+    ? ok('SALIDA propaga el precio (14,95 $) hasta la pantalla') : mal('SALIDA no propaga el precio sin tope', JSON.stringify(esSal.precioSinTope));
+  const esSal2 = ventana.SALIDA({ precio: 200.5, ema50: 180, ema21: 190, adr: 3 });
+  !esSal2.tope ? ok('y no lo saca cuando la compra no es arriesgada') : mal('marca tope donde no lo hay');
 
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));

@@ -189,6 +189,23 @@ comprueba('un céntimo por encima ya es válido',
    juego. Se comprueba para que siga siendo así. */
 comprueba('con el stop inválido no se puede calcular distancia negativa', sInv.distancia < 0, false);
 
+/* "Compra arriesgada" salta cuando el precio esta a mas del 15 % de su EMA 50: ahi el tope muerde y
+   el stop deja de ser un nivel tecnico. El precio al que deja de serlo no es una opinion, es
+   EMA 50 x 1,15 exactamente. */
+console.log('\nPRECIO AL QUE LA COMPRA DEJA DE SER ARRIESGADA');
+const eArr = REGLAS.stopDeEntrada({ precio: 15.60, ema50: 13.00 });
+comprueba('a 20 % sobre su EMA 50, el tope muerde', eArr.tope, true);
+comprueba('y la entrada sin tope son 14,95 $ (13,00 x 1,15)', Math.round(eArr.precioSinTope * 100) / 100, 14.95);
+comprueba('que es un 4,2 % por debajo del precio de hoy', Math.round(eArr.retrocesoNecesario * 10) / 10, -4.2);
+const eOk = REGLAS.stopDeEntrada({ precio: 200.5, ema50: 180 });
+comprueba('a 11,4 % el tope no muerde', eOk.tope, false);
+comprueba('y la entrada sin tope queda POR ENCIMA del precio: ya estás dentro del rango',
+          eOk.precioSinTope > 200.5, true);
+comprueba('el umbral es exactamente la pérdida máxima declarada',
+          Math.round(REGLAS.stopDeEntrada({ precio: 100, ema50: 100 }).precioSinTope * 100) / 100,
+          Math.round(100 * (1 + R.perdidaMaxima / 100) * 100) / 100);
+comprueba('sin EMA 50 no se inventa un precio', REGLAS.stopDeEntrada({ precio: 10 }).precioSinTope, null);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
 

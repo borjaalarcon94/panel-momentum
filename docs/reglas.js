@@ -121,7 +121,13 @@
        daban ya "Ya no cumple" y el tamaño de posicion era null, asi que el dinero nunca estuvo en
        juego: era un numero sin sentido en pantalla. */
     const invalido = stop >= precio;
-    return { stop, distancia: (stop / precio - 1) * 100, ema21: num(datos.ema21), ema50, distanciaEma50, tope, invalido };
+    /* Precio al que la compra dejaria de ser "arriesgada". No es una opinion: es exactamente el
+       punto donde el tope del 15 % deja de morder y el stop vuelve a ser la EMA 50, es decir
+       EMA 50 x 1,15. Por encima de ahi el stop es un numero fijo y no un nivel tecnico. */
+    const precioSinTope = ema50 ? ema50 * (1 + R.perdidaMaxima / 100) : null;
+    const retrocesoNecesario = precioSinTope && precio ? (precioSinTope / precio - 1) * 100 : null;
+    return { stop, distancia: (stop / precio - 1) * 100, ema21: num(datos.ema21), ema50, distanciaEma50,
+             tope, invalido, precioSinTope, retrocesoNecesario };
   }
 
   raiz.REGLAS = { R, alMenos, limiteDevolucion, stopDe, maximoDesdeCompra, evaluaPosicion, senalesDeMercado, stopDeEntrada };

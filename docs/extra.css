@@ -258,3 +258,8 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .previo .pf .vl{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .previo .pf .vl.up{color:var(--up)} .previo .pf .vl.down{color:var(--down)}
 .previo .m{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.45}
+
+/* El stop en Seguimiento: su propia caja, mas marcada que en Hoy porque ahi compite con menos cosas */
+.stopbox.grande{border-width:2px;padding:11px 14px}
+.stopbox.grande .vl{font-size:20px}
+.stopbox.grande .et{color:var(--text);opacity:.75}

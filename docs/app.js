@@ -115,7 +115,8 @@ window.SALIDA = function (a) {
     nota: e.invalido ? 'la EMA 50 queda por encima del precio: entrar aquí sería entrar ya saltado' : 'es el que gestionará tu posición si entras' });
   if (e.ema21 != null && a.precio) opciones.push({ t: 'Cierre bajo la EMA 21', v: e.ema21, d: (e.ema21 / a.precio - 1) * 100, nota: 'referencia más ceñida si quieres apurar' });
   if (a.atr && a.precio) opciones.push({ t: 'Dos veces su rango diario (ATR)', v: a.precio - 2 * a.atr, d: ((a.precio - 2 * a.atr) / a.precio - 1) * 100, nota: 'referencia por volatilidad' });
-  return { opciones, tope: !!e.tope, invalido: !!e.invalido, distanciaEma50: e.distanciaEma50 != null ? e.distanciaEma50 : null,
+  return { opciones, tope: !!e.tope, invalido: !!e.invalido, precioSinTope: e.precioSinTope, retrocesoNecesario: e.retrocesoNecesario,
+    distanciaEma50: e.distanciaEma50 != null ? e.distanciaEma50 : null,
     senales: window.REGLAS.senalesDeMercado(a).map(window.TEXTO_SENAL) };
 };
 

@@ -57,7 +57,7 @@ function historial(lim) {
       : window.VEREDICTO({ precio: r.precioUltimo }, { sinSeguimiento: true });
     return { ...r, clave: k, ahora, enTop, puestoHoy, puestoAyer, estado, dScore, veredicto,
       prioridad: estado === 'sindatos' ? 3 : ({ qok: 0, qwarn: 1, qbad: 2 }[veredicto.cls] ?? 2),
-      score: h ? h.score : null, req: h ? h.req : null,
+      score: h ? h.score : null, req: h ? h.req : null, adr: h && h.a ? h.a.adr : null,
       fallos: h ? h.fallos : [], motivosExt: h && h.pt ? h.pt.penal.motivos : [], salida, devuelto, dmax,
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
@@ -159,14 +159,33 @@ window.seguimiento = function () {
     }
     /* Ocho campos ocupaban 172 px y hacian que solo cupiera una tarjeta por pantalla. Se quedan
        fuera los tres que deciden algo; los otros cinco bajan al desplegable, que ya existe. */
+    /* El stop sale de la rejilla de tres datos y pasa a su propia caja, como en la pestaña Hoy:
+       es el numero que decide cuanto arriesgas y perdido entre otros dos no se leia. */
+    const o0 = a.salida && a.salida.opciones[0];
+    if (o0) {
+      const mg = a.salida.invalido ? null : window.MARGEN_STOP(o0.d, a.adr);
+      const sb = el('div', 'stopbox grande' + (a.salida.invalido || a.salida.tope || (mg && mg.apretado) ? ' lejos' : ''));
+      sb.appendChild(el('span', 'et', 'Stop'));
+      sb.appendChild(el('span', 'vl', a.salida.invalido ? '—' : n(o0.v) + ' $'));
+      sb.appendChild(el('span', 'ds' + (a.salida.invalido ? ' aviso' : ''), a.salida.invalido
+        ? 'sin stop válido: ya está por debajo de su EMA 50'
+        : pc(o0.d, 0) + ' desde el precio de hoy'));
+      if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
+        '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.apretado ? ': un día normal lo cruza' : '')));
+      /* Si la compra es arriesgada, decir A QUE PRECIO deja de serlo. No es una opinion: es el punto
+         exacto en que el tope del 15 % deja de morder y el stop vuelve a ser la EMA 50. */
+      if (a.salida.tope && a.salida.precioSinTope) {
+        sb.appendChild(el('span', 'et', 'Entrada sin tope'));
+        sb.appendChild(el('span', 'vl', n(a.salida.precioSinTope) + ' $'));
+        sb.appendChild(el('span', 'ds aviso', 'a ese precio el stop vuelve a ser la EMA 50 · hay que esperar un ' +
+          n(Math.abs(a.salida.retrocesoNecesario), 1) + ' % de retroceso'));
+      }
+      c.appendChild(sb);
+    }
     const campos = [
-      /* Con el stop invalido (precio bajo la EMA 50) no se muestra una distancia positiva, que se
-         leeria como un stop normal: se dice que no hay stop valido y por que. */
-      ['Stop del sistema', !a.salida || !a.salida.opciones[0] ? '-'
-        : a.salida.opciones[0].invalido ? 'sin stop válido (bajo la EMA 50)'
-        : n(a.salida.opciones[0].v) + ' $ (' + pc(a.salida.opciones[0].d, 0) + ')'],
       ['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
       ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
+      ['Sobre su EMA 50', a.salida && a.salida.distanciaEma50 != null ? pc(-a.salida.distanciaEma50, 0) : '-'],
     ];
     const detalle = [
       ['Puntuación día a día', ''],
