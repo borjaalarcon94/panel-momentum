@@ -168,13 +168,9 @@ if(tam&&v.cls==='qok'){sb.appendChild(el('span','et','Comprar'));sb.appendChild(
 if(tam.tope)sb.appendChild(el('span','ds','· tope: no más de un cuarto de la cartera en una sola'))}
 /* "Esperar un retroceso" sin decir hasta donde no sirve de nada. El punto exacto es EMA 50 x 1,15:
    ahi el tope del 15 % deja de morder y el stop vuelve a ser un nivel tecnico. */
-if(sal.tope){
-  if(sal.precioSinTope){
-    sb.appendChild(el('span','et','Entrada sin tope'));
-    sb.appendChild(el('span','vl',n(sal.precioSinTope)+' $'));
-    sb.appendChild(el('span','ds aviso','· media posición, o esperar a '+n(sal.precioSinTope)+' $ ('+n(Math.abs(sal.retrocesoNecesario),1)+' % abajo): ahí el stop vuelve a ser la EMA 50'));
-  } else sb.appendChild(el('span','ds','· media posición o esperar un retroceso'));
-}
+/* El precio de entrada sin tope lo dice el veredicto, arriba: en esta caja competia con la cifra
+   del stop y habia que adivinar cual era cual. Aqui solo va el stop. */
+if(sal.tope)sb.appendChild(el('span','ds','· media posición o esperar un retroceso'));
 c.appendChild(sb)}
 const nr=a.pt?a.pt.riesgos.length:0;
 

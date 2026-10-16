@@ -179,7 +179,13 @@ window.VEREDICTO = function (a, extra) {
   if (extendida) return { t: 'No comprar aquí', d: 'muy estirada: esperar a que consolide. Si ya la tienes, déjala correr.', cls: 'qwarn', stop };
   if (extra.flojea) return { t: 'Vigilar', d: 'cumple, pero ha perdido fuerza. Mantener.', cls: 'qwarn', stop };
   if (dmax != null && dmax < -window.REGLAS.R.lejosDeMaximo) return { t: 'Esperar', d: 'está a ' + pc(dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn', stop };
-  if (sal.tope) return { t: 'Compra arriesgada', d: 'un ' + n(-sal.distanciaEma50, 0) + ' % sobre su EMA 50: el stop es un tope fijo, no un nivel técnico. Media posición o esperar retroceso.', cls: 'qwarn', stop };
+  /* El precio al que deja de ser arriesgada va AQUI, no en la caja del stop: alli competia con la
+     cifra del stop, dos precios con el mismo peso en el mismo sitio, y habia que adivinar cual era
+     cual. Aqui va justo detras del problema que lo motiva. */
+  if (sal.tope) return { t: 'Compra arriesgada',
+    d: 'un ' + n(-sal.distanciaEma50, 0) + ' % sobre su EMA 50: el stop es un tope fijo, no un nivel técnico. Media posición'
+      + (sal.precioSinTope ? ', o esperar a ' + n(sal.precioSinTope) + ' $ (' + n(Math.abs(sal.retrocesoNecesario), 1) + ' % abajo), donde el stop vuelve a ser la EMA 50.' : ' o esperar retroceso.'),
+    cls: 'qwarn', stop };
   return { t: 'COMPRA', d: 'buen punto de entrada: stop en ' + stop + '.', cls: 'qok', stop };
 };
 

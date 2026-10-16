@@ -172,14 +172,8 @@ window.seguimiento = function () {
         : pc(o0.d, 0) + ' desde el precio de hoy'));
       if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
         '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.apretado ? ': un día normal lo cruza' : '')));
-      /* Si la compra es arriesgada, decir A QUE PRECIO deja de serlo. No es una opinion: es el punto
-         exacto en que el tope del 15 % deja de morder y el stop vuelve a ser la EMA 50. */
-      if (a.salida.tope && a.salida.precioSinTope) {
-        sb.appendChild(el('span', 'et', 'Entrada sin tope'));
-        sb.appendChild(el('span', 'vl', n(a.salida.precioSinTope) + ' $'));
-        sb.appendChild(el('span', 'ds aviso', 'a ese precio el stop vuelve a ser la EMA 50 · hay que esperar un ' +
-          n(Math.abs(a.salida.retrocesoNecesario), 1) + ' % de retroceso'));
-      }
+      /* El precio al que deja de ser arriesgada lo dice el veredicto, arriba. Aqui no: dos precios
+         con el mismo peso en la misma caja obligan a adivinar cual es cual. */
       c.appendChild(sb);
     }
     const campos = [

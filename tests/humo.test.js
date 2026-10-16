@@ -217,10 +217,21 @@ for (const f of orden) {
     : mal('en Seguimiento el stop sigue perdido entre otros datos');
   /\.stopbox\.grande\{[^}]*border-width:2px/.test(esCss) ? ok('y la caja va recuadrada y más grande') : mal('falta el estilo de la caja grande');
   !/\['Stop del sistema',/.test(esSrcS) ? ok('ya no está como una celda más de la rejilla') : mal('sigue en la rejilla de tres datos');
-  /Entrada sin tope/.test(esSrcH) && /Entrada sin tope/.test(esSrcS)
-    ? ok('las dos pantallas dicen el precio de entrada sin tope') : mal('falta el precio de entrada en alguna pantalla');
-  /precioSinTope/.test(esSrcH) && /retrocesoNecesario/.test(esSrcH)
-    ? ok('Hoy ya no dice solo «esperar un retroceso» sin decir hasta dónde') : mal('Hoy no dice hasta dónde esperar');
+  /* El precio va en la linea del veredicto, no en la caja del stop: dos precios con el mismo peso
+     en la misma caja obligaban a adivinar cual era cual. */
+  const esApp = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
+  /o esperar a ' \+ n\(sal\.precioSinTope\)/.test(esApp)
+    ? ok('el precio va en la línea de COMPRA ARRIESGADA, con el problema que lo motiva')
+    : mal('el veredicto no dice hasta dónde esperar');
+  !/Entrada sin tope/.test(esSrcH) && !/Entrada sin tope/.test(esSrcS)
+    ? ok('y no se repite en la caja del stop, que se queda con un solo precio')
+    : mal('sigue habiendo dos precios en la caja del stop');
+  const vArr = ventana.VEREDICTO({ precio: 15.60, ema50: 13.00, ema21: 14, sma200: 10, rsi: 65, max52: 16, volmedio: 1e6, ingresos: 40 }, {});
+  vArr.t === 'Compra arriesgada' && /14,95 \$/.test(vArr.d) && /4,2 % abajo/.test(vArr.d)
+    ? ok('y dice el precio y el retroceso: ' + vArr.d.slice(-62)) : mal('el veredicto no trae el precio', vArr.d);
+  const vOk = ventana.VEREDICTO({ precio: 200.5, ema50: 180, ema21: 190, sma200: 150, rsi: 65, max52: 205, volmedio: 1e6, ingresos: 40 }, {});
+  !/esperar a/.test(vOk.d) ? ok('cuando la compra no es arriesgada no se menciona ningún precio de espera')
+    : mal('mete el precio donde no hace falta', vOk.d);
   const esSal = ventana.SALIDA({ precio: 15.60, ema50: 13.00, ema21: 14, adr: 4.5 });
   esSal.tope && Math.round(esSal.precioSinTope * 100) / 100 === 14.95
     ? ok('SALIDA propaga el precio (14,95 $) hasta la pantalla') : mal('SALIDA no propaga el precio sin tope', JSON.stringify(esSal.precioSinTope));
