@@ -557,3 +557,46 @@ suma de dinero, la compatibilidad con el formato viejo).
 comparando veredicto y stop. La otra buscaba el precio medio en la tarjeta de un ticker inventado que no
 tiene cotización en `panel.json`, así que esa línea no se pintaba nunca y el fallo era de la prueba, no
 del código.
+
+---
+
+## 16 de octubre de 2026 (2) — vender por importe, no solo por nº de acciones
+
+**Petición, con sus números:** "tengo 500 € invertidos, la posición llega a 800 y vendo 400". Es como se
+piensa de verdad cuando lo que hace falta es liquidez: por dinero, no por acciones.
+
+**Qué se añade.** Un segundo campo, «…o ¿cuánto quieres cobrar?», atado al de acciones: escribes en uno
+y el otro se recalcula con el precio de venta. La conversión se topa en el total, así que pedir más
+dinero del que vale la posición vende la posición entera y no más.
+
+El ejemplo, resuelto: 50 acciones a 10 $ (500 $ invertidos), precio 16 $ (vale 800 $), vendes 400 $ →
+25 acciones, quedan 25, capital dentro 250 $, lo que queda vale 400 $, ganancia realizada +150 $.
+
+**Atajo añadido, que no se pidió pero es el caso natural: «recuperar lo invertido».** Vende justo el
+capital que pusiste y deja corriendo solo la ganancia. En el ejemplo: 31,25 acciones a 16 $ = 500 $, y
+quedan 300 $ corriendo. A partir de ahí la posición ya no puede devolverte menos de lo que invertiste.
+Si no hay ganancia, lo dice en vez de calcular un número sin sentido.
+
+**Precisión de las acciones.** Vender por importe produce fracciones (400 $ a 16,30 $ son 24,5399
+acciones). Se añade `nAcc`: entero sin decimales y hasta 4 cuando sale fraccionado, usado en todos los
+sitios donde antes se redondeaba a 2. **El número que se ve es el que se guarda**; antes habrían
+discrepado.
+
+**La aritmética se extrajo a `window.ACCIONES_POR_IMPORTE(importe, precio, total)`, función pura.** No
+es cosmética: vivía dentro del manejador del campo, y el DOM de juguete de las pruebas no despacha
+eventos (`addEventListener` es un no-op), así que no había forma de probarla. La primera versión de las
+pruebas comprobaba la aritmética **con una copia de la fórmula escrita en el propio fichero de
+pruebas**, lo cual no prueba nada del código: 8 de 13 comprobaciones pasaban igual con el código
+anterior. Con la función extraída, las 15 fallan sin el cambio.
+
+**Una prueba frágil propia, borrada en vez de parcheada.** Había una que verificaba por regex la línea
+exacta `pon(ac.i, c > 0 ? (total ? Math.min(c / v, total) : c / v) : null)`. Al extraer la función esa
+regex dejó de encajar y la prueba se puso roja sin que hubiera ningún fallo: probaba un detalle de
+implementación, no una conducta. El tope lo cubre ahora la prueba funcional `vpConv(900, 16, 50) === 50`.
+Es el cuarto caso de regex sobre código fuente que se rompe en este proyecto; conviene no escribirlas.
+
+**Y el mismo error de ayer repetido:** las comprobaciones nuevas reventaban la suite con un `TypeError`
+cuando la función no existía, en vez de dar `✗` y seguir. Corregido con la misma guarda de `typeof` que
+se puso para `MARGEN_STOP`.
+
+**Pruebas.** 390 comprobaciones en verde (de 373). Las 15 nuevas fallan contra el código anterior.

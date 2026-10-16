@@ -105,6 +105,20 @@ function dinero(p, ahora, stop) {
    tienes, cuanto capital te queda dentro y cuanta ganancia has pasado a dinero real.
    Esto es importante para el sistema: el stop, la subida del stop al +20 % y la regla de devolucion
    se miden todas contra el precio de compra, asi que una venta parcial NO altera el protocolo. */
+/* Cuantas acciones hay que vender para cobrar un importe dado. Funcion pura y expuesta para poder
+   probarla: antes vivia dentro del manejador del campo y no habia forma de comprobar la aritmetica.
+   Se topa en el total: pedir mas dinero del que vale la posicion vende la posicion entera, no mas. */
+window.ACCIONES_POR_IMPORTE = function (importe, precio, total) {
+  const c = Number(importe), v = Number(precio), t = Number(total);
+  if (!isFinite(c) || !isFinite(v) || c <= 0 || v <= 0) return null;
+  const nn = c / v;
+  return isFinite(t) && t > 0 ? Math.min(nn, t) : nn;
+};
+
+/* Nº de acciones: entero sin decimales, y hasta 4 cuando sale fraccionado (pasa al vender por
+   importe: 400 $ a 16,30 $ son 24,5399 acciones). El numero que se ve es el que se guarda. */
+const nAcc = v => v == null ? '-' : (Number(v) % 1 === 0 ? n(v, 0) : n(Math.round(v * 1e4) / 1e4, 4).replace(/0+$/, '').replace(/,$/, ''));
+
 function partesVendidas(p) {
   const xs = leerPos().filter(x => x.parcial && x.cerrada && x.ticker === p.ticker && x.fecha === p.fecha);
   const acciones = xs.reduce((s, x) => s + (Number(x.acciones) || 0), 0);
@@ -398,7 +412,7 @@ function historialOperaciones(cerradas) {
     tr.appendChild(td0);
     [fFecha(p.fecha), fFecha(p.cerrada), o.dias == null ? '—' : String(o.dias),
      n(p.precio) + ' $', p.precioSalida ? n(p.precioSalida) + ' $' : '—',
-     o.acc == null ? '—' : n(o.acc, o.acc % 1 ? 2 : 0)].forEach(x => tr.appendChild(el('td', null, x)));
+     o.acc == null ? '—' : nAcc(o.acc)].forEach(x => tr.appendChild(el('td', null, x)));
     tr.appendChild(el('td', o.ret == null ? null : o.ret >= 0 ? 'up' : 'down', o.ret == null ? '—' : pc(o.ret)));
     tr.appendChild(el('td', o.pyl == null ? null : o.pyl >= 0 ? 'up' : 'down',
       o.pyl == null ? '—' : (o.pyl >= 0 ? '+' : '−') + n(Math.abs(o.pyl), 2) + ' $'));
@@ -412,8 +426,8 @@ function historialOperaciones(cerradas) {
       const devuelve = abierta ? Number(p.acciones) : 0;
       if (!confirm('¿Borrar ' + (p.parcial ? 'la venta parcial' : 'la operación') + ' de ' + p.ticker +
           ' del ' + fFecha(p.cerrada) + '?' +
-          (devuelve ? ' Las ' + n(devuelve, devuelve % 1 ? 2 : 0) + ' acciones vuelven a la posición abierta, que pasará a tener ' +
-            n((Number(abierta.acciones) || 0) + devuelve, 2).replace(',00', '') + '.' : '') +
+          (devuelve ? ' Las ' + nAcc(devuelve) + ' acciones vuelven a la posición abierta, que pasará a tener ' +
+            nAcc((Number(abierta.acciones) || 0) + devuelve) + '.' : '') +
           ' No se puede deshacer.')) return;
       /* Dos ventas parciales del mismo ticker el mismo dia coinciden en ticker+fecha+cerrada y se
          borrarian las dos. Las parciales llevan id propio, asi que se borra por id cuando existe. */
@@ -479,9 +493,23 @@ function formularioVenta(r, alCerrar) {
   const total = Number(r.p.acciones) > 0 ? Number(r.p.acciones) : null;
   const pr = campo('¿A qué precio has vendido?', 'number', null);
   const fe = campo('¿Qué día la vendiste?', 'date', hoyReal);
-  const ac = campo(total ? '¿Cuántas acciones? (tienes ' + n(total, total % 1 ? 2 : 0) + ')' : 'Nº de acciones', 'number', total);
-  const rej = el('div', 'formop'); rej.append(pr.w, ac.w, fe.w);
+  const ac = campo(total ? '¿Cuántas acciones? (tienes ' + nAcc(total) + ')' : 'Nº de acciones', 'number', total);
+  /* Vender por IMPORTE, no por acciones: "necesito 400 $" es como se piensa de verdad cuando lo que
+     hace falta es liquidez. Los dos campos estan atados: escribes en uno y el otro se recalcula. */
+  const im = campo('…o ¿cuánto quieres cobrar?', 'number', null);
+  const rej = el('div', 'formop'); rej.append(pr.w, ac.w, im.w, fe.w);
   d.appendChild(rej);
+
+  const redondea4 = x => Math.round(x * 1e4) / 1e4;
+  const pon = (campoI, x) => { campoI.value = x == null ? '' : String(redondea4(x)).replace('.', ','); };
+  /* Un campo actualiza al otro. Asignar .value por codigo no dispara 'input', asi que no hay bucle. */
+  const deAccionesAImporte = () => {
+    const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
+    pon(im.i, v > 0 && nn > 0 ? nn * v : null);
+  };
+  const deImporteAAcciones = () => {
+    pon(ac.i, window.ACCIONES_POR_IMPORTE(comoNumero(im.i.value), comoNumero(pr.i.value), total));
+  };
 
   /* Atajos: lo normal al necesitar liquidez es soltar la mitad o un tercio, no una cifra exacta. */
   if (total) {
@@ -489,9 +517,20 @@ function formularioVenta(r, alCerrar) {
     fr.appendChild(el('span', 'm', 'Vender'));
     [['la mitad', 2], ['un tercio', 3], ['dos tercios', 1.5], ['todo', 1]].forEach(([t, div]) => {
       const b = el('button', 'chip', t);
-      b.onclick = () => { const v = total / div; ac.i.value = String(Math.round(v * 100) / 100).replace('.', ','); pinta(); };
+      b.onclick = () => { pon(ac.i, total / div); deAccionesAImporte(); pinta(); };
       fr.appendChild(b);
     });
+    /* El caso mas natural con una que sube mucho: sacar el capital que pusiste y dejar corriendo
+       solo la ganancia. A partir de ahi la posicion no puede devolverte menos de lo que invertiste. */
+    const recup = el('button', 'chip', 'recuperar lo invertido');
+    recup.onclick = () => {
+      const v = comoNumero(pr.i.value);
+      if (!(v > 0)) return alert('Pon primero el precio al que has vendido: hace falta para saber cuántas acciones son.');
+      const inv = total * r.p.precio;
+      if (v * total <= inv) return alert('A ' + n(v) + ' $ la posición entera vale ' + n(v * total, 2) + ' $ y pusiste ' + n(inv, 2) + ' $: no hay ganancia que dejar corriendo. Tendrías que vender todo y aun así no recuperarías lo invertido.');
+      pon(ac.i, window.ACCIONES_POR_IMPORTE(inv, v, total)); deAccionesAImporte(); pinta();
+    };
+    fr.appendChild(recup);
     d.appendChild(fr);
   }
 
@@ -509,24 +548,26 @@ function formularioVenta(r, alCerrar) {
     const cobras = vende * v, pylV = (v - r.p.precio) * vende;
     const fila = (et, val, cls) => { const f = el('div', 'pf'); f.appendChild(el('span', 'et', et)); f.appendChild(el('span', 'vl' + (cls ? ' ' + cls : ''), val)); vista.appendChild(f); };
     if (queda === 0) {
-      fila('Vendes', n(vende, vende % 1 ? 2 : 0) + ' acciones · TODA la posición');
+      fila('Vendes', nAcc(vende) + ' acciones · TODA la posición');
       fila('Cobras', n(cobras, 2) + ' $');
       fila('Resultado', (pylV >= 0 ? '+' : '−') + n(Math.abs(pylV), 2) + ' $ · ' + pc((v / r.p.precio - 1) * 100), pylV >= 0 ? 'up' : 'down');
       vista.appendChild(el('div', 'm', 'La posición se cierra y pasa a tu historial.'));
     } else {
       const previas = partesVendidas(r.p);
-      fila('Vendes ahora', n(vende, vende % 1 ? 2 : 0) + ' de ' + n(total, total % 1 ? 2 : 0) + ' acciones · ' + n(vende / total * 100, 0) + ' %');
+      fila('Vendes ahora', nAcc(vende) + ' de ' + nAcc(total) + ' acciones · ' + n(vende / total * 100, 0) + ' %');
       fila('Cobras', n(cobras, 2) + ' $');
       fila('Ganancia que realizas', (pylV >= 0 ? '+' : '−') + n(Math.abs(pylV), 2) + ' $', pylV >= 0 ? 'up' : 'down');
-      fila('Te quedan', n(queda, queda % 1 ? 2 : 0) + ' acciones');
+      fila('Te quedan', nAcc(queda) + ' acciones');
       fila('Precio medio de compra', n(r.p.precio) + ' $ · NO cambia');
       fila('Capital que sigue dentro', n(queda * r.p.precio, 2) + ' $');
       if (r.ahora != null) fila('Valor de lo que te queda', n(queda * r.ahora, 2) + ' $', null);
-      if (previas.acciones > 0) fila('Ya habías vendido', n(previas.acciones, previas.acciones % 1 ? 2 : 0) + ' acciones · realizado ' + (previas.pyl >= 0 ? '+' : '−') + n(Math.abs(previas.pyl), 2) + ' $', previas.pyl >= 0 ? 'up' : 'down');
+      if (previas.acciones > 0) fila('Ya habías vendido', nAcc(previas.acciones) + ' acciones · realizado ' + (previas.pyl >= 0 ? '+' : '−') + n(Math.abs(previas.pyl), 2) + ' $', previas.pyl >= 0 ? 'up' : 'down');
       vista.appendChild(el('div', 'm', 'El precio medio no cambia: vender parte no abarata las que te quedan, siguen costando ' + n(r.p.precio) + ' $ cada una. Y el protocolo sigue igual, porque el stop y la regla de devolución se miden contra ese precio de compra.'));
     }
   };
-  [pr.i, ac.i].forEach(i => i.addEventListener('input', pinta));
+  ac.i.addEventListener('input', () => { deAccionesAImporte(); pinta(); });
+  im.i.addEventListener('input', () => { deImporteAAcciones(); pinta(); });
+  pr.i.addEventListener('input', () => { deAccionesAImporte(); pinta(); });
   d.appendChild(vista);
   pinta();
 
@@ -542,10 +583,10 @@ function formularioVenta(r, alCerrar) {
     const nn = comoNumero(ac.i.value);
     const parcial = total && nn > 0 && nn < total;
     if (total && !(nn > 0)) return alert('Pon cuántas acciones vendes. Si vendes todas, pulsa «todo».');
-    if (total && nn > total) return alert('No puedes vender ' + n(nn, 2) + ' acciones: solo tienes ' + n(total, total % 1 ? 2 : 0) + '.');
-    if (parcial && !confirm('Vas a vender ' + n(nn, nn % 1 ? 2 : 0) + ' de ' + n(total, total % 1 ? 2 : 0) +
+    if (total && nn > total) return alert('No puedes vender ' + nAcc(nn) + ' acciones: solo tienes ' + nAcc(total) + '.');
+    if (parcial && !confirm('Vas a vender ' + nAcc(nn) + ' de ' + nAcc(total) +
         ' acciones de ' + r.p.ticker + ' a ' + n(v) + ' $. La posición sigue abierta con ' +
-        n(total - nn, (total - nn) % 1 ? 2 : 0) + ' acciones. ¿Confirmas?')) return;
+        nAcc(total - nn) + ' acciones. ¿Confirmas?')) return;
     if (!parcial) {
       guardarPos(leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada
         ? { ...p, cerrada: fe.i.value, precioSalida: v } : p)));
@@ -621,8 +662,8 @@ window.posiciones = async function () {
     const vend = partesVendidas(r.p);
     if (vend.acciones > 0) {
       const tot = vend.acciones + (Number(r.p.acciones) || 0);
-      izq.appendChild(el('div', 'name', 'ya vendiste ' + n(vend.acciones, vend.acciones % 1 ? 2 : 0) + ' de ' +
-        n(tot, tot % 1 ? 2 : 0) + ' acciones en ' + vend.n + (vend.n === 1 ? ' venta' : ' ventas') +
+      izq.appendChild(el('div', 'name', 'ya vendiste ' + nAcc(vend.acciones) + ' de ' +
+        nAcc(tot) + ' acciones en ' + vend.n + (vend.n === 1 ? ' venta' : ' ventas') +
         ' · realizado ' + (vend.pyl >= 0 ? '+' : '−') + n(Math.abs(vend.pyl), 2) + ' $'));
     }
     const der = el('div', 'px');
@@ -664,7 +705,7 @@ window.posiciones = async function () {
       filas.push(['Ha devuelto', r.ganMax > 0 ? n(r.devuelto, 0) + ' %' + (r.limite ? ' de ' + r.limite + ' %' : '') : '—']);
       const detalle = [['Llegó a ganar', pc(r.ganMax)],
         ['Requisitos', r.req.length ? r.req.filter(x => x.ok).length + '/' + r.req.length : '—']];
-      if (din) detalle.push(['Acciones', n(din.acciones, din.acciones % 1 ? 2 : 0)]);
+      if (din) detalle.push(['Acciones', nAcc(din.acciones)]);
       filas.forEach(([k, v]) => { const m = el('div', 'm', k); m.appendChild(el('span', null, v)); g.appendChild(m) });
       c.appendChild(g);
       const verMas = el('button', 'chip', 'Ver detalle'); verMas.style.marginTop = '8px';

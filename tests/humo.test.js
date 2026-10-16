@@ -493,6 +493,45 @@ for (const f of orden) {
   abierta && abierta.precio === 10 ? ok('y en el almacén tampoco se ha tocado') : mal('se ha alterado el precio de compra guardado');
   abierta && Number(abierta.acciones) === 60 ? ok('quedan 60 acciones en la posición abierta') : mal('el nº de acciones no cuadra');
 
+  /* Vender por IMPORTE. El caso que lo motiva, con sus numeros: 500 $ invertidos (50 acciones a
+     10 $), la posicion vale 800 $ (precio 16 $), se venden 400 $. */
+  console.log('\nVENDER POR IMPORTE: EL EJEMPLO CONCRETO');
+  // la funcion REAL del codigo, no una copia de la aritmetica en el fichero de pruebas
+  const vpConv = (importe, precio, tot) => (typeof ventana.ACCIONES_POR_IMPORTE === 'function'
+    ? ventana.ACCIONES_POR_IMPORTE(importe, precio, tot) : undefined);
+  typeof ventana.ACCIONES_POR_IMPORTE === 'function'
+    ? ok('window.ACCIONES_POR_IMPORTE existe y es pública') : mal('la conversión no es una función probable');
+  vpConv(0, 16, 50) === null && vpConv(400, 0, 50) === null && vpConv(-400, 16, 50) === null
+    ? ok('sin importe o sin precio no se inventa un nº de acciones') : mal('devuelve algo con datos inválidos');
+  vpConv(400, 16, null) === 25
+    ? ok('sin nº de acciones conocido convierte igual, sin topar') : mal('falla sin total');
+  const vpAcc400 = vpConv(400, 16, 50);
+  vpAcc400 === 25 ? ok('400 $ a 16 $ son 25 acciones') : mal('la conversión importe→acciones falla', String(vpAcc400));
+  const vpQueda400 = 50 - vpAcc400;
+  vpQueda400 === 25 ? ok('quedan 25 de las 50 acciones') : mal('el resto no cuadra');
+  vpQueda400 * 10 === 250 ? ok('el capital que sigue dentro es 250 $ (25 × 10 $ de compra)') : mal('el capital restante no cuadra');
+  vpQueda400 * 16 === 400 ? ok('y lo que te queda vale 400 $') : mal('el valor restante no cuadra');
+  (16 - 10) * vpAcc400 === 150 ? ok('la ganancia realizada es +150 $ (25 × 6 $)') : mal('la ganancia realizada no cuadra');
+  vpConv(900, 16, 50) === 50 ? ok('pedir más de lo que vale la posición se topa en todas las acciones') : mal('no se topa en el total');
+  // "recuperar lo invertido": vender justo el capital que pusiste y dejar corriendo la ganancia
+  const vpRecup = vpConv(50 * 10, 16, 50);
+  Math.abs(vpRecup - 31.25) < 1e-9 ? ok('«recuperar lo invertido» vende 31,25 acciones (500 $ a 16 $)') : mal('el atajo de recuperar no cuadra', String(vpRecup));
+  Math.abs((50 - vpRecup) * 16 - 300) < 1e-9 ? ok('y deja 300 $ corriendo, que es la ganancia entera') : mal('lo que queda corriendo no cuadra');
+
+  /* Los dos campos tienen que estar atados en el codigo, no solo en mi cabeza. */
+  console.log('\nVENDER POR IMPORTE: LOS CAMPOS ESTÁN ATADOS');
+  const vpSrc = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /deAccionesAImporte|deImporteAAcciones/.test(vpSrc)
+    ? ok('existen las dos conversiones') : mal('falta la conversión entre importe y acciones');
+  (vpSrc.match(/im\.i\.addEventListener\('input'/) && vpSrc.match(/ac\.i\.addEventListener\('input'/))
+    ? ok('los dos campos escuchan y se actualizan entre ellos') : mal('un campo no escucha');
+  // el tope lo comprueba la prueba funcional de arriba (vpConv(900, 16, 50) === 50), no una regex
+  /ACCIONES_POR_IMPORTE\(comoNumero\(im\.i\.value\)/.test(vpSrc)
+    ? ok('el campo de importe usa la función pública, no una copia de la aritmética')
+    : mal('el campo de importe no usa ACCIONES_POR_IMPORTE');
+  /recuperar lo invertido/.test(vpSrc) ? ok('está el atajo de recuperar lo invertido') : mal('falta el atajo');
+  /nAcc/.test(vpSrc) ? ok('las acciones fraccionadas se muestran con precisión (nAcc)') : mal('las acciones fraccionadas se redondean a 2 y no coinciden con lo guardado');
+
   /* El protocolo tiene que seguir igual: el stop y la regla de devolucion se miden contra el precio
      de compra, asi que una venta parcial no puede moverlos. Se comprueba de punta a punta: se pinta
      la MISMA posicion con 100 acciones y con 60, y el veredicto y el stop tienen que coincidir. */
