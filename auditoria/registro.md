@@ -723,3 +723,93 @@ anterior; las otras 4 son invariantes que ya se cumplían y ahora quedan fijadas
 (`stopDe`, `stopDeEntrada`, el trinquete, el tope del 15 %, la protección del coste), la **cascada de
 veredictos** y la **aritmética de las ventas parciales y el promedio**. NO se ha revisado la puntuación
 (114 umbrales, intactos), ni la pestaña Resultados más allá de que se pinta, ni el régimen de mercado.
+
+---
+
+## 16 de octubre de 2026 (5) — auditoría de lo que faltaba: puntuación, Resultados, régimen, datos, respaldo
+
+Se auditan con el método de invariantes las áreas que la auditoría anterior dejó fuera.
+**Dos hallazgos, uno de ellos corrompía la medición pendiente de noviembre.**
+
+### Hallazgo 1 (el importante): un día fantasma guardado, el domingo 2026-10-04
+
+**Prueba:** el precio del SPY de ese día (769,64) es **idéntico** al del viernes anterior. El escáner
+devolvió los cierres del viernes con fecha de domingo. Es anterior a `sin_cierre_nuevo()`, que se añadió
+el 7 de octubre y lo habría impedido; el día ya guardado nunca se retiró.
+
+**Por qué importa.** Cuenta como sesión. La pestaña Resultados mide la madurez de cada entrada en
+sesiones (15 para madurar, 30 maduras para concluir), así que **todas las entradas anteriores al 5 de
+octubre parecían una sesión más maduras de lo que eran.** Es exactamente la medición que hay que hacer
+en noviembre para decidir sobre el techo de capitalización y sobre el stop proporcional al ADR.
+
+**Qué se ha hecho.** El fichero se ha **movido** a `auditoria/dias-retirados/2026-10-04.json`, no
+borrado: es parte del registro y no se destruye. Se ha quitado de `dias` y de `historico` en
+`panel.json`. `precios.json` empieza el 6 de octubre, así que no le afectaba. Los días pasan de 12 a 11.
+
+**Tres guardas nuevas en `filtros.test.py`** para que no vuelva a entrar ninguno sin que nadie lo note:
+ningún fichero en fin de semana, ningún par de días consecutivos con el mismo precio del SPY, y ningún
+día vacío. Verificadas devolviendo el domingo a su sitio: fallan dos de las tres.
+
+Barrido de los 12 días: **solo había uno**. Los días 1 y 2 de octubre tienen 3 y 9 acciones en vez de
+10, pero su SPY es distinto: era el arranque del sistema con pocas candidatas, no un fantasma.
+
+### Hallazgo 2 (menor): un formateador muerto que mostraría "1141,0 B"
+
+`docs/export.js` tenía su propio `capT` sin el tramo T que se añadió ayer a `app.js` y `puntuacion.js`.
+Estaba **muerto** (definido y nunca usado), así que nunca mostró nada mal. Retirado, y añadida una
+comprobación en `integridad.test.js` que recorre los cinco ficheros buscando cualquier formateador que
+divida por 1e9 y acabe en "B" sin cubrir 1e12.
+
+### Lo auditado sin encontrar nada
+
+**Puntuación — las 15 escaleras.** Las 10 escritas con `tramo()`: umbrales estrictamente decrecientes y
+puntos estrictamente decrecientes, así que ningún escalón es inalcanzable y ninguno premia menos por
+más. Las 5 escritas como ternarios encadenados (`pRsi`, `pCons`, `pMn`, `pMax`, `pTam`) barridas
+numéricamente sobre su dominio: todos los escalones declarados son alcanzables y no aparece ninguno sin
+declarar. Es la prueba que habría cazado el fallo del RSI del 11 de octubre.
+
+**Puntuación — 10 invariantes sobre las 36 acciones reales:** total y `sinPenalizar` acotados a 0-100;
+`sinPenalizar` nunca menor que `total`; cada uno de los 5 bloques dentro de su máximo declarado
+(25/25/20/15/15); penalización acotada a 15; bonus a 5 y tamaño a 5; **el total declarado es la suma
+real de las partes** menos penalización más bonus; ningún valor no finito en toda la salida (recorrido
+recursivo); `extendida` concuerda con penalización ≥ 9; sin dato de crecimiento se avisa como riesgo; y
+ningún texto contiene "undefined", "NaN" ni "null".
+
+**Régimen de mercado.** Recalculado desde los datos: SPY 771,79 sobre su SMA 200 de 724,63, y solo 1 de
+los 3 índices sobre su EMA 50 → **desfavorable**, que es lo que el panel declara. `spySobre200` e
+`indicesSobre50` guardados coinciden con el recálculo. Con el mercado en contra el panel reduce el top
+a 3, y la regla está en el código.
+
+**Resultados.** 35 entradas distintas, ninguna contada dos veces, ninguna con más sesiones que días
+guardados. 0 maduras de las 30 que hacen falta: la más antigua (YDES) lleva 11 sesiones de las 15.
+
+**Integridad de los datos.** 11 días, sin duplicados, en orden cronológico, ninguno vacío, ninguno con
+una acción sin precio válido, ninguno sin el precio del SPY. Todos los símbolos del top tienen datos de
+hoy y formato válido para el enlace a TradingView.
+
+**Coherencia de la documentación.** `REQUISITOS` devuelve 9 y Parámetros habla de 9; los de solo entrada
+son 2 (capitalización y precio mínimo), como dice la tabla; y los umbrales publicados coinciden con los
+criterios reales (RSI 55, crecimiento 20 %, 20 % desde el máximo, sin techo).
+
+**Respaldo de posiciones — ida y vuelta.** Tres posiciones con todos los campos nuevos (`parcial`, `id`,
+`compras`, `maxVisto`, `stopMax`) exportadas y restauradas: **idénticas campo por campo**. `maxVisto` y
+`stopMax` importan especialmente, porque sin ellos el stop y la regla de devolución se recalculan mal.
+Una copia con formato inválido se rechaza antes de tocar nada.
+
+### Pruebas
+
+436 comprobaciones en verde (de 425).
+
+**Fallo propio: rompí una prueba existente.** Mi bloque del respaldo vaciaba `posiciones-v1` al acabar y
+la prueba siguiente contaba con encontrar las posiciones que ya había. Mutar estado compartido entre
+bloques. Arreglado guardando y restaurando el estado anterior.
+
+### Lo que sigue SIN auditar, y lo digo porque me lo han pedido "todo"
+
+- **El valor de los 114 umbrales.** Se ha comprobado que son *coherentes* (alcanzables, ordenados,
+  acotados). **No** que sean *los correctos*: eso necesita 150-200 entradas maduras, primavera de 2027.
+- **La pestaña Resultados en funcionamiento.** Se ha auditado el conteo de madurez, no las conclusiones
+  que dará cuando se desbloquee, porque todavía no hay ninguna entrada madura.
+- **El comportamiento real del navegador.** Todo esto corre sobre un DOM de juguete. No he abierto la
+  web en un navegador de verdad ni comprobado el diseño en un móvil físico.
+- **Los datos de TradingView.** Se comprueba que llegan y son coherentes, no que sean correctos.

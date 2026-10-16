@@ -36,6 +36,39 @@ comprueba("una gestora de fondos queda fuera", b.excluida(con(industria="Investm
 comprueba("una empresa de software entra", b.excluida(sana), False)
 comprueba("una biotecnológica entra", b.excluida(con(sector="Health Technology", industria="Biotechnology")), False)
 
+# 16/10/2026: se encontro un dia fantasma guardado, el domingo 2026-10-04, con el SPY identico al
+# del viernes anterior (769,64): el escaneo devolvio los cierres del viernes con fecha de domingo.
+# Era de antes de que existiera sin_cierre_nuevo(). Cuenta como sesion y adelanta la madurez de las
+# entradas en la pestaña Resultados, que es justo la medicion que hay que hacer en noviembre.
+# Estas tres comprobaciones impiden que vuelva a entrar ninguno sin que nadie se entere.
+print("\nNINGUN DIA FANTASMA ENTRE LOS DATOS GUARDADOS")
+import datetime as _dt
+_datos = sorted(b.DATOS.glob("2*.json"))
+_fines = [f.stem for f in _datos if _dt.date.fromisoformat(f.stem).weekday() >= 5]
+comprueba("ningun fichero de datos cae en fin de semana", _fines, [])
+_fechas = [f.stem for f in _datos]
+comprueba("no hay fechas duplicadas", len(_fechas), len(set(_fechas)))
+
+def _spy_de(f):
+    import json
+    d = json.loads(f.read_text())
+    return next((m.get("precio") for m in d.get("mercado", []) if m.get("ticker") == "SPY"), None)
+
+_repes = []
+for _i in range(1, len(_datos)):
+    _a, _b = _spy_de(_datos[_i - 1]), _spy_de(_datos[_i])
+    if _a is not None and _a == _b:
+        _repes.append(f"{_datos[_i-1].stem} y {_datos[_i].stem} comparten el SPY ({_a})")
+comprueba("ningun par de dias consecutivos comparte el precio del SPY", _repes, [])
+
+_vacios = []
+for _f in _datos:
+    import json
+    _d = json.loads(_f.read_text())
+    if not _d.get("acciones"):
+        _vacios.append(_f.stem)
+comprueba("ningun dia guardado esta vacio", _vacios, [])
+
 print("\nCOHERENCIA DE UMBRALES")
 comprueba("el suelo de capitalización del escáner coincide con el documentado",
           [f["right"] for f in b.FILTROS if f["left"] == "market_cap_basic"], [b.CAP_MIN])

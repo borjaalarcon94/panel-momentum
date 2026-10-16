@@ -86,6 +86,50 @@ for (const f of orden) {
     await paso('el aviso de datos viejos se evalúa sin errores', () => ventana.avisaDatosViejos(panel.dias[panel.dias.length - 1]));
   }
 
+  /* El respaldo es lo unico que protege un historial que vive solo en el navegador y no se puede
+     regenerar. Tiene que sobrevivir ida y vuelta CON los campos nuevos: parcial, id, compras. */
+  console.log('\nEL RESPALDO NO PIERDE NINGÚN CAMPO');
+  // se guarda el estado anterior: la prueba siguiente cuenta con las posiciones que ya habia
+  const rbAntes = almacen['posiciones-v1'];
+  const rbCartera = ventana.CARTERA.leer();
+  const rbOrig = [
+    { ticker: 'AAA', simbolo: 'NASDAQ:AAA', precio: 12.5, acciones: 60, fecha: '2026-09-01',
+      maxVisto: 30.1, stopMax: 14.2,
+      compras: [{ fecha: '2026-09-01', precio: 10, acciones: 100 }, { fecha: '2026-10-05', precio: 20, acciones: 20 }] },
+    { ticker: 'AAA', simbolo: 'NASDAQ:AAA', precio: 10, acciones: 40, fecha: '2026-09-01',
+      cerrada: '2026-09-20', precioSalida: 25, parcial: true, id: 'pR1' },
+    { ticker: 'BBB', simbolo: 'NYSE:BBB', precio: 50, acciones: 10, fecha: '2026-07-01',
+      cerrada: '2026-08-01', precioSalida: 60, manual: true },
+  ];
+  almacen['posiciones-v1'] = JSON.stringify(rbOrig);
+  ventana.CARTERA.guardar({ total: 1500, riesgo: 1.5 });
+  // exportar = exactamente lo que hace el boton
+  const rbTxt = JSON.stringify({ posiciones: JSON.parse(almacen['posiciones-v1']), cartera: ventana.CARTERA.leer(), guardado: panel.dias[panel.dias.length - 1] });
+  // borrarlo todo y restaurar con el mismo filtro que usa el boton
+  almacen['posiciones-v1'] = '[]';
+  const rbD = JSON.parse(rbTxt);
+  almacen['posiciones-v1'] = JSON.stringify(rbD.posiciones.filter(p => p && p.ticker && p.precio > 0));
+  const rbVuelta = JSON.parse(almacen['posiciones-v1']);
+  JSON.stringify(rbVuelta) === JSON.stringify(rbOrig)
+    ? ok('las 3 posiciones vuelven idénticas, campo por campo') : mal('el respaldo pierde o altera campos', JSON.stringify(rbVuelta));
+  rbVuelta[1] && rbVuelta[1].parcial === true && rbVuelta[1].id === 'pR1'
+    ? ok('la venta parcial conserva parcial e id') : mal('la venta parcial se corrompe');
+  rbVuelta[0] && rbVuelta[0].compras && rbVuelta[0].compras.length === 2
+    ? ok('el desglose de compras sobrevive') : mal('se pierde el desglose de compras');
+  rbVuelta[0] && rbVuelta[0].maxVisto === 30.1 && rbVuelta[0].stopMax === 14.2
+    ? ok('maxVisto y stopMax sobreviven: sin ellos el stop y la devolución se recalculan mal')
+    : mal('se pierden maxVisto o stopMax');
+  rbD.cartera && rbD.cartera.total === 1500 && rbD.cartera.riesgo === 1.5
+    ? ok('y la cartera con su nivel de riesgo') : mal('se pierde la cartera');
+  // una copia corrupta no debe destruir nada
+  (() => {
+    try { const x = JSON.parse('{\"posiciones\":\"no soy un array\"}'); if (!Array.isArray(x.posiciones)) throw new Error('formato'); mal('acepta una copia con formato invalido'); }
+    catch (e) { ok('una copia con formato inválido se rechaza antes de tocar nada'); }
+  })();
+  // se devuelve todo como estaba, para no romper las pruebas siguientes
+  almacen['posiciones-v1'] = rbAntes;
+  if (rbCartera) ventana.CARTERA.guardar(rbCartera); else { try { delete almacen['cartera-v1'] } catch (e) {} }
+
   console.log('\nCOPIA DE SEGURIDAD DE LAS POSICIONES');
   await paso('la pestaña se pinta con los botones de copia', () => ventana.posiciones());
   const guardadas = JSON.parse(almacen['posiciones-v1'] || '[]');

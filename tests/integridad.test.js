@@ -22,6 +22,24 @@ for (const u of usadas) definidas.has(u) ? ok('window.' + u + ' está definida')
 /* La pestaña Parametros es lo que se descarga en PDF para que lo audite una IA externa: si describe
    reglas que el codigo ya no aplica, esa auditoria parte de una descripcion falsa. Estas
    comprobaciones atan las tablas al codigo que de verdad se ejecuta. */
+/* 16/10/2026: sin techo de capitalizacion entran empresas de billones. app.js y puntuacion.js ya
+   tienen el tramo T; export.js tenia su propio formateador SIN el tramo, aunque estaba muerto. Si
+   alguien escribe otro que divida por 1e9 sin cubrir 1e12, volveria a salir "1141,0 B". */
+console.log('\nTODO FORMATEADOR DE CAPITALIZACIÓN CUBRE EL BILLÓN');
+{
+  const malos = [];
+  for (const [f, src] of Object.entries(fuente)) {
+    for (const m of src.matchAll(/[^\n]*\/\s*1e9[^\n]*/g)) {
+      const linea = m[0];
+      if (!/'\s*B'|" B"/.test(linea)) continue;          // solo las que formatean en "B"
+      if (/1e12/.test(linea)) continue;                    // ya cubre el billon
+      malos.push(f + ': ' + linea.trim().slice(0, 90));
+    }
+  }
+  malos.length === 0 ? ok('ningún formateador en "B" se olvida del tramo T')
+    : mal('un formateador mostraría 1141,0 B en vez de 1,14 T', malos.join(' | '));
+}
+
 console.log('\nLAS TABLAS DE PARÁMETROS DESCRIBEN EL CÓDIGO REAL');
 const par = fuente['parametros.js'], pun = fuente['puntuacion.js'], app = fuente['app.js'], reg = fuente['reglas.js'];
 
