@@ -466,6 +466,102 @@ for (const f of orden) {
      conclusion sobre si vas ganando o perdiendo esta mal. */
   /* La seccion se devolvia como null sin operaciones cerradas y no se dibujaba nada: no habia forma
      de saber que existia. La tabla de operaciones si se enseña vacia; esta tiene que hacer lo mismo. */
+  /* Ventas parciales. El caso que las motiva: una accion sube mucho, no toca vender segun el
+     protocolo, pero hace falta liquidez. Lo que mas despista es el precio medio: NO cambia. */
+  console.log('\nVENTA PARCIAL: LA ARITMÉTICA');
+  // 100 acciones compradas a 10 $. Se venden 40 a 25 $.
+  // ticker real del panel: asi se recorre el camino completo de la tarjeta, con cotizacion incluida
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: datos.ticker, simbolo: sim, precio: 10, acciones: 60, fecha: '2026-09-01' },
+    { ticker: datos.ticker, simbolo: sim, precio: 10, acciones: 40, fecha: '2026-09-01',
+      cerrada: '2026-10-10', precioSalida: 25, parcial: true, id: 'pX' },
+  ]);
+  await paso('posiciones se pinta con una venta parcial', () => ventana.posiciones());
+  const tp = porId.rpos.textContent;
+  /ya vendiste 40 de 100 acciones/.test(tp)
+    ? ok('la tarjeta dice cuántas vendiste de cuántas') : mal('no dice lo ya vendido', tp.slice(0, 200));
+  /realizado \+600,00 \$/.test(tp)
+    ? ok('y la ganancia realizada: 40 × (25 − 10) = +600,00 $') : mal('la ganancia realizada no cuadra');
+  /en 1 venta/.test(tp) ? ok('cuenta una sola venta') : mal('no cuenta las ventas');
+  /venta parcial/.test(tp) ? ok('la fila del historial se marca como venta parcial') : mal('la fila no se marca');
+  // Precio medio: NO cambia. Las 60 que quedan siguen costando 10 $.
+  /10,00 \$ →/.test(tp)
+    ? ok('la tarjeta sigue mostrando 10,00 $ como precio medio de compra')
+    : mal('el precio medio mostrado no es el de compra', (tp.match(/[\d.,]+ \$ →[^·]*/) || [''])[0]);
+  const posPar = JSON.parse(almacen['posiciones-v1']);
+  const abierta = posPar.find(x => !x.cerrada);
+  abierta && abierta.precio === 10 ? ok('y en el almacén tampoco se ha tocado') : mal('se ha alterado el precio de compra guardado');
+  abierta && Number(abierta.acciones) === 60 ? ok('quedan 60 acciones en la posición abierta') : mal('el nº de acciones no cuadra');
+
+  /* El protocolo tiene que seguir igual: el stop y la regla de devolucion se miden contra el precio
+     de compra, asi que una venta parcial no puede moverlos. Se comprueba de punta a punta: se pinta
+     la MISMA posicion con 100 acciones y con 60, y el veredicto y el stop tienen que coincidir. */
+  console.log('\nVENTA PARCIAL: EL PROTOCOLO NO SE MUEVE');
+  const veredictoDe = txt => (txt.match(/(MANTENER|VIGILAR|VENDER)/) || ['-'])[0];
+  const stopDe = txt => (txt.match(/Stop\s*([\d.,]+)\s*\$/) || [null, null])[1];
+  const base = { ticker: 'PRO', simbolo: sim, precio: datos.precio * 0.5, fecha: panel.dias[panel.dias.length - 1] };
+  almacen['posiciones-v1'] = JSON.stringify([{ ...base, acciones: 100 }]);
+  await paso('posiciones se pinta con 100 acciones', () => ventana.posiciones());
+  const entero = porId.rpos.textContent;
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ...base, acciones: 60 },
+    { ...base, acciones: 40, cerrada: panel.dias[panel.dias.length - 1], precioSalida: datos.precio, parcial: true, id: 'pY' },
+  ]);
+  await paso('y con 60 tras vender 40', () => ventana.posiciones());
+  const partido = porId.rpos.textContent;
+  veredictoDe(entero) === veredictoDe(partido) && veredictoDe(entero) !== '-'
+    ? ok('el veredicto es el mismo (' + veredictoDe(entero) + ') antes y después de la venta parcial')
+    : mal('el veredicto cambia al vender parte', veredictoDe(entero) + ' -> ' + veredictoDe(partido));
+  stopDe(entero) && stopDe(entero) === stopDe(partido)
+    ? ok('y el stop es el mismo (' + stopDe(entero) + ' $): no depende de cuántas acciones tengas')
+    : mal('el stop cambia al vender parte', stopDe(entero) + ' -> ' + stopDe(partido));
+
+  /* Borrar una venta parcial tiene que DEVOLVER las acciones. Si no, corriges un error y de paso
+     pierdes 40 acciones de tu registro sin que nada te avise. */
+  console.log('\nVENTA PARCIAL: BORRARLA DEVUELVE LAS ACCIONES');
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: datos.ticker, simbolo: sim, precio: 10, acciones: 60, fecha: '2026-09-01' },
+    { ticker: datos.ticker, simbolo: sim, precio: 10, acciones: 40, fecha: '2026-09-01',
+      cerrada: '2026-10-10', precioSalida: 25, parcial: true, id: 'pZ' },
+  ]);
+  await paso('posiciones se pinta antes de borrar', () => ventana.posiciones());
+  // se simula el borrado con la misma logica que ejecuta el boton
+  (() => {
+    const lista = JSON.parse(almacen['posiciones-v1']);
+    const borrada = lista.find(x => x.id === 'pZ');
+    const resto = lista.filter(x => x.id !== 'pZ');
+    almacen['posiciones-v1'] = JSON.stringify(resto.map(x => (!x.cerrada && x.ticker === borrada.ticker && x.fecha === borrada.fecha
+      ? { ...x, acciones: (Number(x.acciones) || 0) + Number(borrada.acciones) } : x)));
+  })();
+  const tras = JSON.parse(almacen['posiciones-v1']);
+  tras.length === 1 && Number(tras[0].acciones) === 100
+    ? ok('tras borrar la venta parcial la posición vuelve a tener 100 acciones')
+    : mal('las acciones no vuelven al borrar', JSON.stringify(tras));
+  // y el codigo real tiene que hacer eso, no solo la simulacion de arriba
+  /las acciones vuelven a la posición abierta|vuelven a la posición abierta/.test(fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8'))
+    ? ok('el aviso de borrado explica que las acciones vuelven') : mal('el borrado no avisa de la devolución');
+  /\{ \.\.\.x, acciones: Math\.round\(\(\(Number\(x\.acciones\) \|\| 0\) \+ devuelve\)/.test(fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8'))
+    ? ok('y el código las suma de vuelta de verdad') : mal('el código no devuelve las acciones');
+
+  /* Una posicion vendida en dos veces es UNA operacion, no dos: si contara dos, el "acertadas" se
+     infla y es el numero con el que se juzga la estrategia. */
+  console.log('\nVENTA PARCIAL: NO INFLA LA TASA DE ACIERTO');
+  almacen['posiciones-v1'] = JSON.stringify([
+    { ticker: 'DOS', simbolo: 'DOS', precio: 10, acciones: 50, fecha: '2026-09-01',
+      cerrada: '2026-09-20', precioSalida: 15, parcial: true, id: 'p1' },
+    { ticker: 'DOS', simbolo: 'DOS', precio: 10, acciones: 50, fecha: '2026-09-01',
+      cerrada: '2026-09-30', precioSalida: 13 },
+    { ticker: 'MAL', simbolo: 'MAL', precio: 20, acciones: 10, fecha: '2026-09-02',
+      cerrada: '2026-09-25', precioSalida: 17 },
+  ]);
+  await paso('posiciones se pinta con una posición vendida en dos veces', () => ventana.posiciones());
+  const t2 = porId.rpos.textContent;
+  /acertadas[\s\S]{0,40}1 de 2/.test(t2)
+    ? ok('acertadas 1 de 2 posiciones, no 1 de 3 salidas') : mal('la tasa de acierto cuenta salidas, no posiciones', (t2.match(/acertadas[\s\S]{0,40}/) || [''])[0]);
+  /3 salidas/.test(t2) ? ok('y dice que hubo 3 salidas, para que no parezca que faltan filas') : mal('no menciona las salidas');
+  // dinero: DOS +250 +150 = +400, MAL -30  ->  +370
+  /\+370,00 \$/.test(t2) ? ok('el dinero suma las dos salidas: +400 − 30 = +370,00 $') : mal('la suma de dinero no cuadra');
+
   console.log('\nEL BENEFICIO MENSUAL SE VE AUNQUE NO HAYA OPERACIONES');
   almacen['posiciones-v1'] = '[]';
   await paso('posiciones se pinta sin ninguna operación', () => ventana.posiciones());

@@ -95,6 +95,37 @@ function dinero(p, ahora, stop) {
     pctCartera: c.total ? invertido / c.total * 100 : null };
 }
 
+/* ── Ventas parciales ────────────────────────────────────────────────────────
+   Una venta parcial se guarda como una operacion CERRADA aparte (con parcial:true y el nº de
+   acciones vendidas) y se le resta ese nº a la posicion abierta. Asi el historial, el beneficio
+   mensual y la curva de la cuenta la cuentan solas, sin tocar nada de su codigo.
+
+   EL PRECIO MEDIO DE COMPRA NO CAMBIA, y es lo que mas despista. Vender parte no abarata lo que
+   te costaron las que te quedan: siguen costando lo mismo por accion. Lo que cambia es cuantas
+   tienes, cuanto capital te queda dentro y cuanta ganancia has pasado a dinero real.
+   Esto es importante para el sistema: el stop, la subida del stop al +20 % y la regla de devolucion
+   se miden todas contra el precio de compra, asi que una venta parcial NO altera el protocolo. */
+function partesVendidas(p) {
+  const xs = leerPos().filter(x => x.parcial && x.cerrada && x.ticker === p.ticker && x.fecha === p.fecha);
+  const acciones = xs.reduce((s, x) => s + (Number(x.acciones) || 0), 0);
+  const cobrado = xs.reduce((s, x) => s + (Number(x.acciones) || 0) * (Number(x.precioSalida) || 0), 0);
+  const pyl = xs.reduce((s, x) => s + (Number(x.acciones) || 0) * ((Number(x.precioSalida) || 0) - p.precio), 0);
+  return { n: xs.length, acciones, cobrado, pyl };
+}
+
+/* Agrupa las operaciones cerradas por POSICION (mismo ticker y misma fecha de compra). Una posicion
+   de la que has vendido en dos veces es una sola operacion con dos salidas, no dos operaciones: si
+   contara dos, el "acertadas X de Y" se infla y ese es el numero con el que juzgas la estrategia. */
+function porPosicion(cerradas) {
+  const g = new Map();
+  cerradas.forEach(p => {
+    const k = p.ticker + '|' + p.fecha;
+    if (!g.has(k)) g.set(k, []);
+    g.get(k).push(p);
+  });
+  return [...g.values()];
+}
+
 /* Revisión diaria de una posición. Toda la lógica vive en docs/reglas.js: aquí solo se dan formato
    los resultados. Si quieres cambiar un umbral, se cambia allí y cambia en toda la web a la vez. */
 function revision(p) {
@@ -327,12 +358,21 @@ function historialOperaciones(cerradas) {
 
   if (ops.length) {
     const conDinero = ops.filter(o => o.pyl != null);
-    const ganadoras = ops.filter(o => o.ret > 0).length;
     const totalPyl = conDinero.reduce((s, o) => s + o.pyl, 0);
     const totalInv = conDinero.reduce((s, o) => s + o.invertido, 0);
+    /* Una posicion vendida en dos veces es UNA operacion con dos salidas. Contarla como dos infla
+       el "acertadas X de Y", que es justo el numero con el que se juzga la estrategia. Sin ventas
+       parciales cada grupo tiene una sola salida y estas cifras son las de siempre. */
+    const grupos = porPosicion(cerradas);
+    const ganadoras = grupos.filter(g => {
+      const inv = g.reduce((s, x) => s + (Number(x.acciones) || 1) * x.precio, 0);
+      const sal = g.reduce((s, x) => s + (Number(x.acciones) || 1) * (x.precioSalida || 0), 0);
+      return inv > 0 && sal > inv;
+    }).length;
+    const parciales = cerradas.filter(x => x.parcial).length;
     const st = el('div', 'stats');
-    st.append(stat('operaciones', ops.length),
-      stat('acertadas', ganadoras + ' de ' + ops.length + ' · ' + Math.round(ganadoras / ops.length * 100) + ' %'));
+    st.append(stat('operaciones', grupos.length + (parciales ? ' · ' + ops.length + ' salidas' : '')),
+      stat('acertadas', ganadoras + ' de ' + grupos.length + ' · ' + Math.round(ganadoras / grupos.length * 100) + ' %'));
     if (conDinero.length) {
       st.append(stat('resultado total', (totalPyl >= 0 ? '+' : '−') + n(Math.abs(totalPyl), 2) + ' $', signo(totalPyl)),
         stat('sobre lo invertido', pc(totalInv ? totalPyl / totalInv * 100 : 0), signo(totalPyl)));
@@ -353,6 +393,7 @@ function historialOperaciones(cerradas) {
   ops.forEach(o => {
     const p = o.p, tr = el('tr');
     const td0 = el('td'); td0.appendChild(el('b', null, p.ticker));
+    if (p.parcial) td0.appendChild(el('div', 'name', 'venta parcial'));
     if (p.manual) td0.appendChild(el('div', 'name', 'añadida a mano'));
     tr.appendChild(td0);
     [fFecha(p.fecha), fFecha(p.cerrada), o.dias == null ? '—' : String(o.dias),
@@ -363,8 +404,25 @@ function historialOperaciones(cerradas) {
       o.pyl == null ? '—' : (o.pyl >= 0 ? '+' : '−') + n(Math.abs(o.pyl), 2) + ' $'));
     const tb = el('td'), bb = el('button', 'chip', 'Borrar');
     bb.onclick = () => {
-      if (!confirm('¿Borrar la operación de ' + p.ticker + ' del ' + fFecha(p.cerrada) + '? No se puede deshacer.')) return;
-      guardarPos(leerPos().filter(x => !(x.ticker === p.ticker && x.cerrada === p.cerrada && x.fecha === p.fecha)));
+      /* Al borrar una venta parcial hay que DEVOLVER las acciones a la posicion abierta. Si no, las
+         acciones desaparecen: la posicion se quedaria con 60 cuando compraste 100, y eso es corromper
+         tu registro en silencio justo cuando estas corrigiendo un error. */
+      const abierta = p.parcial && Number(p.acciones) > 0
+        ? leerPos().find(x => !x.cerrada && x.ticker === p.ticker && x.fecha === p.fecha) : null;
+      const devuelve = abierta ? Number(p.acciones) : 0;
+      if (!confirm('¿Borrar ' + (p.parcial ? 'la venta parcial' : 'la operación') + ' de ' + p.ticker +
+          ' del ' + fFecha(p.cerrada) + '?' +
+          (devuelve ? ' Las ' + n(devuelve, devuelve % 1 ? 2 : 0) + ' acciones vuelven a la posición abierta, que pasará a tener ' +
+            n((Number(abierta.acciones) || 0) + devuelve, 2).replace(',00', '') + '.' : '') +
+          ' No se puede deshacer.')) return;
+      /* Dos ventas parciales del mismo ticker el mismo dia coinciden en ticker+fecha+cerrada y se
+         borrarian las dos. Las parciales llevan id propio, asi que se borra por id cuando existe. */
+      const resto = p.id ? leerPos().filter(x => x.id !== p.id)
+        : leerPos().filter(x => !(x.ticker === p.ticker && x.cerrada === p.cerrada && x.fecha === p.fecha && !x.id));
+      guardarPos(devuelve
+        ? resto.map(x => (!x.cerrada && x.ticker === p.ticker && x.fecha === p.fecha
+            ? { ...x, acciones: Math.round(((Number(x.acciones) || 0) + devuelve) * 1e6) / 1e6 } : x))
+        : resto);
       window.posiciones();
     };
     tb.appendChild(bb); tr.appendChild(tb);
@@ -377,7 +435,10 @@ function historialOperaciones(cerradas) {
     // Fila de totales dentro de la propia tabla: la suma se lee junto a lo que la compone.
     const conDinero = ops.filter(o => o.pyl != null);
     const tr = el('tr', 'total');
-    const td = el('td'); td.setAttribute('colspan', '7'); td.appendChild(el('b', null, 'TOTAL · ' + ops.length + ' operaciones'));
+    const nGr = porPosicion(cerradas).length;
+    const td = el('td'); td.setAttribute('colspan', '7');
+    td.appendChild(el('b', null, 'TOTAL · ' + nGr + (nGr === 1 ? ' operación' : ' operaciones') +
+      (ops.length !== nGr ? ' en ' + ops.length + ' salidas' : '')));
     tr.appendChild(td);
     const medio = ops.reduce((s, o) => s + (o.ret || 0), 0) / ops.length;
     tr.appendChild(el('td', medio >= 0 ? 'up' : 'down', pc(medio)));
@@ -415,10 +476,60 @@ function formularioVenta(r, alCerrar) {
     return { i, w };
   };
   const hoyReal = new Date().toISOString().slice(0, 10);
+  const total = Number(r.p.acciones) > 0 ? Number(r.p.acciones) : null;
   const pr = campo('¿A qué precio has vendido?', 'number', null);
   const fe = campo('¿Qué día la vendiste?', 'date', hoyReal);
-  const rej = el('div', 'formop'); rej.append(pr.w, fe.w);
+  const ac = campo(total ? '¿Cuántas acciones? (tienes ' + n(total, total % 1 ? 2 : 0) + ')' : 'Nº de acciones', 'number', total);
+  const rej = el('div', 'formop'); rej.append(pr.w, ac.w, fe.w);
   d.appendChild(rej);
+
+  /* Atajos: lo normal al necesitar liquidez es soltar la mitad o un tercio, no una cifra exacta. */
+  if (total) {
+    const fr = el('div', 'row'); fr.style.marginTop = '2px';
+    fr.appendChild(el('span', 'm', 'Vender'));
+    [['la mitad', 2], ['un tercio', 3], ['dos tercios', 1.5], ['todo', 1]].forEach(([t, div]) => {
+      const b = el('button', 'chip', t);
+      b.onclick = () => { const v = total / div; ac.i.value = String(Math.round(v * 100) / 100).replace('.', ','); pinta(); };
+      fr.appendChild(b);
+    });
+    d.appendChild(fr);
+  }
+
+  /* Previsualizacion en vivo: lo que de verdad hace falta saber antes de confirmar. */
+  const vista = el('div', 'previo');
+  const pinta = () => {
+    vista.replaceChildren();
+    const v = comoNumero(pr.i.value), nn = comoNumero(ac.i.value);
+    if (!total) {
+      vista.appendChild(el('div', 'm', 'Esta posición no tiene nº de acciones anotado. Añádelo con «Corregir la compra» y podrás vender solo una parte.'));
+      return;
+    }
+    if (!(v > 0) || !(nn > 0)) { vista.appendChild(el('div', 'm', 'Pon el precio y el nº de acciones para ver cómo te quedaría.')); return; }
+    const vende = Math.min(nn, total), queda = Math.max(0, total - vende);
+    const cobras = vende * v, pylV = (v - r.p.precio) * vende;
+    const fila = (et, val, cls) => { const f = el('div', 'pf'); f.appendChild(el('span', 'et', et)); f.appendChild(el('span', 'vl' + (cls ? ' ' + cls : ''), val)); vista.appendChild(f); };
+    if (queda === 0) {
+      fila('Vendes', n(vende, vende % 1 ? 2 : 0) + ' acciones · TODA la posición');
+      fila('Cobras', n(cobras, 2) + ' $');
+      fila('Resultado', (pylV >= 0 ? '+' : '−') + n(Math.abs(pylV), 2) + ' $ · ' + pc((v / r.p.precio - 1) * 100), pylV >= 0 ? 'up' : 'down');
+      vista.appendChild(el('div', 'm', 'La posición se cierra y pasa a tu historial.'));
+    } else {
+      const previas = partesVendidas(r.p);
+      fila('Vendes ahora', n(vende, vende % 1 ? 2 : 0) + ' de ' + n(total, total % 1 ? 2 : 0) + ' acciones · ' + n(vende / total * 100, 0) + ' %');
+      fila('Cobras', n(cobras, 2) + ' $');
+      fila('Ganancia que realizas', (pylV >= 0 ? '+' : '−') + n(Math.abs(pylV), 2) + ' $', pylV >= 0 ? 'up' : 'down');
+      fila('Te quedan', n(queda, queda % 1 ? 2 : 0) + ' acciones');
+      fila('Precio medio de compra', n(r.p.precio) + ' $ · NO cambia');
+      fila('Capital que sigue dentro', n(queda * r.p.precio, 2) + ' $');
+      if (r.ahora != null) fila('Valor de lo que te queda', n(queda * r.ahora, 2) + ' $', null);
+      if (previas.acciones > 0) fila('Ya habías vendido', n(previas.acciones, previas.acciones % 1 ? 2 : 0) + ' acciones · realizado ' + (previas.pyl >= 0 ? '+' : '−') + n(Math.abs(previas.pyl), 2) + ' $', previas.pyl >= 0 ? 'up' : 'down');
+      vista.appendChild(el('div', 'm', 'El precio medio no cambia: vender parte no abarata las que te quedan, siguen costando ' + n(r.p.precio) + ' $ cada una. Y el protocolo sigue igual, porque el stop y la regla de devolución se miden contra ese precio de compra.'));
+    }
+  };
+  [pr.i, ac.i].forEach(i => i.addEventListener('input', pinta));
+  d.appendChild(vista);
+  pinta();
+
   d.appendChild(el('p', 'nota', r.ahora != null
     ? 'De referencia, su último cierre guardado fue ' + n(r.ahora) + ' $ (del ' + fFecha(FH[0]) + '). Pon el precio real al que has vendido en tu bróker: el panel va un día por detrás y esa cifra casi nunca es la tuya.'
     : 'Pon el precio real al que has vendido en tu bróker.'));
@@ -428,8 +539,26 @@ function formularioVenta(r, alCerrar) {
     if (!v || v <= 0) return alert('Pon el precio al que has vendido. No lo relleno yo con la cotización del panel porque va con un día de retraso.');
     if (!fe.i.value) return alert('Pon la fecha de la venta.');
     if (fe.i.value < r.p.fecha) return alert('La venta no puede ser anterior a la compra (' + fFecha(r.p.fecha) + ').');
-    guardarPos(leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada
-      ? { ...p, cerrada: fe.i.value, precioSalida: v } : p)));
+    const nn = comoNumero(ac.i.value);
+    const parcial = total && nn > 0 && nn < total;
+    if (total && !(nn > 0)) return alert('Pon cuántas acciones vendes. Si vendes todas, pulsa «todo».');
+    if (total && nn > total) return alert('No puedes vender ' + n(nn, 2) + ' acciones: solo tienes ' + n(total, total % 1 ? 2 : 0) + '.');
+    if (parcial && !confirm('Vas a vender ' + n(nn, nn % 1 ? 2 : 0) + ' de ' + n(total, total % 1 ? 2 : 0) +
+        ' acciones de ' + r.p.ticker + ' a ' + n(v) + ' $. La posición sigue abierta con ' +
+        n(total - nn, (total - nn) % 1 ? 2 : 0) + ' acciones. ¿Confirmas?')) return;
+    if (!parcial) {
+      guardarPos(leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada
+        ? { ...p, cerrada: fe.i.value, precioSalida: v } : p)));
+    } else {
+      /* La venta parcial no toca el precio de compra, ni maxVisto, ni stopMax: el protocolo continua
+         exactamente igual sobre las acciones que quedan. Solo baja el nº de acciones. */
+      const lista = leerPos().map(p => (p.ticker === r.p.ticker && !p.cerrada
+        ? { ...p, acciones: Math.round((total - nn) * 1e6) / 1e6 } : p));
+      lista.push({ ...r.p, id: 'p' + Date.now() + Math.random().toString(36).slice(2, 7),
+        acciones: nn, cerrada: fe.i.value, precioSalida: v, parcial: true,
+        maxVisto: undefined, stopMax: undefined });
+      guardarPos(lista);
+    }
     alCerrar();
   };
   const no = el('button', 'chip', 'Cancelar');
@@ -487,6 +616,15 @@ window.posiciones = async function () {
     l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(r.p.simbolo); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);
     izq.appendChild(el('div', 'name', 'comprada el ' + fFecha(r.p.fecha) + (r.dias ? ' · ' + r.dias + (r.dias === 1 ? ' día' : ' días') : '')));
+    /* Si ya has soltado parte, hay que verlo aqui: el % de ganancia de la tarjeta es solo de lo que
+       te queda, y sin esta linea parece que la operacion va peor de lo que va. */
+    const vend = partesVendidas(r.p);
+    if (vend.acciones > 0) {
+      const tot = vend.acciones + (Number(r.p.acciones) || 0);
+      izq.appendChild(el('div', 'name', 'ya vendiste ' + n(vend.acciones, vend.acciones % 1 ? 2 : 0) + ' de ' +
+        n(tot, tot % 1 ? 2 : 0) + ' acciones en ' + vend.n + (vend.n === 1 ? ' venta' : ' ventas') +
+        ' · realizado ' + (vend.pyl >= 0 ? '+' : '−') + n(Math.abs(vend.pyl), 2) + ' $'));
+    }
     const der = el('div', 'px');
     const g = el('div', 'ganancia ' + (r.gan >= 0 ? 'up' : 'down'));
     g.textContent = r.ahora == null ? '—' : pc(r.gan);

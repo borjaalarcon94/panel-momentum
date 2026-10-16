@@ -507,3 +507,53 @@ que el panel no muestra importe de compra para ellas (solo aparece con veredicto
 conjuntos son disjuntos. **El día que una entre al top con señal de compra, el panel pedirá un cuarto
 de la cartera con un stop de ruido.** Es lo primero que hay que resolver cuando lleguen las 30 entradas
 maduras (pregunta 5 de la sección 7).
+
+---
+
+## 16 de octubre de 2026 — ventas parciales
+
+**Petición:** poder vender solo una parte de una posición, típicamente para sacar liquidez de una que
+sube mucho pero a la que no le toca venderse según el protocolo.
+
+**Decisión de diseño: el precio medio de compra NO cambia.** Es lo que más despista y conviene dejarlo
+escrito. Vender parte no abarata las acciones que quedan: siguen costando lo mismo por acción. Lo que
+cambia es cuántas tienes, cuánto capital sigue dentro y cuánta ganancia ha pasado a dinero real.
+
+Esto **no es un detalle cosmético, es lo que mantiene intacto el protocolo**: el stop, la subida del
+stop al +20 % y la regla de devolución se miden todos contra el precio de compra. Si una venta parcial
+lo moviera, el stop de la parte que te quedas se desplazaría sin que nada lo justifique. `evaluaPosicion`
+no recibe el nº de acciones, así que estructuralmente no puede verse afectada; se comprueba igualmente
+de punta a punta pintando la misma posición con 100 acciones y con 60 y exigiendo el mismo veredicto y
+el mismo stop.
+
+**Cómo se guarda.** Una venta parcial crea una operación CERRADA aparte (`parcial: true`, con su `id` y
+el nº de acciones vendidas) y resta ese número a la posición abierta. Así el historial, el beneficio
+mensual y la curva de la cuenta la cuentan solas, sin tocar una línea de su código. Compatible con el
+formato anterior: los registros existentes no llevan `parcial` ni `id` y se comportan igual que antes.
+
+**Tasa de acierto: cuenta posiciones, no salidas.** Una posición vendida en dos veces es UNA operación
+con dos salidas. Si contara dos, el «acertadas X de Y» se infla, y ése es justo el número con el que se
+juzga la estrategia. Cada salida sigue siendo su propia fila y el dinero suma todas. Sin ventas
+parciales, cada grupo tiene una sola salida y las cifras son idénticas a las de siempre.
+
+**Riesgo de pérdida de datos, encontrado y arreglado antes de publicar.** Al borrar una venta parcial del
+historial, las acciones vendidas no volvían a la posición abierta: corregías un error de anotación y de
+paso perdías 40 acciones de tu registro sin que nada avisara. Ahora vuelven, y el diálogo de borrado
+dice con cuántas se queda la posición. Dado que ese historial vive solo en el navegador y no se puede
+regenerar, era el fallo más grave de este cambio.
+
+**Lo que muestra el formulario antes de confirmar:** acciones que vendes y porcentaje, lo que cobras, la
+ganancia que realizas, cuántas quedan, el precio medio con un «NO cambia» explícito, el capital que
+sigue dentro, el valor de lo que queda y lo ya vendido en ventas anteriores. Atajos de ½, ⅓, ⅔ y todo.
+Si la posición no tiene nº de acciones anotado, se dice que hay que añadirlo primero en vez de aceptar
+una venta parcial que no se puede calcular.
+
+**Pruebas.** 373 comprobaciones en verde (de 353). De las 20 nuevas, 6 fallan contra el código anterior;
+el resto son invariantes que el cambio no debía romper (el precio de compra, el stop, el veredicto, la
+suma de dinero, la compatibilidad con el formato viejo).
+
+**Dos pruebas mías inútiles, cazadas antes de publicar.** Una comparaba dos llamadas idénticas a
+`evaluaPosicion` y por tanto no medía nada; se rehízo pintando la posición entera y la partida y
+comparando veredicto y stop. La otra buscaba el precio medio en la tarjeta de un ticker inventado que no
+tiene cotización en `panel.json`, así que esa línea no se pintaba nunca y el fallo era de la prueba, no
+del código.

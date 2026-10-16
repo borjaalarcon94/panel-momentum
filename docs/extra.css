@@ -249,3 +249,12 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .curvapie{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .curvapie .up{color:var(--up);font-weight:700}
 .curvapie .down{color:var(--down);font-weight:700}
+
+/* Previsualizacion de una venta parcial: lo que hay que saber antes de confirmar */
+.previo{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+  background:color-mix(in srgb,var(--line) 35%,var(--card))}
+.previo .pf{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:3px 0}
+.previo .pf .et{font-size:12px;color:var(--muted)}
+.previo .pf .vl{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.previo .pf .vl.up{color:var(--up)} .previo .pf .vl.down{color:var(--down)}
+.previo .m{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.45}
