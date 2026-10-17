@@ -870,3 +870,54 @@ siendo correcto, pero es **defensivo**: no corregía nada que estuviera viéndos
 
 **Sigue sin comprobarse:** un móvil físico (esto es emulación), navegadores que no sean Chromium, y el
 valor de los 114 umbrales, que necesita las entradas maduras de la primavera de 2027.
+
+---
+
+## 17 de octubre de 2026 — los días 1 y 2 de octubre eligieron el top por capitalización, no por puntuación
+
+Nace de una observación suya: «el listado de seguimiento cambia muchísimo, solo PAYS y CDNA se
+mantienen». Medido, resultó ser medio cierto y por un motivo que no era la rotación.
+
+**El fallo.** Los ficheros del 1 y el 2 de octubre tienen `referencia.sectores` **vacío**. Sin medianas
+de sector no hay fuerza relativa, así que `puntua()` devolvió 0 para todas, y el desempate de `main()`
+—`sorted(key=lambda a: (-nota(a), a.get("cap") or 0))`, "a igualdad, la de menor capitalización"—
+**eligió el top entero**. Esos dos días el panel no enseñó las mejores: enseñó **las 10 más pequeñas**.
+
+Se ve en los datos: `sc` es `null` para las 12 entradas de esos dos días, y la capitalización mediana
+fue 1.257 M y 674 M, frente a 3.300-13.000 M del resto de días.
+
+**La guarda que lo impide ya existe** (`comprueba()` aborta con menos de 5 sectores en la referencia),
+pero se añadió el **4 de octubre**, después. Esos dos días se colaron antes de que existiera.
+
+**Qué ensuciaba.** 10 tickers existen **solo** por esos dos días: YDES, BAND, QMCO, XRPN, SVIA, ELMT,
+AXTI, FWDI, ABSI, SHMD. Son los mismos que llenaban Seguimiento de stops apretados y avisos ámbar.
+Contaban como entradas en la pestaña Resultados, que es la medición de noviembre.
+
+**La rotación real, una vez quitados:**
+
+```
+                                  con los 2 dias malos    sin ellos
+permanencia de un dia al siguiente       63 %               76 %
+entradas de un solo dia                  34 %               16 %
+dias medios en el top                     2,9                3,6
+```
+
+Y no son dos las que aguantan, son seis: PAYS 9/9, CDNA 9/9, RSKD 8/9, HNGE 8/9, ZETA 7/9, SLDE 7/9.
+PLTR lleva 2 de 2 desde que entró el 14, no fue un día suelto.
+
+**Qué se ha hecho.** Los dos ficheros se **mueven** a `auditoria/dias-retirados/`, no se borran, junto
+al domingo fantasma del 4. Quitados de `dias` y `historico`. Quedan **9 sesiones y 25 tickers, todos
+con puntuación real**. Cuesta dos sesiones de madurez, y vale la pena: la alternativa es medir en
+noviembre con 12 entradas que el sistema nunca eligió.
+
+**Tres guardas nuevas en `filtros.test.py`**, que miran los datos YA guardados —que es lo que
+`comprueba()` no hace, porque solo valida el día que se está generando—: ningún día con menos de 5
+sectores en la referencia, ningún día del histórico entero sin puntuación, y los días de `panel.json`
+tienen que ser exactamente los ficheros guardados. Verificadas devolviendo un día malo: fallan dos.
+
+**Respuesta a la pregunta.** Sí había rotación anormal, pero no era rotación: eran dos días de datos
+mal seleccionados. La rotación de verdad —76 % de permanencia diaria, 3,6 días de media— es la normal
+de un sistema de momentum con un corte duro en el puesto 10: una acción en el puesto 10 u 11 entra y
+sale con décimas de puntuación. Eso no es un fallo, es el corte.
+
+**Pruebas.** 456 comprobaciones en verde (de 453).

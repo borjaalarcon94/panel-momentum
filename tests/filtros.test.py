@@ -69,6 +69,33 @@ for _f in _datos:
         _vacios.append(_f.stem)
 comprueba("ningun dia guardado esta vacio", _vacios, [])
 
+# 17/10/2026: los dias 1 y 2 de octubre se guardaron con referencia.sectores VACIA. Sin medianas de
+# sector no hay fuerza relativa, asi que puntuo 0 todo el mundo y el desempate de main() —"a igualdad,
+# la de menor capitalizacion"— eligio el top entero: esos dos dias el panel enseno las 10 mas pequenas
+# en vez de las mejores. De ahi salieron 10 tickers (YDES, BAND, QMCO, XRPN, SVIA, ELMT, AXTI, FWDI,
+# ABSI, SHMD) que el sistema nunca eligio y que contaban como entradas en Resultados.
+# La guarda de comprueba() que lo impide se anadio el 4 de octubre, despues. Esto lo caza en los datos
+# ya guardados, que es lo que aquella no mira.
+print("\nNINGUN DIA GUARDADO SIN PUNTUACION")
+_sin_ref, _sin_sc = [], []
+for _f in sorted(b.DATOS.glob("2*.json")):
+    import json
+    _d = json.loads(_f.read_text())
+    _sect = len((_d.get("referencia") or {}).get("sectores", {}))
+    if _sect < 5:
+        _sin_ref.append(f"{_f.stem} tiene {_sect} sectores en referencia")
+comprueba("todos los dias traen medianas de sector (si no, nadie puntua)", _sin_ref, [])
+
+_panel = json.loads((b.WEB / "panel.json").read_text())
+for _f, _h in _panel.get("historico", {}).items():
+    _acc = _h.get("acciones") or []
+    if _acc and all(a.get("sc") is None for a in _acc):
+        _sin_sc.append(f"{_f}: las {len(_acc)} sin puntuacion")
+comprueba("ningun dia del historico esta entero sin puntuacion", _sin_sc, [])
+
+comprueba("los dias de panel.json son exactamente los ficheros guardados",
+          sorted(_panel["dias"]), sorted(f.stem for f in b.DATOS.glob("2*.json")))
+
 print("\nCOHERENCIA DE UMBRALES")
 comprueba("el suelo de capitalización del escáner coincide con el documentado",
           [f["right"] for f in b.FILTROS if f["left"] == "market_cap_basic"], [b.CAP_MIN])
