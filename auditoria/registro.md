@@ -921,3 +921,43 @@ de un sistema de momentum con un corte duro en el puesto 10: una acción en el p
 sale con décimas de puntuación. Eso no es un fallo, es el corte.
 
 **Pruebas.** 456 comprobaciones en verde (de 453).
+
+---
+
+## 17 de octubre de 2026 (2) — el festivo se caza por el S&P 500, no por los tickers
+
+Observación suya: «hay fines de semana y festivos a lo largo del año y esos días la cotización no se
+mueve». Correcto, y la guarda tenía un agujero concreto.
+
+**El agujero.** `sin_cierre_nuevo()` detectaba el festivo comparando precio a precio con el día
+anterior, pero exigía **3 tickers en común**. El domingo fantasma del 4 de octubre no compartía
+**ninguno** con el día anterior, así que esa comparación no tenía nada que comparar y no podía
+dispararse. Lo salvó el `weekday() >= 5`, que solo cubre sábados y domingos. **Un festivo entre semana
+con el top rotado del todo se habría colado igual.**
+
+**El arreglo.** Se compara el cierre del **S&P 500** con el de la sesión anterior. El SPY siempre está
+y no depende de que el top se parezca al de ayer: es la prueba que identificó el domingo fantasma
+(769,64 idéntico al viernes).
+
+**Y con una salvaguarda, porque el SPY puede cerrar igual dos días seguidos por azar.** No es
+despreciable: con el SPY en torno a 770 y céntimos, pasa cada pocos años. Si el SPY coincide **pero
+alguna acción sí se ha movido**, hubo sesión y el día se guarda. Solo bloquea cuando no se mueve nada.
+
+**Los siete escenarios del calendario, comprobados:**
+
+```
+sabado                                         NO se guarda  (fin de semana)
+domingo                                        NO se guarda  (fin de semana)
+festivo entre semana                           NO se guarda  (SPY identico)
+festivo con el top cambiado entero             NO se guarda  (SPY identico)   <- el agujero
+el Action corre a las 8 de la manana           NO se guarda  (antes del cierre)
+sesion normal                                  SE GUARDA
+SPY igual por azar pero las acciones se mueven SE GUARDA                      <- la salvaguarda
+```
+
+**Dirección del fallo.** Si alguna vez se equivoca, se equivoca saltándose un día real, no inventando
+uno. Es la dirección correcta: un día que falta es un hueco; un día inventado corrompe la medición.
+
+**Pruebas.** 464 comprobaciones en verde (de 456). Las 8 nuevas fallan contra el código anterior
+—revienta con `TypeError` al cambiar la firma, que hace fallar el build igual—, y una de ellas
+documenta explícitamente el caso que se colaba.

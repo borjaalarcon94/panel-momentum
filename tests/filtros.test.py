@@ -164,6 +164,31 @@ comprueba("mismos precios pero otra composicion del top: tampoco",
           b.sin_cierre_nuevo("2026-10-07", _noche, _top, _recompuesto) is not None, True)
 comprueba("el primer dia de todos si se guarda (no hay anterior)",
           b.sin_cierre_nuevo("2026-10-07", _noche, None, _top), None)
+# 17/10/2026: el agujero de la comprobacion de festivo era que necesita 3 tickers en comun con el dia
+# anterior. El domingo fantasma del 4 de octubre no compartia NINGUNO, asi que no podia dispararse.
+# El SPY siempre esta y no depende de la composicion del top: es la prueba limpia.
+# El caso real del domingo 4: el top no compartia NINGUN ticker con el dia anterior, asi que la
+# comparacion precio a precio no tenia nada que comparar y no podia dispararse.
+_sin_comunes = [{"ticker": "ZZZ" + str(i), "precio": 10.0 + i} for i in range(9)]
+comprueba("festivo cazado por el SPY aunque el top no comparta ni un ticker",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _sin_comunes, _top, 769.64, 769.64) is not None, True)
+comprueba("y con el codigo anterior ese caso se colaba: sin tickers comunes no habia nada que comparar",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _sin_comunes, _top), None)
+comprueba("con el SPY distinto, el dia si se guarda",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _otro, _top, 771.79, 769.64), None)
+comprueba("sin dato del SPY se sigue cayendo a la comparacion ticker a ticker",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _top, _top, None, None) is not None, True)
+comprueba("un SPY de hoy sin el de ayer no bloquea nada",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _otro, _top, 771.79, None), None)
+comprueba("el motivo dice el precio, para poder comprobarlo",
+          "769.64" in b.sin_cierre_nuevo("2026-10-07", _noche, _sin_comunes, _top, 769.64, 769.64), True)
+# El SPY puede cerrar igual dos dias seguidos por azar. Si alguna accion SI se movio, hubo sesion.
+_movido = [dict(a, precio=a["precio"] * 1.01) for a in _top]
+comprueba("si el SPY coincide por azar pero las acciones se han movido, el dia SI se guarda",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _top, _movido, 769.64, 769.64), None)
+comprueba("y si ni el SPY ni las acciones se mueven, no se guarda",
+          b.sin_cierre_nuevo("2026-10-07", _noche, _top, _top, 769.64, 769.64) is not None, True)
+
 comprueba("si no hay acciones que guardar, no se inventa un motivo",
           b.sin_cierre_nuevo("2026-10-07", _mañana, _otro, None), None)
 

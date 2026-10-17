@@ -136,7 +136,7 @@ def previos_de(hoy):
     return [p for p in sorted(DATOS.glob("2*.json")) if p.stem != hoy]
 
 
-def sin_cierre_nuevo(hoy, ahora, anteriores, acciones):
+def sin_cierre_nuevo(hoy, ahora, anteriores, acciones, spy_hoy=None, spy_ayer=None):
     """Motivo por el que NO hay un cierre nuevo que guardar, o None si si lo hay.
 
     Un push de codigo dispara el Action a cualquier hora, y con el mercado cerrado TradingView
@@ -149,10 +149,19 @@ def sin_cierre_nuevo(hoy, ahora, anteriores, acciones):
         return "Fin de semana, no hay sesion"
     if ahora.hour < CIERRE_UTC:
         return f"Son las {ahora:%H:%M} UTC y Nueva York cierra a las 20:00, el cierre de hoy aun no existe"
+    # El SPY es la prueba mas limpia y no depende de que el top se parezca al de ayer: si el indice
+    # cierra exactamente igual que la sesion anterior, no ha habido sesion. Asi se cazo el domingo
+    # fantasma del 4 de octubre (769,64 identico al viernes). La comparacion ticker a ticker de abajo
+    # necesita 3 valores en comun, y aquel dia el top no compartia NINGUNO con el anterior.
+    ant = {a["ticker"]: a["precio"] for a in anteriores} if anteriores else {}
+    movidas = [a for a in acciones if a["ticker"] in ant and ant[a["ticker"]] != a["precio"]]
+    if spy_hoy is not None and spy_ayer is not None and spy_hoy == spy_ayer and not movidas:
+        # "and not movidas" para el caso raro pero posible de que el SPY cierre igual dos dias
+        # seguidos por azar: si alguna accion SI se ha movido, hubo sesion y el dia se guarda.
+        return f"El S&P 500 cierra igual que la sesion anterior ({spy_hoy}): festivo o mercado cerrado"
     if anteriores:
         # Ticker a ticker, no la lista entera: la composicion del top puede cambiar (sale una, entra
         # otra) con los mismos precios, y eso sigue siendo exactamente el mismo cierre.
-        ant = {a["ticker"]: a["precio"] for a in anteriores}
         comunes = [a for a in acciones if a["ticker"] in ant]
         if len(comunes) >= 3 and all(ant[a["ticker"]] == a["precio"] for a in comunes):
             return "Mismos precios que el dia anterior (festivo o mercado cerrado)"
@@ -252,8 +261,11 @@ def main():
                        key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
     comprueba(universo, candidatas, acciones, mercado, ref)
     acciones_hoy = list(acciones)   # el top de hoy, aunque luego no se guarde como dia nuevo
+    _prev = leer(previos_de(hoy)[-1]) if previos_de(hoy) else None
+    _spy = lambda d: next((m.get("precio") for m in (d or {}).get("mercado", []) if m.get("ticker") == "SPY"), None)
     motivo = sin_cierre_nuevo(hoy, datetime.datetime.utcnow(),
-                              leer(previos_de(hoy)[-1])["acciones"] if previos_de(hoy) else None, acciones)
+                              _prev["acciones"] if _prev else None, acciones,
+                              _spy({"mercado": mercado}), _spy(_prev))
     if motivo:
         print(motivo + ": no se guarda el dia")
         acciones = None
