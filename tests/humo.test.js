@@ -238,6 +238,29 @@ for (const f of orden) {
   const esSal2 = ventana.SALIDA({ precio: 200.5, ema50: 180, ema21: 190, adr: 3 });
   !esSal2.tope ? ok('y no lo saca cuando la compra no es arriesgada') : mal('marca tope donde no lo hay');
 
+  /* 17/10/2026: Seguimiento pasa a ser la vista inicial y Hoy vive dentro como subpestaña. El riesgo
+     evidente es abrir en blanco, y el sutil es perderse una señal de compra por estar un nivel abajo. */
+  console.log('\nSEGUIMIENTO ES LA VISTA INICIAL Y HOY VIVE DENTRO');
+  const stPl = fs.readFileSync(path.join(__dirname, '..', 'plantilla.html'), 'utf8');
+  const stHoy = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  const stApp = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
+  /data-v="seg" aria-selected="true"/.test(stPl)
+    ? ok('la pestaña marcada al abrir es Seguimiento') : mal('la pestaña inicial no es Seguimiento');
+  !/data-v="hoy"/.test(stPl) ? ok('Hoy ya no es una pestaña principal') : mal('Hoy sigue como pestaña principal');
+  /data-s="hoy"/.test(stPl) && /data-s="seg"/.test(stPl) ? ok('existen las dos subpestañas') : mal('faltan las subpestañas');
+  /<section id="vseg">/.test(stPl) && /<section id="vhoy" hidden>/.test(stPl)
+    ? ok('al abrir se ve «Lo que sigo» y Hoy queda oculto') : mal('la visibilidad inicial está al revés');
+  /if \(window\.seguimiento\) window\.seguimiento\(\);/.test(stApp)
+    ? ok('y se pinta al arrancar: la app no abre en blanco') : mal('Seguimiento no se pinta al arrancar: abriría vacío');
+  /window\.pinta\(\);/.test(stApp) ? ok('pinta() sigue corriendo, para el contador') : mal('pinta() ya no corre y el contador no se calcularía');
+  /const nc=\$\('nhoy'\)/.test(stHoy) && /cls==='qok'/.test(stHoy)
+    ? ok('la subpestaña lleva contador de señales de compra') : mal('no hay contador de señales');
+  /grupo-seg/.test(stPl) && /\$\('grupo-seg'\)\.hidden/.test(stHoy)
+    ? ok('la pestaña principal enseña y oculta el grupo entero') : mal('el grupo no se controla desde la pestaña');
+  const stCss = fs.readFileSync(path.join(dir, 'extra.css'), 'utf8');
+  /\.subtab\{/.test(stCss) && /min-height:40px/.test(stCss)
+    ? ok('las subpestañas tienen altura táctil') : mal('las subpestañas se quedan pequeñas en el móvil');
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);

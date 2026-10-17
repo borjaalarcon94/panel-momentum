@@ -313,7 +313,11 @@ async function iniciar() {
   window.initHoy();
   window.initSeguimiento();
   if (window.initResultados) window.initResultados();
+  /* pinta() sigue corriendo aunque Hoy ya no sea la vista inicial: llena la subpestaña y, sobre todo,
+     calcula el contador de señales de compra que se ve desde Seguimiento sin entrar. */
   window.pinta();
+  /* Desde el 17/10/2026 la vista inicial es Seguimiento. Sin esta llamada la app abriria en blanco. */
+  if (window.seguimiento) window.seguimiento();
 }
 window.cambiarDia = async f => {
   S.dia = f;

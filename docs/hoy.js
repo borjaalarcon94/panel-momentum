@@ -102,6 +102,11 @@ const top=v.filas,medio=top.length?top.reduce((s,a)=>s+(a.score||0),0)/top.lengt
 $('stats').replaceChildren(el('span',null,'Top '+top.length+' · puntuación media '+n(medio,0)+' · '+top.filter(a=>a.nueva).length+' nuevas hoy'+
 (v.candidatas?' · '+v.candidatas+' cumplían los requisitos de '+(v.universo||'?')+' analizadas':'')));
 $('cuenta').textContent='';
+/* Contador en la subpestaña: con Hoy dentro de Seguimiento hay que poder ver desde fuera si hoy
+   hay algo que comprar, sin entrar. Cuenta los veredictos verdes (COMPRA) del top. */
+const nc=$('nhoy');
+if(nc){const compras=top.filter(a=>window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento}).cls==='qok').length;
+nc.textContent=compras||'';nc.hidden=!compras;}
 if(!top.length){L.appendChild(el('div','empty','Ese día ninguna acción cumplió los requisitos.'));return}
 top.forEach((a,i)=>L.appendChild(tarjeta(a,i)));
 /* Con el orden por prioridad una nota alta puede caer fuera de las 5 visibles porque hoy no sea
@@ -201,10 +206,17 @@ if(abrir)w.appendChild(f);return w}
 window.initHoy=function(){
 $('dia').onchange=e=>window.cambiarDia(e.target.value);
 $('orden').onchange=e=>{S.orden=e.target.value;window.pinta()};
+/* Seguimiento es la pestaña por defecto y Hoy vive dentro, como subpestaña: es la vista que se usa
+   a diario. El riesgo de enterrar Hoy un nivel es perderse una senal de compra, asi que la
+   subpestaña lleva un contador con cuantas hay hoy. */
+document.querySelectorAll('.subtab').forEach(b=>b.onclick=()=>{const s2=b.dataset.s;
+document.querySelectorAll('.subtab').forEach(x=>x.setAttribute('aria-selected',x===b));
+$('vhoy').hidden=s2!=='hoy';$('vseg').hidden=s2!=='seg';
+if(s2==='seg'&&window.seguimiento)window.seguimiento()});
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{const v=b.dataset.v;
 document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));
-$('vhoy').hidden=v!=='hoy';$('vseg').hidden=v!=='seg';$('vres').hidden=v!=='res';$('vpos').hidden=v!=='pos';$('vpar').hidden=v!=='par';
-if(v==='seg'&&window.seguimiento)window.seguimiento();
+$('grupo-seg').hidden=v!=='seg';$('vres').hidden=v!=='res';$('vpos').hidden=v!=='pos';$('vpar').hidden=v!=='par';
+if(v==='seg'&&window.seguimiento&&!$('vseg').hidden)window.seguimiento();
 if(v==='pos'&&window.posiciones)window.posiciones();
 if(v==='res'&&window.resultados)window.resultados();
 if(v==='par'&&window.parametros)window.parametros();

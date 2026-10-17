@@ -6,12 +6,12 @@
 <meta name="theme-color" content="#0f1115">
 <meta name="description" content="Las empresas de EE. UU. con más momentum que además crecen deprisa.">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="favicon-32.png?v=09194f84" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=09194f84">
+<link rel="icon" href="favicon-32.png?v=b1408429" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=b1408429">
 <title>Growth con momentum</title>
 <script>try{var t=localStorage.getItem('tema');if(t==='claro')document.documentElement.dataset.tema='claro'}catch(e){}</script>
-<link rel="stylesheet" href="estilos.css?v=09194f84">
-<link rel="stylesheet" href="extra.css?v=09194f84">
+<link rel="stylesheet" href="estilos.css?v=b1408429">
+<link rel="stylesheet" href="extra.css?v=b1408429">
 </head>
 <body>
 <main>
@@ -20,8 +20,10 @@
 <p class="sub">Las empresas de EE. UU. con más momentum que además crecen deprisa · se actualiza cada día laborable por la noche</p>
 <p class="act" id="act"></p>
 <div class="aviso-viejo" id="viejo" hidden></div>
-<div class="tabs"><button class="tab" data-v="hoy" aria-selected="true">Hoy</button><button class="tab" data-v="seg" aria-selected="false">Seguimiento</button><button class="tab" data-v="pos" aria-selected="false">Posiciones</button><button class="tab" data-v="res" aria-selected="false">Resultados</button><button class="tab" data-v="par" aria-selected="false">Parámetros</button></div>
-<section id="vhoy">
+<div class="tabs"><button class="tab" data-v="seg" aria-selected="true">Seguimiento</button><button class="tab" data-v="pos" aria-selected="false">Posiciones</button><button class="tab" data-v="res" aria-selected="false">Resultados</button><button class="tab" data-v="par" aria-selected="false">Parámetros</button></div>
+<div id="grupo-seg">
+<div class="subtabs"><button class="subtab" data-s="seg" aria-selected="true">Lo que sigo</button><button class="subtab" data-s="hoy" aria-selected="false">Comprar hoy<span class="cnt" id="nhoy" hidden></span></button></div>
+<section id="vhoy" hidden>
 <div class="banner" id="mercado" hidden></div>
 <!-- El contexto del dia (sectores y cambios) se pliega: abres la app para ver que comprar, y antes
      de este cambio habia que bajar una pantalla entera para llegar a la primera accion. -->
@@ -37,11 +39,12 @@
 <p class="nota">Buenas empresas que ya se han disparado. Pueden seguir subiendo, pero comprarlas tan lejos de sus medias suele salir caro: lo habitual es que consoliden unas semanas y vuelvan a arrancar desde una base. Cuando eso pase, volverán al top automáticamente.</p>
 <div id="lmarcha"></div></details>
 </section>
-<section id="vseg" hidden>
-<p class="nota">Las que siguen siendo oportunidad, ordenadas por momentum. El orden mide la fuerza de la empresa, no si hoy es el día de entrar: eso lo dice el veredicto de cada tarjeta. Para el orden de compra, la pestaña Hoy.</p>
+<section id="vseg">
+<p class="nota">Las que siguen siendo oportunidad, ordenadas por momentum. El orden mide la fuerza de la empresa, no si hoy es el día de entrar: eso lo dice el veredicto de cada tarjeta. Para el orden de compra, «Comprar hoy» aquí arriba.</p>
 <div class="row"><select id="per" aria-label="Periodo"><option value="5">Entradas de la última semana</option><option value="20">Entradas del último mes</option><option value="90" selected>Entradas de los últimos 3 meses</option></select><select id="segest" aria-label="Estado"><option value="" selected>Las que siguen siendo oportunidad</option><option value="top">Solo las del top de hoy</option><option value="fuera">Solo las descartadas</option><option value="todas">Todas</option></select><select id="segorden" aria-label="Ordenar"><option value="score" selected>Más momentum ahora</option><option value="reco">Las más recomendables ahora</option><option value="ret">Mejor resultado</option><option value="entrada">Entrada más reciente</option><option value="max">Mayor subida alcanzada</option></select></div>
 <div id="rseg"></div>
 </section>
+</div>
 <section id="vpos" hidden>
 <p class="nota">Lo que has comprado. Cada día te digo si mantener o vender, y dónde está el stop.</p>
 <div id="rpos"></div>
@@ -57,15 +60,15 @@
 </section>
 <footer>Datos de TradingView al cierre · se actualiza cada día laborable por la noche · todas las reglas, en la pestaña <b>Parámetros</b>.<br>Detección de oportunidades para estudiarlas una a una: <b>no es una recomendación de compra</b>.</footer>
 </main>
-<script>window.VERSION="09194f84";</script>
-<script src="reglas.js?v=09194f84"></script>
-<script src="puntuacion.js?v=09194f84"></script>
-<script src="app.js?v=09194f84"></script>
-<script src="hoy.js?v=09194f84"></script>
-<script src="seguimiento.js?v=09194f84"></script>
-<script src="posiciones.js?v=09194f84"></script>
-<script src="resultados.js?v=09194f84"></script>
-<script src="parametros.js?v=09194f84"></script>
-<script src="export.js?v=09194f84"></script>
+<script>window.VERSION="b1408429";</script>
+<script src="reglas.js?v=b1408429"></script>
+<script src="puntuacion.js?v=b1408429"></script>
+<script src="app.js?v=b1408429"></script>
+<script src="hoy.js?v=b1408429"></script>
+<script src="seguimiento.js?v=b1408429"></script>
+<script src="posiciones.js?v=b1408429"></script>
+<script src="resultados.js?v=b1408429"></script>
+<script src="parametros.js?v=b1408429"></script>
+<script src="export.js?v=b1408429"></script>
 </body>
 </html>

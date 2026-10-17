@@ -263,3 +263,14 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .stopbox.grande{border-width:2px;padding:11px 14px}
 .stopbox.grande .vl{font-size:20px}
 .stopbox.grande .et{color:var(--text);opacity:.75}
+
+/* Subpestañas dentro de Seguimiento: Hoy vive aqui dentro desde el 17/10/2026 */
+.subtabs{display:flex;gap:6px;margin:0 0 12px}
+.subtab{appearance:none;border:1px solid var(--line);background:transparent;color:var(--muted);
+  font:inherit;font-weight:600;font-size:14px;padding:9px 16px;min-height:40px;border-radius:9px;cursor:pointer}
+.subtab:hover{color:var(--text)}
+.subtab[aria-selected="true"]{background:var(--acc);color:var(--acctext);border-color:var(--acc)}
+.subtab .cnt{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;
+  margin-left:7px;padding:0 5px;border-radius:999px;background:var(--up);color:#06281a;
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.subtab[aria-selected="true"] .cnt{background:var(--up);color:#06281a}
