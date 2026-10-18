@@ -206,6 +206,24 @@ comprueba('el umbral es exactamente la pérdida máxima declarada',
           Math.round(100 * (1 + R.perdidaMaxima / 100) * 100) / 100);
 comprueba('sin EMA 50 no se inventa un precio', REGLAS.stopDeEntrada({ precio: 10 }).precioSinTope, null);
 
+/* 18/10/2026: se pintaba "Sobre su EMA 50" con (ema50/precio - 1) negado, que NO es lo mismo que
+   (precio/ema50 - 1). Con PAYS daba 11,70 % cuando el real era 13,25 %: 1,55 puntos de menos, y ese
+   numero es justo el que dice si la compra esta estirada. */
+console.log('\nCUANTO ESTA EL PRECIO SOBRE SU EMA 50');
+const sE = REGLAS.stopDeEntrada({ precio: 14.80, ema50: 13.0682 });
+comprueba('se calcula precio/ema50, no al reves', Math.round(sE.sobreEma50 * 100) / 100, 13.25);
+comprueba('y NO coincide con la distancia del stop, que es el otro sentido',
+          Math.round(Math.abs(sE.distancia) * 100) / 100, 11.70);
+comprueba('las dos difieren: no son intercambiables', sE.sobreEma50 > Math.abs(sE.distancia), true);
+comprueba('con el precio justo en su EMA 50, cero',
+          REGLAS.stopDeEntrada({ precio: 100, ema50: 100 }).sobreEma50, 0);
+comprueba('con el precio por debajo, sale negativo',
+          REGLAS.stopDeEntrada({ precio: 90, ema50: 100 }).sobreEma50 < 0, true);
+comprueba('sin EMA 50 no se inventa', REGLAS.stopDeEntrada({ precio: 10 }).sobreEma50, null);
+// el doble: 50 % sobre la EMA 50 son 50, no 33
+comprueba('un precio al doble de su EMA 50 son +100 %, no +50 %',
+          REGLAS.stopDeEntrada({ precio: 200, ema50: 100 }).sobreEma50, 100);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
 

@@ -220,15 +220,16 @@ for (const f of orden) {
   /* El precio va en la linea del veredicto, no en la caja del stop: dos precios con el mismo peso
      en la misma caja obligaban a adivinar cual era cual. */
   const esApp = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
-  /o esperar a ' \+ n\(sal\.precioSinTope\)/.test(esApp)
-    ? ok('el precio va en la línea de COMPRA ARRIESGADA, con el problema que lo motiva')
-    : mal('el veredicto no dice hasta dónde esperar');
+  /accion: sal\.precioSinTope \?/.test(esApp)
+    ? ok('el precio viaja en v.accion, listo para pintarse destacado')
+    : mal('el veredicto no expone el precio accionable');
   !/Entrada sin tope/.test(esSrcH) && !/Entrada sin tope/.test(esSrcS)
     ? ok('y no se repite en la caja del stop, que se queda con un solo precio')
     : mal('sigue habiendo dos precios en la caja del stop');
   const vArr = ventana.VEREDICTO({ precio: 15.60, ema50: 13.00, ema21: 14, sma200: 10, rsi: 65, max52: 16, volmedio: 1e6, ingresos: 40 }, {});
-  vArr.t === 'Compra arriesgada' && /14,95 \$/.test(vArr.d) && /4,2 % abajo/.test(vArr.d)
-    ? ok('y dice el precio y el retroceso: ' + vArr.d.slice(-62)) : mal('el veredicto no trae el precio', vArr.d);
+  vArr.t === 'Compra arriesgada' && vArr.accion && /14,95 \$/.test(vArr.accion.v) && /4,2 % abajo/.test(vArr.accion.ds)
+    ? ok('y trae el precio y el retroceso: ' + vArr.accion.v + ' · ' + vArr.accion.ds.slice(0, 12))
+    : mal('el veredicto no trae el precio', JSON.stringify(vArr.accion));
   const vOk = ventana.VEREDICTO({ precio: 200.5, ema50: 180, ema21: 190, sma200: 150, rsi: 65, max52: 205, volmedio: 1e6, ingresos: 40 }, {});
   !/esperar a/.test(vOk.d) ? ok('cuando la compra no es arriesgada no se menciona ningún precio de espera')
     : mal('mete el precio donde no hace falta', vOk.d);
@@ -260,6 +261,40 @@ for (const f of orden) {
   const stCss = fs.readFileSync(path.join(dir, 'extra.css'), 'utf8');
   /\.subtab\{/.test(stCss) && /min-height:40px/.test(stCss)
     ? ok('las subpestañas tienen altura táctil') : mal('las subpestañas se quedan pequeñas en el móvil');
+
+  /* Cada veredicto que no es COMPRA tiene que decir A QUE PRECIO cambia. Y el stop no se repite:
+     la caja va justo debajo con el mismo numero. */
+  console.log('\nCADA VEREDICTO DICE SU PRECIO, Y EL STOP NO SE REPITE');
+  const vd = (d) => ventana.VEREDICTO(d, { fallos: [] });
+  const vCompra = vd({ precio: 14.80, ema50: 13.07, ema21: 14, sma200: 11, rsi: 62, max52: 15.2, volmedio: 1e6, ingresos: 40, cap: 1e9 });
+  const vRiesgo = vd({ precio: 15.60, ema50: 13.00, ema21: 14, sma200: 11, rsi: 62, max52: 16.0, volmedio: 1e6, ingresos: 40, cap: 1e9 });
+  const vEsp = vd({ precio: 80, ema50: 76, ema21: 78, sma200: 60, rsi: 60, max52: 100, volmedio: 1e6, ingresos: 40, cap: 1e9 });
+  vCompra.t === 'COMPRA' && !/\d+,\d+ \$/.test(vCompra.d)
+    ? ok('COMPRA ya no repite el stop que la caja de debajo da igual') : mal('COMPRA sigue repitiendo el stop', vCompra.d);
+  /* El precio accionable viaja en v.accion, no dentro del texto: asi se puede pintar destacado
+     en vez de quedar perdido en la frase. */
+  vRiesgo.t === 'Compra arriesgada' && vRiesgo.accion && /14,95 \$/.test(vRiesgo.accion.v)
+    ? ok('«Compra arriesgada» trae el precio de entrada limpia: ' + vRiesgo.accion.v)
+    : mal('falta el precio en compra arriesgada', JSON.stringify(vRiesgo.accion));
+  vRiesgo.accion && /4,2 % abajo/.test(vRiesgo.accion.ds) ? ok('y cuánto hay que esperar') : mal('no dice cuánto bajar');
+  vEsp.t === 'Esperar' && vEsp.accion && /90,00 \$/.test(vEsp.accion.v)
+    ? ok('«Esperar» trae el precio a partir del cual vuelve a ser compra: ' + vEsp.accion.v)
+    : mal('«Esperar» no dice hasta dónde', JSON.stringify(vEsp.accion));
+  /12,5 % arriba/.test(vEsp.accion.ds) ? ok('y cuánto falta para llegar') : mal('no dice cuánto falta');
+  /100,00 \$/.test(vEsp.d) ? ok('y el texto sigue diciendo cuál es su máximo') : mal('no dice el máximo');
+  !vCompra.accion ? ok('con COMPRA no hay nada que esperar, así que no se pinta etiqueta') : mal('mete etiqueta donde no hace falta');
+  const srcH5 = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  const srcS5 = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+  const cssA = fs.readFileSync(path.join(dir, 'extra.css'), 'utf8');
+  /v\.accion/.test(srcH5) && /q\.accion/.test(srcS5)
+    ? ok('las dos pantallas pintan la etiqueta del precio') : mal('alguna pantalla no la pinta');
+  /\.accion\{/.test(cssA) && /\.accion \.vl\{font-size:18px/.test(cssA)
+    ? ok('y la etiqueta va destacada, con el precio en grande') : mal('falta el estilo de la etiqueta');
+  /\.stopbox\{border-left-width:4px/.test(cssA)
+    ? ok('la caja del stop lleva borde de acento para verla de un vistazo') : mal('la caja del stop no resalta');
+  const srcSegX = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+  /sobreEma50/.test(srcSegX) && !/pc\(-a\.salida\.distanciaEma50/.test(srcSegX)
+    ? ok('Seguimiento muestra el % sobre la EMA 50 bien calculado') : mal('Seguimiento sigue con el cálculo invertido');
 
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));

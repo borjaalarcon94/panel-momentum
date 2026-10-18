@@ -115,7 +115,7 @@ window.SALIDA = function (a) {
     nota: e.invalido ? 'la EMA 50 queda por encima del precio: entrar aquí sería entrar ya saltado' : 'es el que gestionará tu posición si entras' });
   if (e.ema21 != null && a.precio) opciones.push({ t: 'Cierre bajo la EMA 21', v: e.ema21, d: (e.ema21 / a.precio - 1) * 100, nota: 'referencia más ceñida si quieres apurar' });
   if (a.atr && a.precio) opciones.push({ t: 'Dos veces su rango diario (ATR)', v: a.precio - 2 * a.atr, d: ((a.precio - 2 * a.atr) / a.precio - 1) * 100, nota: 'referencia por volatilidad' });
-  return { opciones, tope: !!e.tope, invalido: !!e.invalido, precioSinTope: e.precioSinTope, retrocesoNecesario: e.retrocesoNecesario,
+  return { opciones, tope: !!e.tope, invalido: !!e.invalido, precioSinTope: e.precioSinTope, retrocesoNecesario: e.retrocesoNecesario, sobreEma50: e.sobreEma50,
     distanciaEma50: e.distanciaEma50 != null ? e.distanciaEma50 : null,
     senales: window.REGLAS.senalesDeMercado(a).map(window.TEXTO_SENAL) };
 };
@@ -178,15 +178,28 @@ window.VEREDICTO = function (a, extra) {
   if (sal.senales.length) return { t: 'No comprar', d: sal.senales[0].toLowerCase() + '.', cls: 'qbad', stop };
   if (extendida) return { t: 'No comprar aquí', d: 'muy estirada: esperar a que consolide. Si ya la tienes, déjala correr.', cls: 'qwarn', stop };
   if (extra.flojea) return { t: 'Vigilar', d: 'cumple, pero ha perdido fuerza. Mantener.', cls: 'qwarn', stop };
-  if (dmax != null && dmax < -window.REGLAS.R.lejosDeMaximo) return { t: 'Esperar', d: 'está a ' + pc(dmax, 0) + ' de su máximo: mejor esperar a que lo recupere.', cls: 'qwarn', stop };
+  /* "Esperar a que lo recupere" sin decir hasta donde no sirve. El punto exacto es el maximo de 52
+     semanas menos el margen permitido: por encima de ahi deja de ser "Esperar". */
+  if (dmax != null && dmax < -window.REGLAS.R.lejosDeMaximo) {
+    const objetivo = a.max52 ? a.max52 * (1 - window.REGLAS.R.lejosDeMaximo / 100) : null;
+    return { t: 'Esperar',
+      d: 'está a ' + pc(dmax, 0) + ' de su máximo (' + n(a.max52) + ' $)'
+        + (objetivo ? ': todavía no es entrada.' : ': mejor esperar a que lo recupere.'),
+      /* El precio accionable va aparte para poder pintarlo destacado en vez de perdido en la frase. */
+      accion: objetivo ? { et: 'Comprar a partir de', v: n(objetivo) + ' $', ds: n((objetivo / a.precio - 1) * 100, 1) + ' % arriba' } : null,
+      cls: 'qwarn', stop };
+  }
   /* El precio al que deja de ser arriesgada va AQUI, no en la caja del stop: alli competia con la
      cifra del stop, dos precios con el mismo peso en el mismo sitio, y habia que adivinar cual era
      cual. Aqui va justo detras del problema que lo motiva. */
   if (sal.tope) return { t: 'Compra arriesgada',
-    d: 'un ' + n(-sal.distanciaEma50, 0) + ' % sobre su EMA 50: el stop es un tope fijo, no un nivel técnico. Media posición'
-      + (sal.precioSinTope ? ', o esperar a ' + n(sal.precioSinTope) + ' $ (' + n(Math.abs(sal.retrocesoNecesario), 1) + ' % abajo), donde el stop vuelve a ser la EMA 50.' : ' o esperar retroceso.'),
+    d: 'un ' + n(sal.sobreEma50, 0) + ' % sobre su EMA 50: el stop es un tope fijo, no un nivel técnico. Media posición, o esperar.',
+    accion: sal.precioSinTope ? { et: 'Entrada limpia a', v: n(sal.precioSinTope) + ' $',
+      ds: n(Math.abs(sal.retrocesoNecesario), 1) + ' % abajo · ahí el stop vuelve a ser la EMA 50' } : null,
     cls: 'qwarn', stop };
-  return { t: 'COMPRA', d: 'buen punto de entrada: stop en ' + stop + '.', cls: 'qok', stop };
+  /* No se repite el stop: la caja que va justo debajo ya lo da con su distancia y su margen en
+     dias de rango. Dos veces el mismo numero pegados obliga a comprobar si son el mismo. */
+  return { t: 'COMPRA', d: 'buen punto de entrada: el stop es la EMA 50, no un tope fijo.', cls: 'qok', stop };
 };
 
 /* Acciones en circulacion mas antiguas que conozcamos de ese valor: base para medir la dilucion. */

@@ -125,9 +125,14 @@
        punto donde el tope del 15 % deja de morder y el stop vuelve a ser la EMA 50, es decir
        EMA 50 x 1,15. Por encima de ahi el stop es un numero fijo y no un nivel tecnico. */
     const precioSinTope = ema50 ? ema50 * (1 + R.perdidaMaxima / 100) : null;
+    /* OJO: distanciaEma50 es (ema50/precio - 1), o sea cuanto HAY QUE CAER hasta la EMA 50, y eso
+       coincide con la distancia del stop. NO es lo mismo que cuanto esta el precio POR ENCIMA de la
+       EMA 50, que es (precio/ema50 - 1) y siempre sale mayor. Con PAYS: 11,70 % frente a 13,25 %.
+       Se expone el segundo aparte porque es el que se enseña y el que se lee como "esta estirada". */
+    const sobreEma50 = ema50 ? (precio / ema50 - 1) * 100 : null;
     const retrocesoNecesario = precioSinTope && precio ? (precioSinTope / precio - 1) * 100 : null;
     return { stop, distancia: (stop / precio - 1) * 100, ema21: num(datos.ema21), ema50, distanciaEma50,
-             tope, invalido, precioSinTope, retrocesoNecesario };
+             tope, invalido, precioSinTope, retrocesoNecesario, sobreEma50 };
   }
 
   raiz.REGLAS = { R, alMenos, limiteDevolucion, stopDe, maximoDesdeCompra, evaluaPosicion, senalesDeMercado, stopDeEntrada };

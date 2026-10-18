@@ -148,6 +148,12 @@ window.seguimiento = function () {
     const qd = el('div', 'veredicto ' + clase);
     qd.appendChild(el('span', 'vt', q.t.toUpperCase()));
     if (q.d) qd.appendChild(el('span', 'vd', q.d));
+    /* El precio accionable, destacado: es lo unico que se puede hacer con esta accion hoy. */
+    if (q.accion) { const ac = el('span', 'accion');
+      ac.appendChild(el('span', 'et', q.accion.et));
+      ac.appendChild(el('span', 'vl', q.accion.v));
+      if (q.accion.ds) ac.appendChild(el('span', 'ds', q.accion.ds));
+      qd.appendChild(ac); }
     c.appendChild(qd);
     if (a.salida && a.salida.senales.length) {
       const v = el('div', 'venta');
@@ -179,7 +185,7 @@ window.seguimiento = function () {
     const campos = [
       ['Puntuación hoy', a.score == null ? '-' : n(a.score, 0) + (a.scoreEntrada != null ? ' (entró ' + n(a.scoreEntrada, 0) + ')' : '')],
       ['Requisitos', a.req ? a.req.filter(x => x.ok).length + '/9' : '-'],
-      ['Sobre su EMA 50', a.salida && a.salida.distanciaEma50 != null ? pc(-a.salida.distanciaEma50, 0) : '-'],
+      ['Sobre su EMA 50', a.salida && a.salida.sobreEma50 != null ? pc(a.salida.sobreEma50, 0) : '-'],
     ];
     const detalle = [
       ['Puntuación día a día', ''],

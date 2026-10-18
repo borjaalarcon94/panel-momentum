@@ -143,6 +143,10 @@ const r=el('div','resumen');
 c.appendChild(r);
 // Veredicto de compra, lo primero que se lee
 const vd=el('div','quehacer '+v.cls);vd.appendChild(el('b',null,v.t));vd.appendChild(el('span',null,' · '+v.d));
+/* El precio accionable, destacado: es lo unico que se puede hacer hoy con esta accion. */
+if(v.accion){const ac=el('span','accion');
+ac.appendChild(el('span','et',v.accion.et));ac.appendChild(el('span','vl',v.accion.v));
+if(v.accion.ds)ac.appendChild(el('span','ds',v.accion.ds));vd.appendChild(ac)}
 const dR=window.DIAS_RESULTADOS(a,S.dia);
 if(dR!=null&&dR>=0&&dR<=10)vd.appendChild(el('span','m',' Publica resultados en '+dR+' día'+(dR===1?'':'s')+': el stop no protege de un hueco al abrir.'));
 c.appendChild(vd);
