@@ -322,6 +322,57 @@ for (const f of orden) {
   vEnSuelo.t !== 'Esperar'
     ? ok('comprado dentro de la ventana el veredicto ya no es Esperar, es ' + vEnSuelo.t) : mal('sigue diciendo Esperar dentro de su propia ventana');
 
+  /* La garantia de que no vuelve a pasar: no tres casos a mano, sino una REJILLA de situaciones
+     barriendo todos los precios. Lo que el panel promete tiene que cumplirse siempre.
+     Invariantes:
+       a) si anuncia una ventana, dentro de ella el veredicto NO puede seguir siendo Esperar
+       b) si anuncia una ventana, tiene que existir ALGUN precio con veredicto COMPRA
+       c) si dice que no hay ventana, NINGUN precio puede dar COMPRA
+     Con los datos reales del 18/10/2026 la rama (a)-(b) no la toca ninguna accion, de ahi la rejilla. */
+  console.log('\nLO QUE PROMETE «ESPERAR» SE CUMPLE A CUALQUIER PRECIO');
+  {
+    const base = { ema21: 1, sma200: 1, rsi: 60, volmedio: 1e6, ingresos: 40, cap: 1e9, adr: 4 };
+    let casos = 0, conVentana = 0, sinVentana = 0, malos = [];
+    for (const max52 of [20, 100, 480]) {
+      for (const fe of [0.60, 0.70, 0.765, 0.80, 0.90, 1.00]) {   // EMA 50 como fracción del máximo
+        const ema50 = max52 * fe;
+        const precio = max52 * 0.85;                               // −15 % del máximo: rama Esperar
+        const d = { ...base, precio, ema50, ema21: ema50 * 1.02, sma200: ema50 * 0.7, max52 };
+        const v = ventana.VEREDICTO(d, { fallos: [] });
+        if (v.t !== 'Esperar') continue;
+        casos++;
+        const suelo = max52 * 0.9, techo = ema50 / 0.85;
+        // usable solo si cabe al menos un dia de rango dentro: por debajo de eso no se puede comprar
+        const usable = techo - suelo >= precio * base.adr / 100;
+        let hayCompra = false, dentroEsperar = null;
+        for (let p = precio * 0.5; p <= precio * 2.5; p *= 1.0005) {   // paso fino: no saltarse ventanas estrechas
+          const vv = ventana.VEREDICTO({ ...d, precio: p }, { fallos: [] });
+          if (vv.t === 'COMPRA') hayCompra = true;
+          if (p >= suelo && p <= techo && vv.t === 'Esperar' && dentroEsperar == null) dentroEsperar = p;
+        }
+        const anunciaVentana = v.accion && /Ventana de compra/.test(v.accion.et);
+        const anunciaSin = v.accion && /Sin ventana de compra/.test(v.accion.et);
+        if (usable) {
+          conVentana++;
+          if (!anunciaVentana) malos.push(`max52=${max52} ema50=${ema50.toFixed(1)}: hay ventana y no la anuncia`);
+          if (!hayCompra) malos.push(`max52=${max52} ema50=${ema50.toFixed(1)}: anuncia ventana pero ningún precio da COMPRA`);
+          if (dentroEsperar != null) malos.push(`max52=${max52} ema50=${ema50.toFixed(1)}: dentro de su ventana sigue diciendo Esperar a ${dentroEsperar.toFixed(2)}`);
+        } else {
+          sinVentana++;
+          if (!anunciaSin) malos.push(`max52=${max52} ema50=${ema50.toFixed(1)}: ventana vacía y no lo dice`);
+          if (hayCompra) malos.push(`max52=${max52} ema50=${ema50.toFixed(1)}: dice que no hay ventana pero existe un precio de COMPRA`);
+        }
+      }
+    }
+    casos >= 10 ? ok(`rejilla de ${casos} situaciones barridas precio a precio`) : mal('la rejilla cubre muy pocos casos', String(casos));
+    conVentana >= 3 && sinVentana >= 3
+      ? ok(`y cubre las dos ramas: ${conVentana} con ventana, ${sinVentana} sin ella`)
+      : mal('la rejilla no cubre las dos ramas', `con ${conVentana} / sin ${sinVentana}`);
+    malos.length === 0
+      ? ok('en todas, lo que promete el panel se cumple a cualquier precio')
+      : mal('el panel promete algo que no se cumple', malos.slice(0, 3).join(' | '));
+  }
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);

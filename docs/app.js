@@ -192,9 +192,17 @@ window.VEREDICTO = function (a, extra) {
     const base = 'está a ' + pc(dmax, 0) + ' de su máximo (' + n(a.max52) + ' $)';
     if (!suelo) return { t: 'Esperar', d: base + ': mejor esperar a que lo recupere.', cls: 'qwarn', stop };
     const arriba = n((suelo / a.precio - 1) * 100, 1) + ' % arriba';
-    if (techo && suelo > techo) return { t: 'Esperar',
+    /* Una ventana mas estrecha que un dia de rango de la accion no se puede aprovechar: el precio
+       la cruza entera en una sesion. Mismo criterio que el margen del stop, y por la misma razon:
+       un nivel mas fino que el movimiento diario no es un nivel. Se trata como si no hubiera. */
+    const anchura = techo ? techo - suelo : null;
+    const unDia = a.adr && a.precio ? a.precio * a.adr / 100 : 0;
+    if (techo && suelo > techo - unDia) return { t: 'Esperar',
       d: base + ': hoy no hay ningún precio al que sea compra limpia. Para acercarse a su máximo tendría que alejarse demasiado de su EMA 50 (' + n(a.ema50) + ' $). Lo que hace falta es tiempo, no una subida.',
-      accion: { et: 'Sin ventana de compra', v: 'hasta que suba su EMA 50', ds: 'necesitaría estar sobre ' + n(suelo) + ' $ y bajo ' + n(techo) + ' $ a la vez' },
+      accion: { et: 'Sin ventana de compra', v: 'hasta que suba su EMA 50',
+        ds: anchura > 0
+          ? 'solo valdría entre ' + n(suelo) + ' y ' + n(techo) + ' $, y eso es menos de un día de rango'
+          : 'necesitaría estar sobre ' + n(suelo) + ' $ y bajo ' + n(techo) + ' $ a la vez' },
       cls: 'qwarn', stop };
     if (techo) return { t: 'Esperar', d: base + ': todavía no es entrada.',
       accion: { et: 'Ventana de compra', v: n(suelo) + ' – ' + n(techo) + ' $', ds: arriba + ' · por encima de ' + n(techo) + ' $ sería compra arriesgada' },
