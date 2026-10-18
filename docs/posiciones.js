@@ -808,7 +808,17 @@ window.posiciones = async function () {
     const din = dinero(r.p, r.ahora, r.stop);
     if (din) der.appendChild(el('div', 'ganancia-eur ' + (din.pyl >= 0 ? 'up' : 'down'),
       (din.pyl >= 0 ? '+' : '−') + n(Math.abs(din.pyl), 2) + ' $'));
-    if (r.ahora != null) der.appendChild(el('div', 'm', n(r.p.precio) + ' $ → ' + n(r.ahora) + ' $'));
+    /* El precio al que compraste es el dato contra el que lees todo lo demas y estaba en el gris
+       mas pequeño de la tarjeta. Pasa a su propia linea, etiquetado y legible. */
+    if (r.ahora != null) {
+      const pc2 = el('div', 'precios');
+      pc2.appendChild(el('span', 'et', 'compraste a'));
+      pc2.appendChild(el('span', 'vl', n(r.p.precio) + ' $'));
+      pc2.appendChild(el('span', 'fl', '→'));
+      pc2.appendChild(el('span', 'et', 'ahora'));
+      pc2.appendChild(el('span', 'vl' + (r.ahora >= r.p.precio ? ' up' : ' down'), n(r.ahora) + ' $'));
+      der.appendChild(pc2);
+    }
     top.append(izq, der); c.appendChild(top);
     const clase = r.cls === 'qok' ? 'v-mantener' : r.cls === 'qbad' ? 'v-vender' : 'v-espera';
     const q = el('div', 'veredicto ' + clase);
@@ -842,7 +852,14 @@ window.posiciones = async function () {
         ['Si salta el stop', din.riesgo == null || r.stop == null ? '—'
           : ((x) => (x >= 0 ? '+' : '−') + n(Math.abs(x), 2) + ' $' + (din.riesgo > 0 ? ' (−' + n(din.riesgo, 2) + ' desde ahora)' : ''))
             ((r.stop - r.p.precio) * din.acciones)]);
-      filas.push(['Ha devuelto', r.ganMax > 0 ? n(r.devuelto, 0) + ' %' + (r.limite ? ' de ' + r.limite + ' %' : '') : '—']);
+      /* "Ha devuelto 133 %" salia cuando la posicion cae POR DEBAJO de la compra: es correcto en
+         aritmetica (devuelves mas de lo que ganaste) y no se entiende leyendolo. Seguimiento ya lo
+         decia bien; aqui no. Y si la regla no aplica todavia, se dice, para que ese numero no
+         parezca que la venta esta cerca. */
+      filas.push(['Ha devuelto',
+        !(r.ganMax > 0) ? '—'
+          : r.gan <= 0 ? 'todo · ya está por debajo de tu compra'
+          : n(r.devuelto, 0) + ' %' + (r.limite ? ' de ' + r.limite + ' %' : ' · la regla no aplica hasta +' + window.REGLAS.R.devolucion[1].desde + ' %')]);
       const detalle = [['Llegó a ganar', pc(r.ganMax)],
         ['Requisitos', r.req.length ? r.req.filter(x => x.ok).length + '/' + r.req.length : '—']];
       if (din) detalle.push(['Acciones', nAcc(din.acciones)]);

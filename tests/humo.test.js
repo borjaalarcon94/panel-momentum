@@ -636,9 +636,19 @@ for (const f of orden) {
   /en 1 venta/.test(tp) ? ok('cuenta una sola venta') : mal('no cuenta las ventas');
   /venta parcial/.test(tp) ? ok('la fila del historial se marca como venta parcial') : mal('la fila no se marca');
   // Precio medio: NO cambia. Las 60 que quedan siguen costando 10 $.
-  /10,00 \$ →/.test(tp)
-    ? ok('la tarjeta sigue mostrando 10,00 $ como precio medio de compra')
-    : mal('el precio medio mostrado no es el de compra', (tp.match(/[\d.,]+ \$ →[^·]*/) || [''])[0]);
+  /compraste a/.test(tp) && /10,00 \$/.test(tp) && /ahora/.test(tp)
+    ? ok('la tarjeta muestra «compraste a 10,00 $ → ahora», etiquetado y legible')
+    : mal('el precio de compra no sale etiquetado', (tp.match(/compraste[\s\S]{0,40}/) || [''])[0]);
+  const srcPos6 = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /'precios'/.test(srcPos6) && /compraste a/.test(srcPos6)
+    ? ok('y sale de su propio bloque, no del gris más pequeño de la tarjeta') : mal('sigue en el texto gris');
+  /\.precios \.vl\{font-size:16px/.test(fs.readFileSync(path.join(dir, 'extra.css'), 'utf8'))
+    ? ok('con el precio a 16 px, no a 11') : mal('el precio de compra sigue pequeño');
+  /ya está por debajo de tu compra/.test(srcPos6)
+    ? ok('«Ha devuelto» deja de decir 133 % cuando estás por debajo de tu compra')
+    : mal('«Ha devuelto» puede seguir pasando del 100 %');
+  /la regla no aplica hasta/.test(srcPos6)
+    ? ok('y avisa cuando la regla de devolución todavía no aplica') : mal('no dice cuándo la regla no aplica');
   const posPar = JSON.parse(almacen['posiciones-v1']);
   const abierta = posPar.find(x => !x.cerrada);
   abierta && abierta.precio === 10 ? ok('y en el almacén tampoco se ha tocado') : mal('se ha alterado el precio de compra guardado');
