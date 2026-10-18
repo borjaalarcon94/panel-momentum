@@ -180,14 +180,27 @@ window.VEREDICTO = function (a, extra) {
   if (extra.flojea) return { t: 'Vigilar', d: 'cumple, pero ha perdido fuerza. Mantener.', cls: 'qwarn', stop };
   /* "Esperar a que lo recupere" sin decir hasta donde no sirve. El punto exacto es el maximo de 52
      semanas menos el margen permitido: por encima de ahi deja de ser "Esperar". */
+  /* El sistema pide DOS cosas a la vez y hasta ahora solo se decia una:
+       suelo = cerca de su maximo          -> precio por ENCIMA de max52 x 0,90
+       techo = stop tecnico, no un tope    -> precio por DEBAJO de EMA 50 / 0,85
+     Decir solo "compra a partir del suelo" era mentir cuando el suelo queda por encima del techo:
+     con CDNA el 18/10/2026 la ventana medía -0,32 $, o sea que NO EXISTIA ningun precio de compra
+     limpia, y aun asi se anunciaba uno. Ahora se calcula la ventana entera y se dice la verdad. */
   if (dmax != null && dmax < -window.REGLAS.R.lejosDeMaximo) {
-    const objetivo = a.max52 ? a.max52 * (1 - window.REGLAS.R.lejosDeMaximo / 100) : null;
-    return { t: 'Esperar',
-      d: 'está a ' + pc(dmax, 0) + ' de su máximo (' + n(a.max52) + ' $)'
-        + (objetivo ? ': todavía no es entrada.' : ': mejor esperar a que lo recupere.'),
-      /* El precio accionable va aparte para poder pintarlo destacado en vez de perdido en la frase. */
-      accion: objetivo ? { et: 'Comprar a partir de', v: n(objetivo) + ' $', ds: n((objetivo / a.precio - 1) * 100, 1) + ' % arriba' } : null,
+    const suelo = a.max52 ? a.max52 * (1 - window.REGLAS.R.lejosDeMaximo / 100) : null;
+    const techo = a.ema50 ? a.ema50 / (1 - window.REGLAS.R.perdidaMaxima / 100) : null;
+    const base = 'está a ' + pc(dmax, 0) + ' de su máximo (' + n(a.max52) + ' $)';
+    if (!suelo) return { t: 'Esperar', d: base + ': mejor esperar a que lo recupere.', cls: 'qwarn', stop };
+    const arriba = n((suelo / a.precio - 1) * 100, 1) + ' % arriba';
+    if (techo && suelo > techo) return { t: 'Esperar',
+      d: base + ': hoy no hay ningún precio al que sea compra limpia. Para acercarse a su máximo tendría que alejarse demasiado de su EMA 50 (' + n(a.ema50) + ' $). Lo que hace falta es tiempo, no una subida.',
+      accion: { et: 'Sin ventana de compra', v: 'hasta que suba su EMA 50', ds: 'necesitaría estar sobre ' + n(suelo) + ' $ y bajo ' + n(techo) + ' $ a la vez' },
       cls: 'qwarn', stop };
+    if (techo) return { t: 'Esperar', d: base + ': todavía no es entrada.',
+      accion: { et: 'Ventana de compra', v: n(suelo) + ' – ' + n(techo) + ' $', ds: arriba + ' · por encima de ' + n(techo) + ' $ sería compra arriesgada' },
+      cls: 'qwarn', stop };
+    return { t: 'Esperar', d: base + ': todavía no es entrada.',
+      accion: { et: 'Comprar a partir de', v: n(suelo) + ' $', ds: arriba }, cls: 'qwarn', stop };
   }
   /* El precio al que deja de ser arriesgada va AQUI, no en la caja del stop: alli competia con la
      cifra del stop, dos precios con el mismo peso en el mismo sitio, y habia que adivinar cual era

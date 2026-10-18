@@ -268,7 +268,8 @@ for (const f of orden) {
   const vd = (d) => ventana.VEREDICTO(d, { fallos: [] });
   const vCompra = vd({ precio: 14.80, ema50: 13.07, ema21: 14, sma200: 11, rsi: 62, max52: 15.2, volmedio: 1e6, ingresos: 40, cap: 1e9 });
   const vRiesgo = vd({ precio: 15.60, ema50: 13.00, ema21: 14, sma200: 11, rsi: 62, max52: 16.0, volmedio: 1e6, ingresos: 40, cap: 1e9 });
-  const vEsp = vd({ precio: 80, ema50: 76, ema21: 78, sma200: 60, rsi: 60, max52: 100, volmedio: 1e6, ingresos: 40, cap: 1e9 });
+  // EMA 50 a 85 para que la ventana de compra EXISTA (con 76 el suelo queda sobre el techo)
+  const vEsp = vd({ precio: 85, ema50: 85, ema21: 84, sma200: 60, rsi: 60, max52: 100, volmedio: 1e6, ingresos: 40, cap: 1e9 });
   vCompra.t === 'COMPRA' && !/\d+,\d+ \$/.test(vCompra.d)
     ? ok('COMPRA ya no repite el stop que la caja de debajo da igual') : mal('COMPRA sigue repitiendo el stop', vCompra.d);
   /* El precio accionable viaja en v.accion, no dentro del texto: asi se puede pintar destacado
@@ -277,10 +278,10 @@ for (const f of orden) {
     ? ok('«Compra arriesgada» trae el precio de entrada limpia: ' + vRiesgo.accion.v)
     : mal('falta el precio en compra arriesgada', JSON.stringify(vRiesgo.accion));
   vRiesgo.accion && /4,2 % abajo/.test(vRiesgo.accion.ds) ? ok('y cuánto hay que esperar') : mal('no dice cuánto bajar');
-  vEsp.t === 'Esperar' && vEsp.accion && /90,00 \$/.test(vEsp.accion.v)
-    ? ok('«Esperar» trae el precio a partir del cual vuelve a ser compra: ' + vEsp.accion.v)
+  vEsp.t === 'Esperar' && vEsp.accion && /90,00 – 100,00 \$/.test(vEsp.accion.v)
+    ? ok('«Esperar» trae la ventana de compra entera: ' + vEsp.accion.v)
     : mal('«Esperar» no dice hasta dónde', JSON.stringify(vEsp.accion));
-  /12,5 % arriba/.test(vEsp.accion.ds) ? ok('y cuánto falta para llegar') : mal('no dice cuánto falta');
+  /5,9 % arriba/.test(vEsp.accion.ds) ? ok('y cuánto falta para llegar al suelo') : mal('no dice cuánto falta', vEsp.accion.ds);
   /100,00 \$/.test(vEsp.d) ? ok('y el texto sigue diciendo cuál es su máximo') : mal('no dice el máximo');
   !vCompra.accion ? ok('con COMPRA no hay nada que esperar, así que no se pinta etiqueta') : mal('mete etiqueta donde no hace falta');
   const srcH5 = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
@@ -295,6 +296,31 @@ for (const f of orden) {
   const srcSegX = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
   /sobreEma50/.test(srcSegX) && !/pc\(-a\.salida\.distanciaEma50/.test(srcSegX)
     ? ok('Seguimiento muestra el % sobre la EMA 50 bien calculado') : mal('Seguimiento sigue con el cálculo invertido');
+
+  /* 18/10/2026: "Esperar" anunciaba "compra a partir de X $" usando solo el suelo (cerca del
+     maximo) e ignorando el techo (no alejarse de la EMA 50). Cuando el suelo queda POR ENCIMA del
+     techo no existe ningun precio de compra limpia, y aun asi se anunciaba uno. Pasaba con 15 de las
+     23 en Esperar. Con CDNA: necesitaba estar sobre 65,26 $ y bajo 64,94 $ a la vez. */
+  console.log('\nLA VENTANA DE COMPRA: SUELO Y TECHO, NO SOLO SUELO');
+  const vnt = (d) => ventana.VEREDICTO(d, { fallos: [] });
+  // ventana imposible: el suelo por encima del techo
+  const vImp = vnt({ precio: 64, ema50: 55.20, ema21: 60, sma200: 40, rsi: 60, max52: 72.51, volmedio: 1e6, ingresos: 40, cap: 1e9 });
+  vImp.t === 'Esperar' && /no hay ningún precio al que sea compra limpia/.test(vImp.d)
+    ? ok('con la ventana imposible lo dice, en vez de inventar un precio') : mal('sigue anunciando un precio inalcanzable', vImp.d);
+  vImp.accion && /Sin ventana de compra/.test(vImp.accion.et) && /65,26/.test(vImp.accion.ds) && /64,94/.test(vImp.accion.ds)
+    ? ok('y enseña los dos límites para que se vea por qué: ' + vImp.accion.ds.slice(0, 44))
+    : mal('no enseña los dos límites', JSON.stringify(vImp.accion));
+  /tiempo, no una subida/.test(vImp.d) ? ok('y explica que hace falta tiempo, no que suba') : mal('no explica qué hace falta');
+  // ventana real: suelo por debajo del techo
+  const vOk2 = vnt({ precio: 85, ema50: 85, ema21: 84, sma200: 60, rsi: 60, max52: 100, volmedio: 1e6, ingresos: 40, cap: 1e9 });
+  vOk2.t === 'Esperar' && vOk2.accion && /90,00 – 100,00 \$/.test(vOk2.accion.v)
+    ? ok('con ventana real da el rango entero: ' + vOk2.accion.v) : mal('no da el rango', JSON.stringify(vOk2.accion));
+  vOk2.accion && /sería compra arriesgada/.test(vOk2.accion.ds)
+    ? ok('y avisa de qué pasa si se pasa del techo') : mal('no avisa del techo');
+  // y el numero prometido tiene que ser cierto: a ese precio el veredicto ya no puede ser Esperar
+  const vEnSuelo = vnt({ precio: 90.5, ema50: 85, ema21: 84, sma200: 60, rsi: 60, max52: 100, volmedio: 1e6, ingresos: 40, cap: 1e9 });
+  vEnSuelo.t !== 'Esperar'
+    ? ok('comprado dentro de la ventana el veredicto ya no es Esperar, es ' + vEnSuelo.t) : mal('sigue diciendo Esperar dentro de su propia ventana');
 
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));

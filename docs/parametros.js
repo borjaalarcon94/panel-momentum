@@ -115,6 +115,7 @@ window.parametros = function () {
       ['Volumen medio', '> ' + n(C.volumenMin / 1000, 0) + ' mil acciones', 'que se negocie de verdad'],
       ['Dinero negociado', '> ' + n(C.liquidezMin / 1e6, 0) + ' M$ al día', 'poder salir sin mover el precio'],
       ['Tendencia de fondo', 'precio sobre su media de 200 días', 'solo se compra lo que sube'],
+      ['Ventana de compra', 'entre el 90 % de su máximo de 52 semanas y la EMA 50 ÷ 0,85', 'el suelo pide fuerza (cerca de máximos) y el techo pide que el stop sea técnico y no un tope fijo. Si el suelo queda por encima del techo no hay ningún precio de compra limpia: hace falta que la EMA 50 suba, no que lo haga el precio. El 18/10/2026 pasaba con 15 de las 23 en Esperar'],
       ['Tendencia corta', 'EMA 9 por encima de EMA 50', 'el impulso es reciente'],
       ['RSI 14', '> ' + C.rsiMin, 'hay compradores'],
       ['Crecimiento de ingresos', '≥ ' + C.crecimientoMin + ' % interanual', 'el mayor entre 12 meses y último trimestre'],
