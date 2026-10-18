@@ -961,3 +961,47 @@ uno. Es la dirección correcta: un día que falta es un hueco; un día inventado
 **Pruebas.** 464 comprobaciones en verde (de 456). Las 8 nuevas fallan contra el código anterior
 —revienta con `TypeError` al cambiar la firma, que hace fallar el build igual—, y una de ellas
 documenta explícitamente el caso que se colaba.
+
+---
+
+## 18 de octubre de 2026 — rejilla sobre los ocho veredictos
+
+Extensión de la verificación de «Esperar» a toda la cascada. No cambia código: añade pruebas.
+
+**Por qué hacía falta.** El arreglo de la ventana de compra se verificó con una rejilla y apareció un
+caso que no se había considerado (ventana de anchura cero). Si una rejilla encontró eso en un solo
+veredicto, los otros siete no tenían ninguna.
+
+**Qué cubre.** 1.440 combinaciones: distancia al máximo (4 valores) × posición de la EMA 50 (5) ×
+RSI (6) × requisitos rotos (3 conjuntos) × estado (4: normal, extendida, flojea, sin seguimiento).
+
+**Siete invariantes, en todas:**
+1. El veredicto es uno de los ocho conocidos.
+2. Su color es el que le corresponde.
+3. Ningún texto contiene `undefined`, `NaN` ni `[object`.
+4. COMPRA nunca con un requisito obligatorio roto.
+5. COMPRA nunca con señales de deterioro.
+6. COMPRA nunca lejos de su máximo ni con el tope del 15 % mordiendo.
+7. El stop mostrado es siempre el de `reglas.js`, y solo «Compra arriesgada» y «Esperar» llevan
+   etiqueta de precio.
+
+**Y la que habría cazado el escalón muerto del RSI: los 8 veredictos tienen que ser ALCANZABLES.**
+Reparto real: Ya no cumple 720, Sin datos 360, No comprar 120, No comprar aquí 80, Vigilar 80,
+Esperar 40, Compra arriesgada 20, COMPRA 20.
+
+**Verificado inyectando tres fallos distintos:**
+- un veredicto con el color cambiado → cazado por la invariante 2
+- un texto con un campo inexistente → cazado por la 3, con el `undefined $` en el mensaje
+- COMPRA inalcanzable → cazado por la comprobación de alcanzabilidad
+
+**Fallo propio en la propia prueba, corregido.** La comprobación de alcanzabilidad permitía que
+faltara un veredicto (`faltan.length <= 1`), así que con COMPRA muerta decía «7 de 8» y lo daba por
+bueno: la prueba no probaba nada. Es exactamente el modo en que el escalón del RSI vivió semanas. Se
+exige ahora que estén los 8.
+
+**Pruebas.** 513 comprobaciones en verde (de 507).
+
+**Lo que esto NO cubre, dicho con precisión.** Verifica la coherencia interna de la cascada de
+veredictos, no que los umbrales sean los correctos. Y no cubre `evaluaPosicion` (las posiciones
+abiertas), que tiene su propia auditoría de 216 simulaciones del 16 de octubre pero no una rejilla
+de este tipo.

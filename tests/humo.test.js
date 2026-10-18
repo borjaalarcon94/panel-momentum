@@ -373,6 +373,74 @@ for (const f of orden) {
       : mal('el panel promete algo que no se cumple', malos.slice(0, 3).join(' | '));
   }
 
+  /* Rejilla sobre LOS OCHO veredictos, no solo Esperar. Barre precio, EMA 50, RSI, requisitos
+     rotos y los indicadores de estado, y exige invariantes que valen para todos. Incluye la
+     comprobacion que habria cazado el escalon muerto del RSI: que los 8 sean ALCANZABLES. */
+  console.log('\nREJILLA SOBRE LOS OCHO VEREDICTOS');
+  {
+    const CLASES = { 'Sin datos': 'qbad', 'Ya no cumple': 'qbad', 'No comprar': 'qbad',
+      'No comprar aquí': 'qwarn', 'Vigilar': 'qwarn', 'Esperar': 'qwarn',
+      'Compra arriesgada': 'qwarn', 'COMPRA': 'qok' };
+    const vistos = {}, malos = [];
+    let n = 0;
+    const req9 = (rotos) => [
+      { t: 'Capitalización > 300 M', ok: true, entrada: true, v: '1,0 B' },
+      { t: 'Precio > 2 $', ok: true, entrada: true, v: '10,00 $' },
+      { t: 'Volumen medio > 300 mil acciones', ok: !rotos.includes('vol'), v: '1 mil' },
+      { t: 'Se negocian > 2 M$ al día', ok: true, v: '5,0 M$' },
+      { t: 'Precio sobre la media de 200 días', ok: !rotos.includes('sma'), v: '+5 %' },
+      { t: 'EMA 9 sobre EMA 50', ok: !rotos.includes('ema'), v: '-' },
+      { t: 'RSI > 55', ok: !rotos.includes('rsi'), v: '50' },
+      { t: 'Ingresos +20 % o más', ok: !rotos.includes('ing'), v: '+5 %' },
+      { t: 'A menos del 20 % de su máximo', ok: !rotos.includes('max'), v: '-30 %' }];
+    for (const dmaxPct of [-0.02, -0.08, -0.14, -0.30])            // distancia a su máximo
+      for (const fe of [0.60, 0.80, 0.88, 0.95, 1.05])             // EMA 50 / precio
+        for (const rsiV of [30, 50, 58, 65, 75, 85])
+          for (const rotos of [[], ['rsi'], ['sma', 'ema']])
+            for (const extra of [{}, { extendida: true }, { flojea: true }, { sinSeguimiento: true }]) {
+              const max52 = 100, precio = max52 * (1 + dmaxPct), ema50 = precio * fe;
+              const d = { precio, ema50, ema21: ema50 * 1.02, ema9: ema50 * 1.03, sma200: ema50 * 0.8,
+                rsi: rsiV, max52, adr: 4, volmedio: 1e6, ingresos: 40, cap: 1e9 };
+              const rq = req9(rotos);
+              const v = ventana.VEREDICTO(d, { ...extra, fallos: rq.filter(x => !x.ok) });
+              n++;
+              if (!v || !v.t) { malos.push('sin veredicto'); continue }
+              vistos[v.t] = (vistos[v.t] || 0) + 1;
+              // 1. el veredicto es uno de los ocho conocidos y con su clase
+              if (!(v.t in CLASES)) { malos.push('veredicto desconocido: ' + v.t); continue }
+              if (v.cls !== CLASES[v.t]) malos.push(v.t + ' pintado como ' + v.cls);
+              // 2. ningun texto con huecos
+              const txt = v.d + ' ' + (v.accion ? v.accion.et + v.accion.v + v.accion.ds : '');
+              if (/undefined|NaN|\[object/.test(txt)) malos.push(v.t + ': texto con hueco -> ' + txt.slice(0, 50));
+              // 3. COMPRA exige que no falle ningun requisito obligatorio
+              if (v.t === 'COMPRA' && rq.some(x => !x.ok && !x.entrada)) malos.push('COMPRA con requisitos rotos');
+              // 4. COMPRA exige que no haya señales de deterioro
+              if (v.t === 'COMPRA' && ventana.REGLAS.senalesDeMercado(d).length) malos.push('COMPRA con señales de deterioro');
+              // 5. COMPRA exige estar cerca del máximo y que el tope no muerda
+              if (v.t === 'COMPRA' && dmaxPct * 100 < -ventana.REGLAS.R.lejosDeMaximo) malos.push('COMPRA lejos de su máximo');
+              if (v.t === 'COMPRA' && ventana.SALIDA(d).tope) malos.push('COMPRA con el tope del 15 % mordiendo');
+              // 6. solo "Compra arriesgada" y "Esperar" llevan etiqueta de precio
+              if (v.accion && !['Compra arriesgada', 'Esperar'].includes(v.t)) malos.push(v.t + ' lleva etiqueta y no debería');
+              // 7. el stop mostrado es el del módulo de reglas
+              const e = ventana.REGLAS.stopDeEntrada(d);
+              if (e && e.stop != null && v.t !== 'Sin datos') {
+                const vs = parseFloat(String(v.stop).split(' ')[0].replace(/\./g, '').replace(',', '.'));
+                if (isFinite(vs) && Math.abs(vs - e.stop) > 0.02) malos.push(v.t + ': el stop no es el de reglas.js');
+              }
+            }
+    n >= 1000 ? ok(`${n} combinaciones evaluadas`) : mal('la rejilla cubre pocos casos', String(n));
+    /* Los 8 tienen que ser alcanzables desde la rejilla. Permitir que faltara uno anulaba la
+       comprobacion: con COMPRA muerta decia "7 de 8" y lo daba por bueno. Es exactamente el fallo
+       del escalon del RSI, que vivio semanas porque nadie comprobaba la alcanzabilidad. */
+    const faltan = Object.keys(CLASES).filter(t => !vistos[t]);
+    faltan.length === 0
+      ? ok('los 8 veredictos son alcanzables: ' + Object.entries(vistos).map(([t, c]) => t + ' ' + c).join(', '))
+      : mal('hay veredictos INALCANZABLES, como el escalón muerto del RSI', 'faltan: ' + faltan.join(', '));
+    malos.length === 0
+      ? ok('las 7 invariantes se cumplen en todas las combinaciones')
+      : mal('invariante rota', [...new Set(malos)].slice(0, 3).join(' | '));
+  }
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);
