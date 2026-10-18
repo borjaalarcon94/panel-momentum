@@ -72,8 +72,13 @@
     const capRota = (requisitos || []).find(x => !x.ok && x.entrada && /apitalizaci/.test(x.t));
 
     const motivos = [], avisos = [];
+    /* El stop es siempre max(EMA 50, ...), asi que si el precio pierde la EMA 50 ya esta por debajo
+       del stop y lo coge la primera rama. Aqui habia un 'else if' para el codigo 'ema50' que no se
+       ejecutaba NUNCA: lo encontro la rejilla del 18/10/2026, 0 de 6.720 combinaciones. No cambiaba
+       nada (el mensaje de 'stop' ya dice que ha perdido la EMA 50 cuando el stop es la EMA 50), pero
+       la tabla de Parametros lo describia como una regla aparte. El codigo 'ema50' sigue vivo en
+       senalesDeMercado, que es otro camino y si lo emite. */
     if (stop != null && precio < stop) motivos.push({ codigo: 'stop', stop, ema50 });
-    else if (ema50 != null && precio < ema50) motivos.push({ codigo: 'ema50', ema50 });
     if (rsi != null && rsi < R.rsiVenta) motivos.push({ codigo: 'rsi', rsi });
     if (limite != null && alMenos(devuelto, limite)) motivos.push({ codigo: 'devuelto', devuelto, ganMax, gan, limite });
     if (fallos.length >= 2) motivos.push({ codigo: 'requisitos', fallos });

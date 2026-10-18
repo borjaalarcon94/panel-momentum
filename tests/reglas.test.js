@@ -224,6 +224,73 @@ comprueba('sin EMA 50 no se inventa', REGLAS.stopDeEntrada({ precio: 10 }).sobre
 comprueba('un precio al doble de su EMA 50 son +100 %, no +50 %',
           REGLAS.stopDeEntrada({ precio: 200, ema50: 100 }).sobreEma50, 100);
 
+/* Rejilla sobre evaluaPosicion: el camino de las posiciones abiertas, donde esta el dinero de
+   verdad. La auditoria del 16/10 hizo 216 simulaciones sobre datos reales; esto barre el espacio
+   entero, incluidos los estados que los datos de hoy no producen. */
+console.log('\nREJILLA SOBRE LAS POSICIONES ABIERTAS');
+{
+  const req = (rotos) => [
+    { t: 'Capitalización > 300 M', ok: !rotos.includes('cap'), entrada: true, v: '120 M' },
+    { t: 'Precio > 2 $', ok: true, entrada: true, v: '10,00 $' },
+    { t: 'Precio sobre la media de 200 días', ok: !rotos.includes('sma'), v: '-' },
+    { t: 'EMA 9 sobre EMA 50', ok: !rotos.includes('ema'), v: '-' },
+    { t: 'RSI > 55', ok: !rotos.includes('rsi'), v: '50' },
+    { t: 'A menos del 20 % de su máximo', ok: !rotos.includes('max'), v: '-30 %' }];
+  const estados = {}, codigos = {}, malos = [];
+  let n = 0;
+  for (const fp of [0.70, 0.86, 0.95, 1.05, 1.25, 1.60, 2.20])        // precio / compra
+    for (const fe of [0.70, 0.90, 0.99, 1.10])                        // ema50 / precio
+      for (const rsiV of [30, 44, 46, 60, 80])
+        for (const fmax of [1.0, 1.15, 1.8, 2.6])                     // maximo visto / compra
+          for (const rotos of [[], ['cap'], ['rsi'], ['sma', 'ema']])
+            for (const dres of [null, 5, 40]) {
+              const compra = 100, precio = compra * fp, ema50 = precio * fe;
+              const datos = { precio, ema50, ema21: ema50 * 1.03, rsi: rsiV,
+                max1m: compra * fmax, max3m: compra * fmax };
+              const ev = REGLAS.evaluaPosicion({ datos, compra, maxRegistrado: compra * fmax,
+                dias: 40, requisitos: req(rotos), diasResultados: dres, maxSerie: compra * fmax });
+              n++;
+              estados[ev.estado] = (estados[ev.estado] || 0) + 1;
+              [...ev.motivos, ...ev.avisos].forEach(m => { codigos[m.codigo] = (codigos[m.codigo] || 0) + 1 });
+              const et = `p=${precio.toFixed(0)} ema=${ema50.toFixed(0)} rsi=${rsiV}`;
+              // 1. estado y contenido no se contradicen
+              if (ev.estado === 'vender' && !ev.motivos.length) malos.push(et + ': VENDER sin motivo');
+              if (ev.estado === 'vigilar' && (ev.motivos.length || !ev.avisos.length)) malos.push(et + ': VIGILAR incoherente');
+              if (ev.estado === 'mantener' && (ev.motivos.length || ev.avisos.length)) malos.push(et + ': MANTENER con motivos o avisos');
+              // 2. por debajo del stop, siempre vender
+              if (ev.stop != null && precio < ev.stop && ev.estado !== 'vender') malos.push(et + ': bajo el stop y no dice vender');
+              // 3. el tope del 15 % se respeta
+              if (ev.stop != null && ev.stop < compra * 0.85 - 1e-9) malos.push(et + ': stop por debajo del 15 % de la compra');
+              // 4. con +20 % de ganancia el stop protege el coste
+              if (ev.stop != null && (precio / compra - 1) * 100 >= 20 && ev.stop < compra - 1e-9) malos.push(et + ': ganando y el stop bajo la compra');
+              // 5. el trinquete aguanta
+              const ev2 = REGLAS.evaluaPosicion({ datos, compra, maxRegistrado: compra * fmax,
+                stopPrevio: (ev.stop || 0) * 1.08, dias: 40, requisitos: req(rotos), diasResultados: dres, maxSerie: compra * fmax });
+              if (ev.stop != null && ev2.stop != null && ev2.stop < ev.stop - 1e-9) malos.push(et + ': el stop BAJA con stopPrevio mayor');
+              // 6. nada no finito
+              if ([ev.stop, ev.gan, ev.ganMax, ev.devuelto].some(x => x != null && !isFinite(x))) malos.push(et + ': valor no finito');
+              // 7. el limite de devolucion es el de la regla
+              const esp = REGLAS.limiteDevolucion(ev.ganMax);
+              if (ev.limite !== esp) malos.push(et + `: limite ${ev.limite} y deberia ser ${esp}`);
+            }
+  comprueba('combinaciones evaluadas (>= 4000)', n >= 4000, true);
+  comprueba('los 4 estados son alcanzables',
+            ['vender', 'vigilar', 'mantener'].every(e => estados[e] > 0), true);
+  /* 'ema50' NO esta en esta lista a proposito: en una posicion abierta el stop siempre es >= EMA 50,
+     asi que perderla ya es saltar el stop. La rejilla lo encontro muerto y se quito la rama. El
+     codigo sigue vivo en senalesDeMercado, que se comprueba justo debajo. */
+  comprueba('ningun motivo ni aviso de posicion abierta queda muerto',
+            ['stop', 'rsi', 'devuelto', 'requisitos', 'un-requisito', 'devolviendo', 'ema21', 'resultados', 'capitalizacion']
+              .filter(c => !codigos[c]), []);
+  comprueba('y «ema50» ya no se emite desde una posicion abierta: seria inalcanzable',
+            codigos['ema50'] || 0, 0);
+  comprueba('pero sigue vivo para las que NO tienes',
+            REGLAS.senalesDeMercado({ precio: 90, ema50: 100, ema21: 95, rsi: 60 }).map(x => x.codigo), ['ema50']);
+  comprueba('las 7 invariantes se cumplen en todas', [...new Set(malos)].slice(0, 3), []);
+  console.log('      estados: ' + Object.entries(estados).map(([k, v]) => k + ' ' + v).join(', '));
+  console.log('      codigos: ' + Object.entries(codigos).map(([k, v]) => k + ' ' + v).join(', '));
+}
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
 

@@ -166,7 +166,7 @@ window.parametros = function () {
       ['Protección del coste', 'superado el 20 % de ganancia, el stop sube a tu precio de compra'],
       ['Devolución de ganancias', 'con menos de un 30 % ganado manda solo el stop; entre 30 y 100 % se vende si devuelve la mitad; por encima del 100 %, si devuelve el 40 %'],
       ['Cómo se mide lo que llegaste a ganar', 'el CIERRE más alto desde tu compra, según la serie diaria guardada (90 sesiones). No se usan los máximos intradía: el stop solo actúa con cierres, así que medir desde una mecha adelantaría la venta. Si no hay serie para ese valor se recurre a los máximos de 1 y 3 meses, que sí son intradía. Un máximo ya registrado no se olvida'],
-      ['Pérdida de tendencia', 'cierre por debajo de la EMA 50 o RSI por debajo de 45'],
+      ['Pérdida de tendencia', 'RSI por debajo de 45. Perder la EMA 50 no es una regla aparte: el stop ES la EMA 50, así que perderla ya es saltar el stop'],
       ['Deterioro del negocio', 'deja de cumplir dos o más requisitos'],
       ['Aviso previo', 'VIGILAR al perder la EMA 21, al acercarse al 60 % de la devolución límite o si publica resultados en 10 días'],
       ['Un solo requisito roto', 'VIGILAR, no vender: hacen falta dos para que sea motivo de venta'],

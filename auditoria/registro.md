@@ -1005,3 +1005,60 @@ exige ahora que estén los 8.
 veredictos, no que los umbrales sean los correctos. Y no cubre `evaluaPosicion` (las posiciones
 abiertas), que tiene su propia auditoría de 216 simulaciones del 16 de octubre pero no una rejilla
 de este tipo.
+
+---
+
+## 18 de octubre de 2026 (2) — rejilla sobre las posiciones abiertas. Una rama muerta
+
+Extensión de la rejilla al camino de `evaluaPosicion`, que es donde está el dinero. **6.720
+combinaciones**: precio/compra (7) × EMA 50 (4) × RSI (5) × máximo visto (4) × requisitos rotos (4) ×
+días hasta resultados (3).
+
+### El hallazgo: el motivo `ema50` estaba muerto
+
+0 de 6.720. Y es demostrable, no estadístico: el stop es siempre `max(EMA 50, …)`, así que si el
+precio pierde la EMA 50 ya está por debajo del stop y lo coge la rama anterior. El `else if` del
+código `ema50` **no podía ejecutarse nunca**.
+
+```js
+if (stop != null && precio < stop) motivos.push({ codigo: 'stop', stop, ema50 });
+else if (ema50 != null && precio < ema50) motivos.push({ codigo: 'ema50', ema50 });   // <- muerta
+```
+
+**No cambiaba nada en pantalla**: el mensaje de `stop` ya dice lo correcto, porque en ese caso el stop
+*es* la EMA 50. Lo que sí estaba mal es que **la tabla 5 de Parámetros lo describía como una regla
+aparte** («Pérdida de tendencia: cierre por debajo de la EMA 50 o RSI por debajo de 45»), y esa tabla
+es la que lee una auditoría externa. Corregida: perder la EMA 50 no es una regla aparte, es saltar el
+stop.
+
+**El código `ema50` sigue vivo** en `senalesDeMercado`, que es el camino de las acciones que NO tienes
+y donde no hay stop de por medio. Solo se quitó la rama de `evaluaPosicion`, con una prueba que ata
+las dos cosas: que no se emita desde una posición abierta y que sí se emita desde el seguimiento.
+
+### Siete invariantes, en las 6.720
+
+1. `vender` siempre con motivo; `vigilar` con avisos y sin motivos; `mantener` sin nada.
+2. Por debajo del stop, el estado es siempre `vender`.
+3. El stop nunca cae por debajo del 85 % del precio de compra.
+4. Con ganancia ≥ 20 %, el stop nunca queda por debajo del precio de compra.
+5. El trinquete aguanta: con un `stopPrevio` mayor, el stop no baja.
+6. Ningún valor no finito en `stop`, `gan`, `ganMax` ni `devuelto`.
+7. El límite de devolución es exactamente el que devuelve `limiteDevolucion(ganMax)`.
+
+Reparto de estados: vender 5.505, vigilar 1.047, mantener 168. Y de los 9 códigos vivos de posición
+abierta no queda ninguno sin emitir.
+
+### Verificado inyectando tres fallos en el protocolo
+
+- trinquete desactivado → cazado
+- protección del coste al +20 % desactivada → cazado por dos pruebas
+- tope del 15 % aflojado al 40 % → cazado por dos pruebas
+
+### Cobertura, al cierre del día
+
+Las dos cascadas que deciden con dinero tienen ya rejilla exhaustiva: **1.440 combinaciones** para los
+8 veredictos de compra y **6.720** para el protocolo de salida. Lo que sigue sin rejilla: la
+puntuación (tiene el barrido de las 15 escaleras del 16/10), la pestaña Resultados y la aritmética de
+posiciones (cubierta por pruebas concretas, no exhaustivas).
+
+**Pruebas.** 519 comprobaciones en verde (de 513).
