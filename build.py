@@ -346,7 +346,10 @@ def main():
     historicos_precios = {f: v for f, v in sorted(historicos_precios.items())[-DIAS:]}
     fp.write_text(json.dumps({"dias": historicos_precios}, ensure_ascii=False, separators=(",", ":")))
 
-    estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css"))
+    # plantilla.html entra en el hash: un cambio solo de plantilla (textos, nombres de pestañas)
+    # no movia la version, asi que la recarga automatica no saltaba y el navegador podia servir el
+    # HTML viejo de su cache. Paso el 20/10/2026 al renombrar una subpestaña.
+    estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css")) + [R / "plantilla.html"]
     version = hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
     panel = {"version": version, "dias": sorted(todos), "historico": historico, "precios": precios, "actual": actual,
              "mercadoHoy": mercado, "referenciaHoy": ref,

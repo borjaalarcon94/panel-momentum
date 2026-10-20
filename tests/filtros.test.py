@@ -96,6 +96,13 @@ comprueba("ningun dia del historico esta entero sin puntuacion", _sin_sc, [])
 comprueba("los dias de panel.json son exactamente los ficheros guardados",
           sorted(_panel["dias"]), sorted(f.stem for f in b.DATOS.glob("2*.json")))
 
+# 20/10/2026: la version se calculaba solo con js y css, asi que renombrar una pestaña en
+# plantilla.html no la movia y la recarga automatica no saltaba.
+print("\nLA VERSION CUBRE TAMBIEN LA PLANTILLA")
+_src = (b.R / "build.py").read_text()
+comprueba("plantilla.html entra en el hash de version",
+          'estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css")) + [R / "plantilla.html"]' in _src, True)
+
 print("\nCOHERENCIA DE UMBRALES")
 comprueba("el suelo de capitalización del escáner coincide con el documentado",
           [f["right"] for f in b.FILTROS if f["left"] == "market_cap_basic"], [b.CAP_MIN])
