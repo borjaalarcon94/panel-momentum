@@ -250,7 +250,11 @@ for (const f of orden) {
   !/data-v="hoy"/.test(stPl) ? ok('Hoy ya no es una pestaña principal') : mal('Hoy sigue como pestaña principal');
   /data-s="hoy"/.test(stPl) && /data-s="seg"/.test(stPl) ? ok('existen las dos subpestañas') : mal('faltan las subpestañas');
   /<section id="vseg">/.test(stPl) && /<section id="vhoy" hidden>/.test(stPl)
-    ? ok('al abrir se ve «Lo que sigo» y Hoy queda oculto') : mal('la visibilidad inicial está al revés');
+    ? ok('al abrir se ve «Oportunidades» y Hoy queda oculto') : mal('la visibilidad inicial está al revés');
+  /data-s="seg" aria-selected="true">Oportunidades</.test(stPl)
+    ? ok('la subpestaña se llama «Oportunidades», no «Lo que sigo»: el nombre dice lo que hay dentro')
+    : mal('la subpestaña sigue con un nombre que describe el mecanismo y no el contenido');
+  !/Lo que sigo/.test(stPl) ? ok('y no queda rastro del nombre viejo') : mal('queda el nombre viejo');
   /if \(window\.seguimiento\) window\.seguimiento\(\);/.test(stApp)
     ? ok('y se pinta al arrancar: la app no abre en blanco') : mal('Seguimiento no se pinta al arrancar: abriría vacío');
   /window\.pinta\(\);/.test(stApp) ? ok('pinta() sigue corriendo, para el contador') : mal('pinta() ya no corre y el contador no se calcularía');
