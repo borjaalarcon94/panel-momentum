@@ -1125,3 +1125,36 @@ escaneo. Queda un hueco de una sesión en el registro, igual que los días retir
 precios ni a stops; sí resta una sesión al contador de madurez de Resultados.
 
 **Pruebas.** 525 comprobaciones en verde, 6 nuevas sobre esta resiliencia.
+
+---
+
+## 22 de octubre de 2026 (2) — recuperada la serie de cierres del 21
+
+**Qué se ha recuperado y qué no**, porque la distinción importa:
+
+- **`docs/precios.json` (cierres diarios): RECUPERADO.** 40 de los 41 símbolos seguidos. Es un hecho
+  verificable y está en fuentes históricas. Es lo que hace posible la simulación de stops de la
+  pestaña Resultados, que es justamente la medición de noviembre.
+- **`docs/datos/2026-10-21.json` (el top del día): NO se reconstruye, y no se reconstruirá.** Necesita
+  46 columnas en vivo —fundamentales, medias y RSI del momento— que ya no existen. Inventar un top que
+  nunca se eligió sería falsear el registro, igual que los días fantasma que se retiraron el 17.
+
+**Verificación antes de escribir nada.** Se pidieron a nasdaq.com también los cierres del **20**, que
+ya estaban guardados desde TradingView: **29 de 29 coinciden al céntimo**. Con las dos fuentes de
+acuerdo en el día anterior, el dato del 21 es fiable. Sin esa comprobación habría estado metiendo
+números de una fuente que nadie había contrastado.
+
+El único símbolo sin dato es `NASDAQ:BLFS`, que no tiene cierre ese día en la fuente.
+
+**La serie queda sin huecos**: 12 sesiones, del 6 al 21 de octubre, en orden y sin ningún día de
+mercado ausente.
+
+**Guarda nueva en `filtros.test.py`**: ningún día de mercado puede faltar entre el primero y el último
+de la serie, las fechas van en orden, ningún día vacío y ninguno en fin de semana. Verificada quitando
+un miércoles de en medio: falla y nombra la fecha.
+
+**Limitación declarada**: un hueco al *final* de la serie no lo detecta esta prueba, porque no hay un
+«día siguiente» con el que comparar. Ese caso lo cubre el aviso rojo de la app («Datos de hace N días
+de mercado»), que es precisamente el que funcionó ayer.
+
+**Pruebas.** 529 comprobaciones en verde.

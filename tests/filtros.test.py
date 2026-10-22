@@ -134,6 +134,27 @@ finally:
 comprueba("y el camino del reintento se ejecuta sin romperse", _err, None)
 comprueba("reintenta las 3 veces antes de rendirse", _n[0], 3)
 
+# 22/10/2026: la sesion del 21 se perdio porque el build no corrio, y precios.json —que es lo que
+# hace posible simular stops en la pestaña Resultados— quedo con un hueco. Se recupero de nasdaq.com
+# (verificado: los 29 cierres del 20 coinciden al centimo con los que ya habia). Esto detecta el
+# proximo hueco en vez de que pase inadvertido.
+print("\nLA SERIE DIARIA DE CIERRES NO TIENE HUECOS")
+import datetime as _d2, json as _j2
+_pr = _j2.loads((b.WEB / "precios.json").read_text())["dias"]
+_f = sorted(_pr)
+_huecos = []
+for _i in range(1, len(_f)):
+    _a = _d2.date.fromisoformat(_f[_i - 1]); _b2 = _d2.date.fromisoformat(_f[_i])
+    _t = _a + _d2.timedelta(days=1)
+    while _t < _b2:
+        if _t.weekday() < 5: _huecos.append(_t.isoformat())
+        _t += _d2.timedelta(days=1)
+comprueba("ningun dia de mercado falta en precios.json", _huecos, [])
+comprueba("las fechas van en orden", _f, sorted(_f))
+comprueba("ningun dia de la serie esta vacio", [x for x in _f if not _pr[x]], [])
+_fds = [x for x in _f if _d2.date.fromisoformat(x).weekday() >= 5]
+comprueba("ni cae en fin de semana", _fds, [])
+
 print("\nCOHERENCIA DE UMBRALES")
 comprueba("el suelo de capitalización del escáner coincide con el documentado",
           [f["right"] for f in b.FILTROS if f["left"] == "market_cap_basic"], [b.CAP_MIN])
