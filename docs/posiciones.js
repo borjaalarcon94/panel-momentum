@@ -161,7 +161,11 @@ function revision(p) {
   if (ahora == null) return { p, ahora: null, estado: 'sindatos', t: 'Sin datos', d: 'el panel ya no sigue esta acción: compruébala tú mismo.', cls: 'qwarn', req: [] };
   const dias = Math.round((new Date(FH[0] + 'T12:00:00Z') - new Date(p.fecha + 'T12:00:00Z')) / 864e5);
   const req = window.REQUISITOS(a);
-  const ev = window.REGLAS.evaluaPosicion({ datos: a, compra: p.precio, maxRegistrado: p.maxVisto, stopPrevio: p.stopMax,
+  /* stopPrevio: el mayor entre lo guardado en este navegador y el trinquete reconstruido desde la
+     serie diaria. Lo segundo no depende de que hayas abierto la app cada dia, que era el agujero. */
+  const trinqSerie = window.TRINQUETE_EN_SERIE(p.simbolo || p.ticker, p.fecha, p.precio);
+  const ev = window.REGLAS.evaluaPosicion({ datos: a, compra: p.precio, maxRegistrado: p.maxVisto,
+    stopPrevio: Math.max(p.stopMax || 0, trinqSerie || 0),
     dias, requisitos: req, diasResultados: window.DIAS_RESULTADOS(a),
     maxSerie: maximoEnSerie(p.simbolo || p.ticker, p.fecha) });
   const motivos = ev.motivos.map(window.TEXTO_SENAL), avisos = ev.avisos.map(window.TEXTO_SENAL);
@@ -191,11 +195,30 @@ function cajaCartera() {
 /* Copia de seguridad: las posiciones viven solo en este navegador, así que hay que poder llevárselas.
    Se exportan e importan como texto, sin servidor. */
 function copiaSeguridad() {
-  const d = el('div', 'row'); d.style.marginTop = '14px';
-  const exportar = el('button', 'chip', 'Copiar mis posiciones');
+  const d = el('div'); d.style.marginTop = '14px';
+  d.style.display = 'flex'; d.style.flexWrap = 'wrap'; d.style.gap = '8px'; d.style.alignItems = 'center';
+  /* Descargar un fichero es UN clic; copiar y pegar son tres pasos y un sitio donde pegarlo, y por
+     eso la copia no se hacia nunca. El historial de posiciones vive solo en este navegador y no se
+     puede regenerar desde ningun sitio: es lo unico irrecuperable de todo el panel. */
+  const bajar = el('button', 'chip main', '⤓ Descargar copia de mis posiciones');
+  bajar.onclick = () => {
+    const pos = leerPos();
+    const datos = JSON.stringify({ posiciones: pos, cartera: window.CARTERA.leer(), guardado: FH[0] }, null, 1);
+    try {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([datos], { type: 'application/json' }));
+      a.download = 'panel-momentum-posiciones-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove() }, 1000);
+      try { localStorage.setItem('copia-v1', new Date().toISOString().slice(0, 10)) } catch (e) {}
+      bajar.textContent = '✓ Descargada (' + pos.length + ' ' + (pos.length === 1 ? 'posición' : 'posiciones') + ')';
+      setTimeout(() => { bajar.textContent = '⤓ Descargar copia de mis posiciones' }, 4000);
+    } catch (e) { prompt('Copia este texto y guárdalo:', datos); }
+  };
+  const exportar = el('button', 'chip', 'Copiar al portapapeles');
   exportar.onclick = async () => {
     const datos = JSON.stringify({ posiciones: leerPos(), cartera: window.CARTERA.leer(), guardado: FH[0] });
-    try { await navigator.clipboard.writeText(datos); exportar.textContent = '✓ Copiado: pégalo donde quieras guardarlo'; setTimeout(() => { exportar.textContent = 'Copiar mis posiciones' }, 3000); }
+    try { await navigator.clipboard.writeText(datos); exportar.textContent = '✓ Copiado'; setTimeout(() => { exportar.textContent = 'Copiar al portapapeles' }, 3000); }
     catch (e) { prompt('Copia este texto y guárdalo:', datos); }
   };
   const importar = el('button', 'chip', 'Restaurar desde una copia');
@@ -212,7 +235,22 @@ function copiaSeguridad() {
       window.posiciones();
     } catch (e) { alert('Esa copia no se entiende. Pega el texto completo tal cual lo copiaste.'); }
   };
-  d.append(exportar, importar);
+  d.append(bajar, exportar, importar);
+  /* Aviso si hace mas de 30 dias de la ultima copia, o si nunca se ha hecho teniendo posiciones.
+     No es una regañina: es el unico dato del sistema que no se puede reconstruir. */
+  let ultima = null;
+  try { ultima = localStorage.getItem('copia-v1') } catch (e) {}
+  const nPos = leerPos().length;
+  if (nPos) {
+    const dd = ultima ? Math.round((new Date(FH[0] + 'T12:00:00Z') - new Date(ultima + 'T12:00:00Z')) / 864e5) : null;
+    if (dd == null || dd >= 30) {
+      const av = el('div', 'm'); av.style.marginTop = '8px'; av.style.color = 'var(--warn)';
+      av.textContent = dd == null
+        ? 'No has descargado ninguna copia. Tus ' + nPos + (nPos === 1 ? ' posición vive' : ' posiciones viven') + ' solo en este navegador: si lo limpias, se pierden y no hay forma de recuperarlas.'
+        : 'Tu última copia es de hace ' + dd + ' días. Conviene descargar una nueva.';
+      d.appendChild(av);
+    }
+  }
   return d;
 }
 

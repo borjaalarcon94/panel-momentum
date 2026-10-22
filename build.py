@@ -373,10 +373,26 @@ def main():
             historicos_precios = json.loads(fp.read_text()).get("dias", {})
         except Exception:
             historicos_precios = {}
+    # Junto al cierre se guarda la EMA 50 del dia. Motivo: el trinquete del stop ("el stop nunca
+    # baja") solo subia los dias en que el usuario abria la app, porque se calculaba con el dato de
+    # ese momento y se guardaba en su navegador. Si no mirabas en una semana, los escalones de esos
+    # dias se perdian y tu stop quedaba MAS BAJO de lo que la tabla 5 promete: arriesgabas mas de lo
+    # que el sistema decia. Con la EMA 50 diaria el trinquete se reconstruye entero desde la serie y
+    # deja de depender de un habito. El dato ya se descarga (esta en CAMPOS_SEGUIMIENTO): solo se
+    # guardaba. Cuesta unos 8 KB mas en un fichero que solo se descarga en dos pestañas.
+    historicas_emas = {}
+    if fp.exists():
+        try:
+            historicas_emas = json.loads(fp.read_text()).get("emas", {})
+        except Exception:
+            historicas_emas = {}
     if acciones is not None:   # en fin de semana o festivo no hay cierre nuevo que guardar
         historicos_precios[hoy] = {s: redondea(v) for s, v in precios.items()}
+        historicas_emas[hoy] = {s: redondea(v.get("ema50")) for s, v in actual.items() if v.get("ema50")}
     historicos_precios = {f: v for f, v in sorted(historicos_precios.items())[-DIAS:]}
-    fp.write_text(json.dumps({"dias": historicos_precios}, ensure_ascii=False, separators=(",", ":")))
+    historicas_emas = {f: v for f, v in sorted(historicas_emas.items())[-DIAS:]}
+    fp.write_text(json.dumps({"dias": historicos_precios, "emas": historicas_emas},
+                             ensure_ascii=False, separators=(",", ":")))
 
     # plantilla.html entra en el hash: un cambio solo de plantilla (textos, nombres de pestañas)
     # no movia la version, asi que la recarga automatica no saltaba y el navegador podia servir el

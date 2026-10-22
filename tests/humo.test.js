@@ -451,6 +451,67 @@ for (const f of orden) {
       : mal('invariante rota', [...new Set(malos)].slice(0, 3).join(' | '));
   }
 
+  /* El trinquete del stop solo subia los dias en que abrias la app. Si no mirabas en una semana,
+     los escalones de esos dias se perdian y tu stop quedaba por debajo de lo que promete la tabla 5:
+     arriesgabas mas de lo que el sistema decia. Ahora se reconstruye desde la serie diaria. */
+  console.log('\nEL TRINQUETE DEL STOP NO DEPENDE DE QUE ABRAS LA APP');
+  typeof ventana.TRINQUETE_EN_SERIE === 'function'
+    ? ok('window.TRINQUETE_EN_SERIE existe') : mal('no hay trinquete de serie');
+  {
+    // serie inventada: la EMA 50 sube y luego baja. El trinquete tiene que quedarse en el pico.
+    const guardadoP = ventana.__EMAS__, guardadoS = vm.runInContext('PRECIOS', ctx);
+    vm.runInContext(`PRECIOS = {
+      '2026-01-02': { 'X': 100 }, '2026-01-03': { 'X': 120 },
+      '2026-01-04': { 'X': 130 }, '2026-01-05': { 'X': 104 } }`, ctx);
+    ventana.__EMAS__ = { '2026-01-02': { X: 90 }, '2026-01-03': { X: 95 },
+                         '2026-01-04': { X: 99 }, '2026-01-05': { X: 92 } };
+    const tr = ventana.TRINQUETE_EN_SERIE('X', '2026-01-02', 100);
+    // el 4 la EMA 50 vale 99 y la ganancia maxima es +30 %, asi que la proteccion del coste pone
+    // el stop en la compra: 100. Ese es el pico del trinquete.
+    tr === 100 ? ok('se queda en el pico del camino (100), no en el valor de hoy (92)')
+      : mal('el trinquete no coge el pico de la serie', String(tr));
+    const sinSerie = ventana.REGLAS.stopDe({ precio: 104, ema50: 92 }, 100, null);
+    sinSerie < tr ? ok('y es más alto que mirando solo hoy (' + sinSerie.toFixed(2) + ' vs ' + tr.toFixed(2) + '): protege más')
+      : mal('mirando solo hoy saldría igual o mejor, algo falla');
+    ventana.TRINQUETE_EN_SERIE('X', '2026-01-02', 0) === null
+      ? ok('sin precio de compra no se inventa un trinquete') : mal('devuelve algo sin compra');
+    ventana.TRINQUETE_EN_SERIE('NOEXISTE', '2026-01-02', 100) === null
+      ? ok('con un símbolo que no está en la serie, tampoco') : mal('inventa trinquete sin datos');
+    vm.runInContext('PRECIOS = ' + JSON.stringify(guardadoS), ctx);
+    ventana.__EMAS__ = guardadoP;
+  }
+  const srcPos7 = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /Math\.max\(p\.stopMax \|\| 0, trinqSerie \|\| 0\)/.test(srcPos7)
+    ? ok('las posiciones usan el mayor entre lo guardado y el de la serie') : mal('las posiciones no usan el trinquete de serie');
+  const srcApp7 = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
+  /window\.__EMAS__ = j\.emas/.test(srcApp7)
+    ? ok('y la EMA 50 diaria se carga de precios.json') : mal('no se cargan las EMAs');
+
+  /* La copia llevaba cuatro recordatorios sin hacerse, y con razon: copiar y pegar son tres pasos
+     y un sitio donde pegarlo. Un fichero descargado es un clic. Es el unico dato irrecuperable. */
+  console.log('\nLA COPIA DE SEGURIDAD EN UN CLIC');
+  const srcPos8 = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
+  /Descargar copia de mis posiciones/.test(srcPos8)
+    ? ok('hay un botón que descarga un fichero') : mal('sigue habiendo solo copiar al portapapeles');
+  /a\.download = 'panel-momentum-posiciones-'/.test(srcPos8)
+    ? ok('con nombre y fecha en el fichero') : mal('el fichero no lleva nombre con fecha');
+  /Copiar al portapapeles/.test(srcPos8) ? ok('y se conserva el portapapeles como alternativa') : mal('se ha perdido el portapapeles');
+  /localStorage\.setItem\('copia-v1'/.test(srcPos8)
+    ? ok('se anota la fecha de la última copia') : mal('no se recuerda cuándo fue la última');
+  /No has descargado ninguna copia/.test(srcPos8) && /dd >= 30/.test(srcPos8)
+    ? ok('y avisa si nunca se ha hecho o si pasan 30 días') : mal('no avisa de que falta la copia');
+  // con posiciones y sin copia previa, el aviso tiene que salir de verdad
+  almacen['posiciones-v1'] = JSON.stringify([{ ticker: datos.ticker, simbolo: sim, precio: 10, acciones: 5, fecha: panel.dias[0] }]);
+  try { delete almacen['copia-v1'] } catch (e) {}
+  await paso('posiciones se pinta sin copia previa', () => ventana.posiciones());
+  /No has descargado ninguna copia/.test(porId.rpos.textContent)
+    ? ok('el aviso aparece en pantalla, no solo en el código') : mal('el aviso no se pinta');
+  almacen['copia-v1'] = panel.dias[panel.dias.length - 1];
+  await paso('y con una copia reciente', () => ventana.posiciones());
+  !/No has descargado ninguna copia/.test(porId.rpos.textContent)
+    ? ok('y desaparece tras descargarla') : mal('el aviso sigue tras hacer copia');
+  almacen['posiciones-v1'] = '[]';
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);

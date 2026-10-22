@@ -17,8 +17,11 @@ const cap = v => v == null ? '-' : v >= 1e12 ? n(v / 1e12, 2) + ' T' : v >= 1e9 
 let PRECIOS = null;
 async function cargaPrecios() {
   if (PRECIOS) return PRECIOS;
-  try { PRECIOS = (await (await fetch('precios.json', { cache: 'no-cache' })).json()).dias || {}; }
-  catch (e) { PRECIOS = {}; }
+  try {
+    const j = await (await fetch('precios.json', { cache: 'no-cache' })).json();
+    PRECIOS = j.dias || {};
+    window.__EMAS__ = j.emas || {};   // la EMA 50 de cada dia: con ella el trinquete no depende de ti
+  } catch (e) { PRECIOS = {}; window.__EMAS__ = {}; }
   return PRECIOS;
 }
 /* Cierre de una accion un dia dado: primero la serie completa; si no, el registro del top, que solo
@@ -35,6 +38,27 @@ function cierre(f, clave) {
    depender de que abrieras la app ese dia: antes, pasados 90 dias, el maximo se quedaba congelado en
    el ultimo precio que la web hubiera visto, y la regla de devolucion dejaba de proteger justo en la
    multibagger de largo plazo, que es donde mas hace falta. */
+/* Trinquete del stop reconstruido desde la serie diaria, no desde las veces que abres la app.
+   El stop "nunca baja", pero solo subia los dias en que entrabas a mirar: si no mirabas en una
+   semana, los escalones de esos dias se perdian y tu stop quedaba por debajo de lo que la tabla 5
+   promete. Con el cierre y la EMA 50 de cada dia se recorre el camino entero y se coge el maximo.
+   Medido con PAYS el 22/10/2026: el trinquete real habia subido 8 veces, de 12,75 a 13,33 $. */
+window.TRINQUETE_EN_SERIE = function (clave, desde, compra) {
+  const dias = PRECIOS || {}, emas = (window.__EMAS__ || {});
+  if (!compra) return null;
+  let maxCierre = compra, trinquete = 0;
+  for (const f of Object.keys(dias).sort()) {
+    if (f < desde) continue;
+    const c = dias[f] && dias[f][clave], e = emas[f] && emas[f][clave];
+    if (c == null) continue;
+    maxCierre = Math.max(maxCierre, c);
+    const ganMax = (maxCierre / compra - 1) * 100;
+    const st = window.REGLAS.stopDe({ precio: c, ema50: e }, compra, null, ganMax);
+    if (st != null && st > trinquete) trinquete = st;
+  }
+  return trinquete || null;
+};
+
 function maximoEnSerie(clave, desde) {
   const dias = PRECIOS || {};
   let max = 0;

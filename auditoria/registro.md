@@ -1158,3 +1158,49 @@ un miércoles de en medio: falla y nombra la fecha.
 de mercado»), que es precisamente el que funcionó ayer.
 
 **Pruebas.** 529 comprobaciones en verde.
+
+---
+
+## 22 de octubre de 2026 (3) — el trinquete deja de depender de que abras la app
+
+Nace del hueco del 21: al revisar qué le pasó a una posición abierta apareció que **el trinquete del
+stop solo subía los días en que el usuario abría la app.**
+
+`stopMax` se guarda en el navegador y se actualiza en `window.posiciones()`: `max(guardado, stop de
+hoy)`. Los días que no abres, esos escalones no existen. La tabla 5 promete «el stop nunca baja: se
+guarda el valor más alto que ha alcanzado», y el valor más alto que ha alcanzado **no es** el de los
+días que miraste. **Ataba una regla del sistema a un hábito del usuario, y hacia el lado peligroso:
+el stop quedaba más bajo de lo prometido, o sea arriesgando más de lo que el panel decía.**
+
+Medido con PAYS, comprada el 6 a 15,00 $: el trinquete real subió **ocho veces**, de 12,75 a 13,33 $.
+
+```
+06 oct 14,36  EMA 12,268  stop 12,75  <- sube     15 oct 15,60  EMA 12,998  stop 13,00  <- sube
+13 oct 15,48  EMA 12,799  stop 12,80  <- sube     16 oct 14,80  EMA 13,068  stop 13,07  <- sube
+14 oct 15,16  EMA 12,891  stop 12,89  <- sube     19 oct 15,34  EMA 13,157  stop 13,16  <- sube
+                                                  20 oct 15,21  EMA 13,238  stop 13,24  <- sube
+                                                  21 oct 15,62  EMA 13,331  stop 13,33  <- sube
+```
+
+**El arreglo.** `build.py` guarda también la **EMA 50 de cada día** en `precios.json`, en un bloque
+`emas` aparte para no tocar el formato existente. El dato ya se descargaba —está en
+`CAMPOS_SEGUIMIENTO`— solo que no se guardaba. `window.TRINQUETE_EN_SERIE` recorre la serie entera
+desde tu fecha de compra y devuelve el máximo; las posiciones usan el mayor entre ese y el guardado.
+
+Coste: `precios.json` pasa de 7,3 KB a 12,5 KB, y solo se descarga en dos pestañas. **Cero llamadas
+nuevas.**
+
+**Relleno de los 12 días ya guardados**: la EMA 50 real de los ficheros diarios sirve de ancla y se
+rueda hacia delante con la fórmula recursiva verificada al 0,000 %. 30 símbolos con ancla real.
+
+### Copia de seguridad en un clic
+
+Cuatro recordatorios sin hacerse. Y con razón: copiar al portapapeles son tres pasos y hace falta un
+sitio donde pegarlo. Ahora hay un botón que **descarga un fichero** con fecha en el nombre, se anota
+cuándo fue la última, y si nunca se ha hecho —o pasan 30 días— aparece un aviso en ámbar diciendo
+exactamente lo que está en juego. El portapapeles se conserva como alternativa.
+
+No es una manía: el historial de posiciones es **lo único de todo el panel que no se puede
+reconstruir desde ningún sitio**.
+
+**Pruebas.** 557 comprobaciones en verde (de 543).
