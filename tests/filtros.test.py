@@ -114,6 +114,16 @@ comprueba("pero el trabajo acaba en rojo para que llegue el aviso",
 comprueba("y las pruebas de logica pura SI bloquean",
           "node tests/reglas.test.js" in _wf.split("Humo sobre los datos")[0], True)
 comprueba("el escaneo reintenta ante un fallo de red", b.scan.__defaults__, (3,))
+comprueba("hay tres intentos al dia: el principal y dos repescas", _wf.count("- cron:"), 3)
+comprueba("las repescas usan --solo-si-falta", "--solo-si-falta" in _wf, True)
+comprueba("y la repesca sale sin escanear si el cierre de hoy ya esta",
+          hasattr(b, "ya_esta_hecho"), True)
+# El print final usaba 'extra', que solo se asigna en una rama: sin cierre nuevo (festivo, o lanzado
+# antes del cierre) el script reventaba DESPUES de escribir panel.json y salia con error, asi que el
+# Action no publicaba. Se comprueba que la variable esta inicializada en las dos ramas.
+_src_b = (b.R / "build.py").read_text()
+comprueba("'extra' esta inicializada tambien cuando no hay cierre nuevo",
+          "extra = {}" in _src_b.split("else:\n        antiguos_seguidos")[0], True)
 # Se recorre el camino del reintento de verdad: la primera version usaba time.sleep sin importar
 # time, asi que habria reventado con NameError justo cuando hiciera falta.
 import urllib.request as _ur, time as _t

@@ -26,13 +26,21 @@
 
   /* Stop del día para una posición. Nunca baja: se compara con el más alto alcanzado (stopPrevio).
      Si no hay precio de compra (una acción que solo vigilas), se calcula sobre el precio actual. */
-  function stopDe(datos, compra, stopPrevio) {
+  /* ganMax: la ganancia MAXIMA alcanzada, no la de hoy. La tabla 5 promete "SUPERADO el 20 % de
+     ganancia, el stop sube a tu precio de compra", y superado significa una vez, para siempre. El
+     codigo miraba la ganancia de HOY, asi que una posicion que llego a +25 % y cayo a +10 % perdia
+     la proteccion del coste, y solo se salvaba si stopPrevio la habia capturado: es decir, si la app
+     estuvo abierta justo aquel dia. Eso ata una regla del sistema a un habito del usuario.
+     Con ganMax la regla se cumple aunque no abras la app en una semana o falle un build, que es lo
+     que paso el 21/10/2026. Encontrado al revisar el hueco de ese dia; estaba latente, no activo. */
+  function stopDe(datos, compra, stopPrevio, ganMax) {
     const ema50 = num(datos && datos.ema50), precio = num(datos && datos.precio);
     const ref = num(compra) || precio;
     if (ref == null) return null;
     const gan = num(compra) && precio ? (precio / compra - 1) * 100 : 0;
+    const pico = num(ganMax) != null ? Math.max(num(ganMax), gan) : gan;
     const suelo = ref * (1 - R.perdidaMaxima / 100);
-    const base = alMenos(gan, R.gananciaProteger) ? Math.max(ema50 || 0, ref) : Math.max(ema50 || 0, suelo);
+    const base = alMenos(pico, R.gananciaProteger) ? Math.max(ema50 || 0, ref) : Math.max(ema50 || 0, suelo);
     return Math.max(base, num(stopPrevio) || 0) || null;
   }
 
@@ -62,7 +70,7 @@
     const maxVisto = maximoDesdeCompra(datos, compra, maxRegistrado, dias, maxSerie);
     const ganMax = maxVisto ? (maxVisto / compra - 1) * 100 : gan;
     const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
-    const stop = stopDe(datos, compra, stopPrevio);
+    const stop = stopDe(datos, compra, stopPrevio, ganMax);
     const limite = limiteDevolucion(ganMax);
     const ema50 = num(datos.ema50), ema21 = num(datos.ema21), rsi = num(datos.rsi);
     const fallos = (requisitos || []).filter(x => !x.ok && !x.entrada);

@@ -3,6 +3,11 @@ name: Panel diario
 on:
   schedule:
     - cron: "30 21 * * 1-5"   # 23:30 en verano / 22:30 en invierno (hora de España), tras el cierre de EE. UU.
+    # Repesca: si el de las 21:30 no guardo el cierre (fallo de red, datos raros, GitHub se salto el
+    # cron), este lo reintenta. Los dias normales sale sin gastar NI UNA llamada, porque lo primero
+    # que hace es mirar si el fichero de hoy ya existe.
+    - cron: "30 23 * * 1-5"
+    - cron: "0 7 * * 2-6"     # ultima red: a primera hora del dia siguiente
   workflow_dispatch:
   push:
     branches: [main]
@@ -42,7 +47,14 @@ jobs:
         continue-on-error: ${{ github.event_name == 'schedule' }}
         run: node tests/humo.test.js
 
-      - run: python build.py
+      # En la repesca, build.py sale solo si el cierre de hoy ya esta guardado: cero llamadas.
+      - name: Construir el panel
+        run: |
+          if [ "${{ github.event.schedule }}" = "30 23 * * 1-5" ] || [ "${{ github.event.schedule }}" = "0 7 * * 2-6" ]; then
+            python build.py --solo-si-falta
+          else
+            python build.py
+          fi
       - name: Guardar resultados
         run: |
           git config user.name "panel-bot"

@@ -5,7 +5,7 @@ Aqui se OBTIENEN los datos y se GUARDAN solo las mejores del dia. La logica de p
 docs/puntuacion.js (unica fuente): aqui se ejecuta con node (puntuar.js) para ordenar y quedarnos con el top,
 y en el navegador para mostrar el detalle. Asi un cambio de criterio recalcula tambien los dias ya guardados.
 """
-import hashlib, json, statistics, subprocess, time, urllib.request, datetime, pathlib
+import hashlib, json, statistics, subprocess, sys, time, urllib.request, datetime, pathlib
 
 R = pathlib.Path(__file__).parent
 WEB = R / "docs"
@@ -250,10 +250,26 @@ def leer(p):
     return d if isinstance(d, dict) else {"acciones": d}
 
 
+def ya_esta_hecho(hoy):
+    """True si el cierre de hoy ya esta guardado. Lo usa el intento de repesca para salir sin gastar
+    ni una llamada los dias en que el build de las 21:30 fue bien, que son casi todos."""
+    return (DATOS / f"{hoy}.json").exists()
+
+
 def main():
     WEB.mkdir(exist_ok=True)
     DATOS.mkdir(parents=True, exist_ok=True)
     hoy = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    # Repesca: si ya hay cierre de hoy no se hace nada, y si no lo hay se construye entero. Sale
+    # ANTES de escanear, asi que en un dia normal cuesta cero llamadas.
+    if "--solo-si-falta" in sys.argv:
+        if ya_esta_hecho(hoy):
+            print(f"El cierre de {hoy} ya esta guardado: nada que repescar.")
+            return
+        if datetime.date.fromisoformat(hoy).weekday() >= 5:
+            print("Fin de semana: nada que repescar.")
+            return
+        print(f"FALTA el cierre de {hoy}: el build principal no lo guardo. Reintentando entero.")
     universo = filas(scan({"columns": list(C), "filter": FILTROS, "range": [0, 3000],
                            "sort": {"sortBy": "market_cap_basic", "sortOrder": "desc"}}))
     candidatas = [a for a in universo if cumple(a) and not excluida(a)]
@@ -318,6 +334,11 @@ def main():
     recientes = sorted(simbolos_de(SEGUIR_DIAS))
     if motivo and anterior.get("actual"):
         print("Sin cierre nuevo: se conservan los datos de seguimiento del ultimo cierre")
+        # extra solo se rellena en la otra rama, y el print final lo usa: sin esto el script
+        # reventaba con UnboundLocalError DESPUES de escribir panel.json, o sea que salia con
+        # codigo de error y el Action no llegaba a publicar. Pasaba cada festivo y cada vez que se
+        # lanzara antes del cierre. Encontrado el 22/10/2026 al probar la repesca.
+        extra = {}
         actual, precios = anterior["actual"], anterior.get("precios", {})
         mercado = anterior.get("mercadoHoy") or mercado
         ref = anterior.get("referenciaHoy") or ref

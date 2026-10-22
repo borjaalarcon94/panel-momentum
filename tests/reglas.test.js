@@ -291,6 +291,29 @@ console.log('\nREJILLA SOBRE LAS POSICIONES ABIERTAS');
   console.log('      codigos: ' + Object.entries(codigos).map(([k, v]) => k + ' ' + v).join(', '));
 }
 
+/* 22/10/2026: la tabla 5 promete "SUPERADO el 20 % de ganancia, el stop sube a tu precio de compra",
+   y superado es una vez para siempre. El codigo miraba la ganancia de HOY, asi que una que llego a
+   +25 % y cayo a +10 % perdia la proteccion, salvandose solo si la app estuvo abierta aquel dia.
+   Eso ataba una regla del sistema a un habito del usuario, y el build caido del 21 lo dejo a la vista. */
+console.log('\nLA PROTECCIÓN DEL COSTE MIRA EL MÁXIMO, NO EL DÍA DE HOY');
+const pcD = { precio: 110, ema50: 95 };
+comprueba('llegó a +30 % y hoy va +10 %: el stop protege la compra',
+          REGLAS.stopDe(pcD, 100, null, 30), 100);
+comprueba('sin pasarle el máximo se comporta como antes (compatible)',
+          REGLAS.stopDe(pcD, 100, null), 95);
+comprueba('si nunca pasó de +20 %, manda el suelo del 15 %',
+          REGLAS.stopDe(pcD, 100, null, 15), 95);
+comprueba('justo en +20 % de máximo ya protege',
+          REGLAS.stopDe(pcD, 100, null, 20), 100);
+comprueba('el máximo nunca puede rebajar lo de hoy: con +40 % hoy y máximo 5, protege igual',
+          REGLAS.stopDe({ precio: 140, ema50: 95 }, 100, null, 5), 100);
+comprueba('y el trinquete sigue mandando por encima de todo',
+          REGLAS.stopDe(pcD, 100, 103, 30), 103);
+/* Y que evaluaPosicion lo use de verdad, no solo que la funcion lo acepte. */
+const pcEv = REGLAS.evaluaPosicion({ datos: { precio: 110, ema50: 95, ema21: 108, rsi: 60 },
+  compra: 100, maxRegistrado: 130, dias: 30, requisitos: req(), maxSerie: 130 });
+comprueba('evaluaPosicion le pasa el máximo: el stop sale en la compra', pcEv.stop, 100);
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
 
