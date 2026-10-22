@@ -540,10 +540,26 @@ for (const f of orden) {
   const enPantalla = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card'))
     .map((c, i) => tickers.find(t => c.textContent.startsWith('#' + (i + 1) + t)))
     .filter(Boolean);
-  const esperados = porNota.map(x => x.split(':')[0]).slice(0, enPantalla.length);
-  enPantalla.join(',') === esperados.join(',')
-    ? ok('el orden es la nota de mayor a menor (' + enPantalla.join(' > ') + ')')
-    : mal('no sigue el orden de nota', enPantalla.join(',') + ' vs ' + esperados.join(','));
+  /* El contrato real NO es "orden puro de nota": seguimiento.js hace
+         if (!VER_TODAS) r = r.filter((a, i) => i < 5 || imprescindible(a));
+     o sea, los 5 mejores por nota MAS cualquiera con señales de salida o que tengas comprada, para
+     que un deterioro no se quede fuera de pantalla. Esta prueba exigia orden puro y pasaba de
+     casualidad; el 21/10/2026 aparecio ARQT (80) sexta por delante de KNSA (82) y la prueba fallo,
+     lo que ADEMAS bloqueo la publicacion diaria. Ahora se comprueba el contrato de verdad. */
+  const nota = Object.fromEntries(porNota.map(x => [x.split(':')[0], Number(x.split(':')[1])]));
+  const cinco = enPantalla.slice(0, 5), extras = enPantalla.slice(5);
+  const ordenados = cinco.every((t, i) => i === 0 || nota[cinco[i - 1]] >= nota[t]);
+  ordenados ? ok('los 5 primeros van por nota de mayor a menor (' + cinco.join(' > ') + ')')
+    : mal('los 5 primeros no siguen el orden de nota', cinco.map(t => t + ':' + nota[t]).join(', '));
+  const forzadas = extras.filter(t => {
+    const a = vm.runInContext(`historial(90).find(x => x.ticker === ${JSON.stringify(t)})`, ctx);
+    return a && ((a.salida && a.salida.senales.length) || (ventana.tengoPosicion && ventana.tengoPosicion(t)));
+  });
+  extras.length === forzadas.length
+    ? ok(extras.length ? 'y las ' + extras.length + ' extra están por señales de salida, no por nota (' + extras.join(', ') + ')'
+                       : 'y no hay ninguna extra forzada hoy')
+    : mal('hay tarjetas fuera de los 5 que no tienen señales que las justifiquen',
+          extras.filter(t => !forzadas.includes(t)).join(', '));
   const fuente = fs.readFileSync(path.join(dir, '..', 'plantilla.html'), 'utf8');
   /<option value="score" selected>/.test(fuente) ? ok('"Más momentum ahora" es la opción por defecto')
     : mal('el desplegable no arranca en momentum');

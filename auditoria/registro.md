@@ -1062,3 +1062,66 @@ puntuación (tiene el barrido de las 15 escaleras del 16/10), la pestaña Result
 posiciones (cubierta por pruebas concretas, no exhaustivas).
 
 **Pruebas.** 519 comprobaciones en verde (de 513).
+
+---
+
+## 22 de octubre de 2026 — el panel se quedó dos días sin actualizar. Causa y arreglo
+
+Lo detectó él: el aviso rojo decía «Datos de hace 2 días de mercado». **El aviso funcionó. Lo que
+falló fue todo lo demás.**
+
+### Qué pasó
+
+El build del **21 de octubre no publicó nada**. La causa: `humo.test.js` falla, y el workflow lo
+ejecutaba **antes** de `build.py` como condición para publicar. Sin test verde, no hay datos.
+
+La aserción que falló llevaba días siendo frágil. Comprobaba que el orden de las tarjetas de
+Seguimiento fuera **exactamente** el orden de nota, y eso **es falso por diseño**:
+
+```js
+if (!VER_TODAS) r = r.filter((a, i) => i < 5 || imprescindible(a));
+```
+
+Seguimiento enseña los 5 mejores por nota **más cualquiera con señales de salida o que tengas
+comprada**, para que un deterioro no se quede fuera de pantalla. El 21 apareció ARQT (nota 80) en
+sexto lugar por delante de KNSA (82) porque ARQT tenía señales. La prueba lo llamó fallo. **La app
+tenía razón y la prueba estaba mal**, y pasaba de casualidad porque hasta entonces no se había dado
+el caso.
+
+**No fue la guarda del SPY** que se añadió el 17: el SPY cerró en 769,05 el 20 y en 773,09 el 21, así
+que no se disparó. Comprobado antes de tocar nada.
+
+### Los tres arreglos
+
+**1. La prueba comprueba ahora el contrato real**: que los 5 primeros van por nota de mayor a menor, y
+que cualquier extra está ahí por señales de salida o por ser una posición abierta. Hoy pasa, y de paso
+confirma el diseño: «las 1 extra están por señales de salida, no por nota (ARQT)».
+
+**2. El test de humo deja de bloquear la publicación diaria.** El razonamiento: en la ejecución del
+cron **el código no ha cambiado**, así que un fallo del humo solo puede venir de los datos del día — y
+congelar los datos no arregla nada, deja el panel viejo, que es peor que un posible fallo de
+renderizado. Las pruebas de **lógica pura** (reglas, puntuación, integridad, filtros) **siguen
+bloqueando**, porque esas sí indican que el código está mal. Cuando el disparador es un push de
+código, el humo vuelve a bloquear.
+
+Y si el humo falla en el diario, los datos se publican **y después** el trabajo acaba en rojo, para que
+llegue el correo de GitHub en vez de un fallo silencioso.
+
+**3. El escaneo reintenta 3 veces** con espera creciente. Un fallo puntual de red tenía el mismo efecto
+que el de ayer, y una sesión perdida **no se recupera nunca**: TradingView solo sirve el dato del
+momento.
+
+### Fallo propio en el propio arreglo, cazado antes de publicar
+
+La primera versión del reintento llamaba a `time.sleep` **sin importar `time`**. Habría lanzado
+`NameError` justo en el momento en que hiciera falta, o sea que el arreglo contra las caídas se habría
+caído con la primera caída. Lo encontró una prueba que recorre el camino del reintento de verdad, no
+solo su firma.
+
+### Lo que no se recupera
+
+**La sesión del 21 de octubre está perdida.** Los 46 campos por acción solo existen en el momento del
+escaneo. Queda un hueco de una sesión en el registro, igual que los días retirados. No afecta a
+precios ni a stops; sí resta una sesión al contador de madurez de Resultados.
+
+**Pruebas.** 525 comprobaciones en verde, 6 nuevas sobre esta resiliencia.

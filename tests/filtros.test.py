@@ -103,6 +103,37 @@ _src = (b.R / "build.py").read_text()
 comprueba("plantilla.html entra en el hash de version",
           'estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css")) + [R / "plantilla.html"]' in _src, True)
 
+# 22/10/2026: el 21 no se publico porque humo.test.js fallo y bloqueaba el build. Un fallo de red
+# habria hecho lo mismo. Estas comprobaciones atan las dos defensas.
+print("\nEL PANEL NO SE QUEDA SIN PUBLICAR POR UN FALLO AJENO")
+_wf = (b.R / ".github" / "workflows" / "panel.yml").read_text()
+comprueba("el test de humo no bloquea la publicacion diaria",
+          "continue-on-error: ${{ github.event_name == 'schedule' }}" in _wf, True)
+comprueba("pero el trabajo acaba en rojo para que llegue el aviso",
+          "steps.humo.outcome == 'failure'" in _wf, True)
+comprueba("y las pruebas de logica pura SI bloquean",
+          "node tests/reglas.test.js" in _wf.split("Humo sobre los datos")[0], True)
+comprueba("el escaneo reintenta ante un fallo de red", b.scan.__defaults__, (3,))
+# Se recorre el camino del reintento de verdad: la primera version usaba time.sleep sin importar
+# time, asi que habria reventado con NameError justo cuando hiciera falta.
+import urllib.request as _ur, time as _t
+_n = [0]; _origU, _origS = _ur.urlopen, _t.sleep
+def _falla(*a, **k):
+    _n[0] += 1
+    raise OSError("red caida simulada")
+_ur.urlopen, _t.sleep = _falla, lambda s: None
+try:
+    b.scan({"columns": ["name"], "range": [0, 1]}, intentos=3)
+    _err = "no lanzo excepcion"
+except OSError:
+    _err = None
+except Exception as _e:
+    _err = f"{type(_e).__name__}: {_e}"
+finally:
+    _ur.urlopen, _t.sleep = _origU, _origS
+comprueba("y el camino del reintento se ejecuta sin romperse", _err, None)
+comprueba("reintenta las 3 veces antes de rendirse", _n[0], 3)
+
 print("\nCOHERENCIA DE UMBRALES")
 comprueba("el suelo de capitalización del escáner coincide con el documentado",
           [f["right"] for f in b.FILTROS if f["left"] == "market_cap_basic"], [b.CAP_MIN])

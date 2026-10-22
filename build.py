@@ -5,7 +5,7 @@ Aqui se OBTIENEN los datos y se GUARDAN solo las mejores del dia. La logica de p
 docs/puntuacion.js (unica fuente): aqui se ejecuta con node (puntuar.js) para ordenar y quedarnos con el top,
 y en el navegador para mostrar el detalle. Asi un cambio de criterio recalcula tambien los dias ya guardados.
 """
-import hashlib, json, statistics, subprocess, urllib.request, datetime, pathlib
+import hashlib, json, statistics, subprocess, time, urllib.request, datetime, pathlib
 
 R = pathlib.Path(__file__).parent
 WEB = R / "docs"
@@ -73,14 +73,25 @@ C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "c
      "total_shares_outstanding_fundamental": "acciones", "revenue_forecast_next_fy": "ingresosprev"}
 
 
-def scan(body):
+def scan(body, intentos=3):
+    """Con reintento: un fallo puntual de red dejaba el panel sin actualizar ese dia, y una sesion
+    perdida no se recupera nunca porque TradingView solo sirve el dato del momento."""
     body = {"markets": ["america"], "options": {"lang": "en"}, **body}
-    req = urllib.request.Request(
-        "https://scanner.tradingview.com/america/scan", data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0",
-                 "Origin": "https://www.tradingview.com", "Referer": "https://www.tradingview.com/"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r).get("data", [])
+    ultimo = None
+    for i in range(intentos):
+        try:
+            req = urllib.request.Request(
+                "https://scanner.tradingview.com/america/scan", data=json.dumps(body).encode(),
+                headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0",
+                         "Origin": "https://www.tradingview.com", "Referer": "https://www.tradingview.com/"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.load(r).get("data", [])
+        except Exception as e:
+            ultimo = e
+            print(f"escaneo fallido (intento {i+1} de {intentos}): {e}", flush=True)
+            if i + 1 < intentos:
+                time.sleep(5 * (i + 1))
+    raise ultimo
 
 
 def redondea(v):

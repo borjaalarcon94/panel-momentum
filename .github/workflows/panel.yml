@@ -23,14 +23,25 @@ jobs:
       - uses: actions/setup-node@v4        # build.py puntúa con docs/puntuacion.js
         with:
           node-version: "20"
-      # Si alguna regla deja de comportarse como debe, no se publica nada.
-      - name: Comprobar las reglas antes de publicar
+      # Pruebas de LOGICA PURA: no dependen de los datos del dia, asi que si fallan es que el codigo
+      # esta mal y no se publica nada. Esto si bloquea.
+      - name: Reglas y puntuacion (bloquean)
         run: |
           node tests/reglas.test.js
           node tests/puntuacion.test.js
           node tests/integridad.test.js
-          node tests/humo.test.js
           python3 tests/filtros.test.py
+
+      # El test de humo SI depende de los datos del dia. El 21/10/2026 fallo por un empate de orden
+      # en el seguimiento y bloqueo la publicacion: el panel se quedo dos dias sin actualizar.
+      # En la ejecucion diaria el CODIGO NO HA CAMBIADO, asi que un fallo aqui solo puede venir de los
+      # datos, y congelar los datos no arregla nada: deja el panel viejo, que es peor. Se ejecuta,
+      # NO bloquea la publicacion, y al final se marca el trabajo en rojo para que llegue el aviso.
+      - name: Humo sobre los datos de hoy (avisa, no bloquea en el diario)
+        id: humo
+        continue-on-error: ${{ github.event_name == 'schedule' }}
+        run: node tests/humo.test.js
+
       - run: python build.py
       - name: Guardar resultados
         run: |
@@ -39,3 +50,11 @@ jobs:
           git add -A docs
           git commit -m "Datos $(date -u +%F)" || echo "Sin cambios"
           git push
+
+      # Si el humo fallo, los datos ya estan publicados pero el trabajo acaba en rojo: llega el correo
+      # de GitHub y queda registro, en vez de un fallo silencioso.
+      - name: Marcar el fallo del humo, ya con los datos publicados
+        if: steps.humo.outcome == 'failure'
+        run: |
+          echo "::error::El test de humo ha fallado. Los datos SI se han publicado; revisa el panel."
+          exit 1
