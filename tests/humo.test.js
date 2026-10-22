@@ -512,6 +512,28 @@ for (const f of orden) {
     ? ok('y desaparece tras descargarla') : mal('el aviso sigue tras hacer copia');
   almacen['posiciones-v1'] = '[]';
 
+  /* "Comprar hoy" ya llevaba contador, pero desde la pantalla inicial no habia forma de saber si
+     TUS posiciones piden algo sin entrar a mirarlas, y eso es lo primero que hay que ver al abrir. */
+  console.log('\nLA PESTAÑA DE POSICIONES AVISA SI ALGO PIDE ACCIÓN');
+  const srcPl9 = fs.readFileSync(path.join(__dirname, '..', 'plantilla.html'), 'utf8');
+  const srcApp9 = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
+  const srcCss9 = fs.readFileSync(path.join(dir, 'extra.css'), 'utf8');
+  /id="npos"/.test(srcPl9) ? ok('la pestaña tiene sitio para la chapa') : mal('no hay chapa en la pestaña');
+  /async function avisaPosiciones/.test(srcApp9) ? ok('y se calcula al arrancar') : mal('no se calcula');
+  /await cargaPrecios\(\)/.test(srcApp9.split('async function avisaPosiciones')[1] || '')
+    ? ok('descargando precios.json por su cuenta, sin retrasar el primer pintado')
+    : mal('no carga la serie, el trinquete saldría mal');
+  /TRINQUETE_EN_SERIE/.test(srcApp9.split('async function avisaPosiciones')[1] || '')
+    ? ok('y usa el mismo trinquete que la pestaña, no un cálculo aparte') : mal('usa otro cálculo distinto al de la pestaña');
+  /\.tab \.cnt\.urge\{background:var\(--down\)/.test(srcCss9) && /\.tab \.cnt\.ojo\{background:var\(--warn\)/.test(srcCss9)
+    ? ok('rojo si hay que vender, ámbar si solo hay que vigilar') : mal('falta el color de la chapa');
+  // sin posiciones no debe aparecer nada
+  almacen['posiciones-v1'] = '[]';
+  porId.npos.hidden = false; porId.npos.textContent = '9';
+  await ventana.avisaPosiciones ? ventana.avisaPosiciones() : null;
+  /if \(!pos\.length\) return;/.test(srcApp9)
+    ? ok('sin posiciones abiertas no se pinta ninguna chapa') : mal('pintaría chapa sin posiciones');
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);

@@ -303,3 +303,10 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .precios .vl{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
 .precios .vl.up{color:var(--up)} .precios .vl.down{color:var(--down)}
 .precios .fl{color:var(--muted);font-size:14px}
+
+/* Chapa en la pestaña de posiciones: rojo si hay algo que vender, ambar si solo hay que vigilar */
+.tab .cnt{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;
+  margin-left:7px;padding:0 5px;border-radius:999px;font-size:12px;font-weight:700;
+  font-variant-numeric:tabular-nums;background:var(--muted);color:var(--bg)}
+.tab .cnt.urge{background:var(--down);color:#fff}
+.tab .cnt.ojo{background:var(--warn);color:#2a1c00}

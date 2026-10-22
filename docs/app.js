@@ -376,6 +376,38 @@ async function iniciar() {
   window.pinta();
   /* Desde el 17/10/2026 la vista inicial es Seguimiento. Sin esta llamada la app abriria en blanco. */
   if (window.seguimiento) window.seguimiento();
+  /* Contador de posiciones que piden algo hoy. "Comprar hoy" ya llevaba el suyo, pero desde la
+     pantalla inicial no habia forma de saber si TUS posiciones necesitan algo sin entrar a mirar, y
+     eso es justo lo que hay que ver primero al abrir. Va despues de pintar y descarga precios.json
+     por su cuenta, asi que no retrasa nada. */
+  avisaPosiciones();
+}
+
+async function avisaPosiciones() {
+  const chapa = $('npos');
+  if (!chapa || !window.REGLAS || !window.REQUISITOS) return;
+  let pos = [];
+  try { pos = (JSON.parse(localStorage.getItem('posiciones-v1') || '[]') || []).filter(p => p && !p.cerrada) } catch (e) { return }
+  if (!pos.length) return;
+  try { await cargaPrecios() } catch (e) {}
+  let vender = 0, vigilar = 0;
+  for (const p of pos) {
+    const a = ACT[p.simbolo] || ACT[p.ticker];
+    if (!a || a.precio == null) continue;
+    const clave = p.simbolo || p.ticker;
+    const ev = window.REGLAS.evaluaPosicion({ datos: a, compra: p.precio, maxRegistrado: p.maxVisto,
+      stopPrevio: Math.max(p.stopMax || 0, window.TRINQUETE_EN_SERIE(clave, p.fecha, p.precio) || 0),
+      dias: Math.round((new Date(FH[0] + 'T12:00:00Z') - new Date(p.fecha + 'T12:00:00Z')) / 864e5),
+      requisitos: window.REQUISITOS(a), diasResultados: window.DIAS_RESULTADOS(a),
+      maxSerie: maximoEnSerie(clave, p.fecha) });
+    if (ev.estado === 'vender') vender++;
+    else if (ev.estado === 'vigilar') vigilar++;
+  }
+  if (!vender && !vigilar) { chapa.hidden = true; return; }
+  chapa.textContent = String(vender || vigilar);
+  chapa.className = 'cnt' + (vender ? ' urge' : ' ojo');
+  chapa.title = vender ? vender + ' para vender' : vigilar + ' para vigilar';
+  chapa.hidden = false;
 }
 window.cambiarDia = async f => {
   S.dia = f;
