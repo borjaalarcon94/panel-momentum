@@ -586,6 +586,14 @@ for (const f of orden) {
     /'#' \+ a\.puestoLista/.test(src) ? ok('y es el que se pinta') : mal('se pinta otro número');
     /LA TIENES|SEÑAL DE SALIDA/.test(src)
       ? ok('y las que se cuelan por debajo del corte dicen por qué') : mal('no se explica el salto de numeración');
+    /* Se deja la lista plegada otra vez: pulsar "Ver las N" cambia un estado del modulo que
+       sobrevive a esta prueba, y la de orden de mas abajo daba por bueno un listado desplegado. */
+    const volver = (porId.rseg.hijos || []).flatMap(function f(x) { return [x, ...(x.hijos || [])] .flat() })
+      .find(b => /Ver solo las 5/.test(b.textContent || ''));
+    if (volver && volver.onclick) volver.onclick();
+    const plegada = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card')).length;
+    plegada <= 8 ? ok('y la lista vuelve a plegarse, sin dejar estado colgando (' + plegada + ' tarjetas)')
+      : mal('la lista se queda desplegada y contamina las pruebas siguientes', String(plegada));
   }
 
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
