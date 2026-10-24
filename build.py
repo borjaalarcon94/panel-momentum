@@ -256,12 +256,90 @@ def ya_esta_hecho(hoy):
     return (DATOS / f"{hoy}.json").exists()
 
 
+def construye_historico(todos):
+    """Resumen ligero de cada dia (lo usan el seguimiento y la pestana Resultados): ticker, simbolo,
+       precio, puntuacion, acciones en circulacion, beta y el cierre del SPY de ese dia.
+       Se reconstruye entero desde docs/datos en cada build, asi que anadir un campo lo rellena
+       tambien hacia atras sin tener que volver a pedir nada a la red."""
+    historico = {}
+    historico = {}
+    for f, d in todos.items():
+        if not d["acciones"]:
+            continue
+        spy_d = next((m for m in d.get("mercado", []) if m["ticker"] == "SPY"), {})
+        pts = puntuar(d["acciones"], {"fecha": f, "spy": {"tres": spy_d.get("tres"), "seis": spy_d.get("seis")},
+                                      "sectores": (d.get("referencia") or {}).get("sectores", {})})
+        historico[f] = {"acciones": [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
+                                      "sc": (pts.get(a["ticker"]) or {}).get("total") if d.get("referencia") else None,
+                                      "ac": a.get("acciones"),   # para detectar dilucion con el tiempo
+                                      # beta: sin ella, comparar con el S&P 500 compara una cesta que se
+                                      # mueve 5 veces mas con el indice, y la diferencia se lee como acierto
+                                      "b": a.get("beta"),
+                                      "n": a.get("empresa")} for a in d["acciones"]],
+                        "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
+    return historico
+
+
+def version_de():
+    """El hash que rompe la cache del navegador. plantilla.html entra: un cambio solo de textos
+       tambien tiene que mover la version (paso el 20/10/2026 al renombrar una subpestana)."""
+    estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css")) + [R / "plantilla.html"]
+    return hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
+
+
+def publica_html(version):
+    """index.html solo cambia cuando cambia la plantilla o el codigo: los datos se cargan aparte.
+       La version viaja tambien dentro de panel.json, asi que un index.html viejo en cache se
+       detecta al cargar los datos y la web se refresca sola (ver iniciar() en docs/app.js)."""
+    html = (R / "plantilla.html").read_text().replace("__VER__", version)
+    if not (WEB / "index.html").exists() or (WEB / "index.html").read_text() != html:
+        (WEB / "index.html").write_text(html)
+
+
+def rehacer():
+    """Republica la web SIN TOCAR LA RED: cero llamadas a TradingView.
+
+       Hace falta porque el presupuesto de 4 llamadas al dia estaba atado al despliegue: tocar un
+       texto o arreglar una pestana disparaba el workflow por push, que escaneaba entero. O gastabas
+       llamadas fuera de presupuesto, o esperabas a la noche para ver el arreglo publicado.
+
+       Rehace lo que se deriva de lo ya guardado (el historico, con los campos nuevos rellenados
+       tambien hacia atras, y la version que rompe la cache) y conserva tal cual lo que solo se
+       puede saber preguntando al mercado: precios, estado actual, mercado, referencia y regimen.
+       No toca docs/precios.json: sin cierres nuevos no hay nada que anadir alli."""
+    ruta = WEB / "panel.json"
+    if not ruta.exists():
+        print("No hay docs/panel.json que rehacer: hace falta un build completo primero.")
+        return 1
+    panel = json.loads(ruta.read_text())
+    todos = {q.stem: leer(q) for q in sorted(DATOS.glob("2*.json"))[-DIAS:]}
+    if not todos:
+        print("No hay dias guardados en docs/datos: nada que rehacer.")
+        return 1
+    antes = panel.get("version")
+    panel["historico"] = construye_historico(todos)
+    panel["dias"] = sorted(todos)
+    panel["criterios"] = {"precioMin": 2, "capMin": CAP_MIN, "capMax": CAP_MAX, "volumenMin": 300000,
+                          "liquidezMin": LIQUIDEZ_MIN, "rsiMin": 55, "crecimientoMin": CRECIMIENTO_MIN,
+                          "maxDesdeMaximo": MAX_DESDE_MAXIMO}
+    panel["version"] = version_de()
+    ruta.write_text(json.dumps(panel, ensure_ascii=False))
+    publica_html(panel["version"])
+    filas = [a for d in panel["historico"].values() for a in d["acciones"]]
+    con_beta = sum(1 for a in filas if a.get("b") is not None)
+    print(f"Rehecho sin tocar la red: version {antes} -> {panel['version']} | "
+          f"{len(todos)} dias | beta en {con_beta}/{len(filas)} filas | precios y estado de hoy intactos.")
+    return 0
+
+
 def main():
     WEB.mkdir(exist_ok=True)
     DATOS.mkdir(parents=True, exist_ok=True)
     hoy = datetime.datetime.utcnow().strftime("%Y-%m-%d")
     # Repesca: si ya hay cierre de hoy no se hace nada, y si no lo hay se construye entero. Sale
     # ANTES de escanear, asi que en un dia normal cuesta cero llamadas.
+    if "--rehacer" in sys.argv:
+        sys.exit(rehacer())
     if "--solo-si-falta" in sys.argv:
         if ya_esta_hecho(hoy):
             print(f"El cierre de {hoy} ya esta guardado: nada que repescar.")
@@ -302,19 +380,7 @@ def main():
              "universo": len(universo), "candidatas": len(candidatas)},
             ensure_ascii=False))
     todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
-    # Resumen ligero de todos los dias (lo usa el seguimiento): ticker, simbolo, precio y puntuacion.
-    historico = {}
-    for f, d in todos.items():
-        if not d["acciones"]:
-            continue
-        spy_d = next((m for m in d.get("mercado", []) if m["ticker"] == "SPY"), {})
-        pts = puntuar(d["acciones"], {"fecha": f, "spy": {"tres": spy_d.get("tres"), "seis": spy_d.get("seis")},
-                                      "sectores": (d.get("referencia") or {}).get("sectores", {})})
-        historico[f] = {"acciones": [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
-                                      "sc": (pts.get(a["ticker"]) or {}).get("total") if d.get("referencia") else None,
-                                      "ac": a.get("acciones"),   # para detectar dilucion con el tiempo
-                                      "n": a.get("empresa")} for a in d["acciones"]],
-                        "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
+    historico = construye_historico(todos)
     # Estado de HOY de todas las acciones que han pasado por el top ultimamente: permite saber en el
     # seguimiento si siguen cumpliendo los requisitos aunque hayan salido del top.
     def simbolos_de(dias_atras):
@@ -397,8 +463,7 @@ def main():
     # plantilla.html entra en el hash: un cambio solo de plantilla (textos, nombres de pestañas)
     # no movia la version, asi que la recarga automatica no saltaba y el navegador podia servir el
     # HTML viejo de su cache. Paso el 20/10/2026 al renombrar una subpestaña.
-    estaticos = sorted(f for f in WEB.glob("*.*") if f.suffix in (".js", ".css")) + [R / "plantilla.html"]
-    version = hashlib.sha256(b"".join(f.read_bytes() for f in estaticos)).hexdigest()[:8]
+    version = version_de()
     panel = {"version": version, "dias": sorted(todos), "historico": historico, "precios": precios, "actual": actual,
              "mercadoHoy": mercado, "referenciaHoy": ref,
              "criterios": {"precioMin": 2, "capMin": CAP_MIN, "capMax": CAP_MAX, "volumenMin": 300000,
@@ -410,9 +475,7 @@ def main():
     # index.html solo cambia cuando cambia la plantilla o el codigo de la web: los datos se cargan aparte.
     # La version viaja tambien dentro de panel.json: si el navegador sirve un index.html viejo desde su cache,
     # la web lo detecta al cargar los datos y se refresca sola (ver iniciar() en docs/app.js).
-    html = (R / "plantilla.html").read_text().replace("__VER__", version)
-    if not (WEB / "index.html").exists() or (WEB / "index.html").read_text() != html:
-        (WEB / "index.html").write_text(html)
+    publica_html(version)
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
           "guardadas:", "-" if acciones is None else len(acciones),
           "ya en marcha:", len(en_marcha), "vigiladas:", len(actual), "+", len(extra), "en extra.json")

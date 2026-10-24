@@ -13,7 +13,7 @@ function entradas() {
   const reg = {};
   [...FH].reverse().forEach(f => ((HIST[f] || {}).acciones || []).forEach(a => {
     const k = a.s || a.t;
-    if (!reg[k]) reg[k] = { ticker: a.t, entrada: sesionDe(f), precio: a.p, score: a.sc, spy: (HIST[f] || {}).spy, ultimo: f, precioUltimo: a.p };
+    if (!reg[k]) reg[k] = { ticker: a.t, entrada: sesionDe(f), dia: f, precio: a.p, score: a.sc, beta: a.b, spy: (HIST[f] || {}).spy, ultimo: f, precioUltimo: a.p };
     reg[k].ultimo = f; reg[k].precioUltimo = a.p;
   }));
   return Object.entries(reg).map(([k, r]) => {
@@ -203,8 +203,18 @@ function registro(xs) {
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
   if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' primeras de ' + orden.length + '. Cambia el desplegable de arriba a «Todas» para verlas todas.'));
-  /* Comparacion con el indice: cada entrada contra lo que hizo el S&P 500 en sus mismos dias. Es un
-     dato del registro, no una conclusion: con pocas sesiones esta diferencia es ruido. */
+  /* Comparacion con el indice. Tres cosas que antes faltaban y hacian que un numero en verde se
+     leyera como un logro cuando no lo era:
+     1. La barra de error. Decir "esto es ruido" en texto pequeno debajo de un "+1,7 pt" en verde
+        grande no funciona: se lee el numero. Ahora el intervalo va al lado del numero.
+     2. Las entradas no son independientes. El 05/10/2026 entraron NUEVE acciones a la vez; si el
+        mercado se mueve ese dia, se mueven las nueve, asi que no son nueve observaciones sino una.
+        El remuestreo se hace por DIA de entrada, no por accion. (Esto no siempre ensancha el
+        intervalo: con estos 12 dias sale algo mas estrecho que el ingenuo. Se hace porque es el
+        metodo valido para datos agrupados, no porque de un numero mayor.)
+     3. La beta. Las anotadas se mueven del orden de 1,6 veces lo que el indice: cuando el mercado
+        sube, superarlo es lo que toca, y cuando baja, perder menos tambien. Comparar sin descontar
+        eso atribuye al panel lo que es solo volatilidad. */
   const conSp = xs.filter(a => a.sp != null && a.ret != null);
   if (conSp.length) {
     const mAcc = media(conSp.map(a => a.ret)), mSp = media(conSp.map(a => a.sp)), dif = mAcc - mSp;
@@ -214,11 +224,59 @@ function registro(xs) {
     st.append(stat('las anotadas', pc(mAcc), signo(mAcc)), stat('el S&P 500 esos mismos días', pc(mSp), signo(mSp)),
       stat('diferencia', (dif >= 0 ? '+' : '') + n(dif, 1) + ' pt', signo(dif)));
     c.appendChild(st);
-    c.appendChild(el('p', 'nota', 'Cada acción se compara con lo que hizo el índice desde el día que ella entró, no desde el principio. ' +
-      'Con ' + conSp.length + ' entradas y tan poco recorrido esta diferencia todavía es ruido: lo que la haría significativa está arriba, en el contador.'));
+
+    const ic = intervalo(conSp);
+    if (ic) {
+      const cruza = ic.lo < 0 && ic.hi > 0;
+      const li = el('div', 'margen' + (cruza ? ' margen-cero' : ''));
+      li.appendChild(el('b', null, 'Margen de error: de ' + (ic.lo >= 0 ? '+' : '') + n(ic.lo, 1) +
+        ' a ' + (ic.hi >= 0 ? '+' : '') + n(ic.hi, 1) + ' pt'));
+      li.appendChild(el('div', 'm', cruza
+        ? 'El margen incluye el cero, así que esta diferencia no se distingue de la casualidad. ' +
+          'Son ' + conSp.length + ' entradas, pero repartidas en solo ' + ic.dias + ' días: las que entran el mismo día suben y bajan juntas y no cuentan por separado.'
+        : 'El margen no incluye el cero. Son ' + conSp.length + ' entradas en ' + ic.dias + ' días distintos.'));
+      c.appendChild(li);
+    }
+
+    const cb = conSp.filter(a => a.beta != null);
+    if (cb.length >= Math.max(5, conSp.length / 2)) {
+      const mB = media(cb.map(a => a.beta)), mSpB = media(cb.map(a => a.sp)), mAccB = media(cb.map(a => a.ret));
+      const exceso = mAccB - mB * mSpB;
+      const li = el('div', 'margen');
+      li.appendChild(el('b', null, 'Descontando que se mueven más: ' + (exceso >= 0 ? '+' : '') + n(exceso, 1) + ' pt'));
+      li.appendChild(el('div', 'm', 'Las anotadas tienen una beta media de ' + n(mB, 2) + ': se mueven ' + n(mB, 2) +
+        ' veces lo que el índice, para bien y para mal. Con el S&P 500 en ' + pc(mSpB) + ', una cesta así debería haber hecho ' +
+        pc(mB * mSpB) + ' sin ningún mérito. Hizo ' + pc(mAccB) + '. La diferencia de arriba no descuenta esto.'));
+      c.appendChild(li);
+    }
+
+    c.appendChild(el('p', 'nota', 'Cada acción se compara con lo que hizo el índice desde el día que ella entró, no desde el principio.'));
     d.appendChild(c);
   }
   return d;
+}
+
+/* Intervalo de confianza del 95 % de la diferencia media contra el indice, remuestreando por DIA de
+   entrada (no por accion): las que entran el mismo dia comparten el movimiento del mercado de ese dia.
+   Generador con semilla fija para que el numero no baile cada vez que se repinta la pestana. */
+function intervalo(filas) {
+  const porDia = {};
+  filas.forEach(a => (porDia[a.dia || a.entrada] ||= []).push(a.ret - a.sp));
+  const dias = Object.keys(porDia);
+  if (dias.length < 3) return null;
+  let s = 20261024;
+  const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const muestras = [];
+  for (let i = 0; i < 4000; i++) {
+    let suma = 0, cuenta = 0;
+    for (let j = 0; j < dias.length; j++) {
+      const v = porDia[dias[Math.floor(rnd() * dias.length)]];
+      for (let k = 0; k < v.length; k++) { suma += v[k]; cuenta++ }
+    }
+    muestras.push(suma / cuenta);
+  }
+  muestras.sort((a, b) => a - b);
+  return { lo: muestras[Math.floor(4000 * 0.025)], hi: muestras[Math.floor(4000 * 0.975)], dias: dias.length };
 }
 
 window.initResultados = function () {
@@ -252,9 +310,18 @@ window.resultados = async function () {
       'De las ' + maduras.length + ' entradas con recorrido, ' + pos + ' van en positivo (' + Math.round(pos / maduras.length * 100) + ' %).', ret >= 0));
 
     const cs = maduras.filter(a => a.sp != null), vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
-    if (vsSp != null) R.appendChild(pregunta('¿Mejor que comprar el índice?',
-      (vsSp >= 0 ? 'Sí, ' : 'No, ') + (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos frente al S&P 500',
-      'Comparado con lo que habría hecho el S&P 500 en esos mismos días.', vsSp >= 0));
+    /* Con el intervalo delante: una diferencia cuyo margen cruza el cero no responde "si", responde
+       "no se sabe". Antes decia "Si, +1,7 puntos" aunque el margen fuese de -1,8 a +6,8. */
+    if (vsSp != null) {
+      const ic = intervalo(cs), cruza = ic && ic.lo < 0 && ic.hi > 0;
+      R.appendChild(pregunta('¿Mejor que comprar el índice?',
+        cruza ? 'Todavía no se puede decir' : (vsSp >= 0 ? 'Sí, ' : 'No, ') + (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos frente al S&P 500',
+        (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos de media frente al S&P 500 en esos mismos días' +
+        (ic ? ', con un margen de error de ' + (ic.lo >= 0 ? '+' : '') + n(ic.lo, 1) + ' a ' + (ic.hi >= 0 ? '+' : '') + n(ic.hi, 1) +
+          ' pt (remuestreando por día de entrada, ' + ic.dias + ' días)' : '') + '.' +
+        (cruza ? ' El margen incluye el cero: con este historial la ventaja no se distingue de la casualidad.' : ''),
+        !cruza && vsSp >= 0));
+    }
 
     const dis = discrimina(maduras);
     if (dis) R.appendChild(pregunta('¿Sirve de algo la puntuación?',
@@ -266,5 +333,8 @@ window.resultados = async function () {
   }
 
   R.appendChild(registro(xs));
-  R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, a su precio de cierre, y se compara con el precio de hoy. Sin comisiones. Una sesión es un día de los que este panel tiene guardados.'));
+  R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, al precio de cierre de ese día, y se compara con el precio de hoy. ' +
+    'Ojo: ese cierre es de la noche en que el panel la detecta, así que no es un precio al que tú pudieras comprar; tú la ves a la mañana siguiente. ' +
+    'En las entradas guardadas hasta ahora el hueco de una noche a otra ha sido de −0,6 % de media, pero va de +6 % a −12 % según el caso, así que una fila concreta puede estar desviada varios puntos. ' +
+    'Sin comisiones. Una sesión es un día de los que este panel tiene guardados.'));
 };

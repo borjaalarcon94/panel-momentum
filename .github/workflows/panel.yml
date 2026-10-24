@@ -11,8 +11,13 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    # Solo el código. Nunca docs/datos ni docs/panel.json: el propio bot los escribe y se dispararía en bucle.
-    paths: ["build.py", "puntuar.js", "plantilla.html", "docs/puntuacion.js", "docs/reglas.js", "tests/**", ".github/workflows/panel.yml"]
+    # Solo el código. Nunca docs/datos, docs/panel.json, docs/precios.json ni docs/index.html: los
+    # escribe el propio bot y se dispararia en bucle.
+    # Tienen que estar TODOS los ficheros que entran en el hash de version (docs/*.js y docs/*.css):
+    # antes solo estaban puntuacion.js y reglas.js, asi que un arreglo en resultados.js o en un css
+    # se subia sin republicar, la version no se movia y el navegador seguia sirviendo el fichero
+    # viejo de su cache. Desde que un push usa --rehacer esto no cuesta ninguna llamada.
+    paths: ["build.py", "puntuar.js", "plantilla.html", "docs/*.js", "docs/*.css", "tests/**", ".github/workflows/panel.yml"]
 
 permissions:
   contents: write
@@ -35,6 +40,7 @@ jobs:
           node tests/reglas.test.js
           node tests/puntuacion.test.js
           node tests/integridad.test.js
+          node tests/resultados.test.js
           python3 tests/filtros.test.py
 
       # El test de humo SI depende de los datos del dia. El 21/10/2026 fallo por un empate de orden
@@ -47,10 +53,17 @@ jobs:
         continue-on-error: ${{ github.event_name == 'schedule' }}
         run: node tests/humo.test.js
 
-      # En la repesca, build.py sale solo si el cierre de hoy ya esta guardado: cero llamadas.
+      # Tres modos, y solo uno gasta llamadas a TradingView:
+      #  - push de codigo: --rehacer. Republica con los datos ya guardados, CERO llamadas. Antes un
+      #    cambio de interfaz disparaba un escaneo entero y se comia el presupuesto de 4/dia, o
+      #    habia que esperar a la noche para ver el arreglo publicado.
+      #  - repesca (23:30 / 07:00): --solo-si-falta. Sale antes de escanear si ya hay cierre de hoy.
+      #  - diario (21:30): build completo. Este es el que gasta.
       - name: Construir el panel
         run: |
-          if [ "${{ github.event.schedule }}" = "30 23 * * 1-5" ] || [ "${{ github.event.schedule }}" = "0 7 * * 2-6" ]; then
+          if [ "${{ github.event_name }}" = "push" ]; then
+            python build.py --rehacer
+          elif [ "${{ github.event.schedule }}" = "30 23 * * 1-5" ] || [ "${{ github.event.schedule }}" = "0 7 * * 2-6" ]; then
             python build.py --solo-si-falta
           else
             python build.py

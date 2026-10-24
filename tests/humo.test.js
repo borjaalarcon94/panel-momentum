@@ -879,8 +879,32 @@ for (const f of orden) {
   await paso('resultados se pinta con la comparación', () => ventana.resultados());
   /Comparado con el S&P 500/.test(porId.rres.textContent) ? ok('el bloque de comparación aparece')
     : mal('no aparece el bloque de comparación');
-  /todavía es ruido/.test(porId.rres.textContent) ? ok('y avisa de que con pocas sesiones es ruido')
-    : mal('presenta la diferencia como si fuera una conclusión');
+  /* Antes esto buscaba la frase "todavia es ruido" en letra pequena. Un aviso en prosa debajo de
+     un "+1,7 pt" en verde no evita que se lea el numero: ahora se exige la cifra del margen de
+     error, y que cuando cruce el cero lo diga con esas palabras. */
+  const txtRes = porId.rres.textContent;
+  /* Se extraen los dos limites y se comprueba el aviso CONTRA ELLOS. Un primer intento buscaba el
+     signo menos tipografico (−) y la app escribe el guion normal (-): la condicion era siempre
+     falsa y la comprobacion no comprobaba nada. */
+  const mg = txtRes.match(/Margen de error: de ([+-]?[\d.]+(?:,\d+)?) a ([+-]?[\d.]+(?:,\d+)?) pt/);
+  mg ? ok('la diferencia contra el índice va con su margen de error')
+     : mal('presenta la diferencia sin margen de error', txtRes.slice(0, 300));
+  if (mg) {
+    const num = s => parseFloat(s.replace(',', '.'));
+    const lo = num(mg[1]), hi = num(mg[2]);
+    lo <= hi ? ok('el margen está bien ordenado (' + lo + ' <= ' + hi + ')')
+             : mal('el margen sale al revés', lo + ' > ' + hi);
+    const cruzaCero = lo < 0 && hi > 0;
+    const avisa = /no se distingue de la casualidad/.test(txtRes);
+    cruzaCero === avisa
+      ? ok(cruzaCero ? 'cruza el cero y lo advierte' : 'no cruza el cero y no lo advierte')
+      : mal(cruzaCero ? 'el margen cruza el cero y NO lo advierte'
+                      : 'el margen no cruza el cero pero avisa como si lo cruzara',
+            `[${lo}, ${hi}] avisa=${avisa}`);
+  }
+  /en solo \d+ días|en \d+ días distintos/.test(txtRes)
+    ? ok('dice en cuántos días distintos entraron, no solo cuántas entradas')
+    : mal('no distingue entradas de días de entrada');
 
   /* El acento de las tarjetas iba por tramo de puntuacion con corte en 75, y como al top solo suben
      las mejores, nueve de cada diez salian con el mismo color: la lista parecia homogenea. */
