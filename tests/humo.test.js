@@ -930,11 +930,21 @@ for (const f of orden) {
   /* La cartera: la rentabilidad del listado como un todo, encadenada en vez de promediada.
      Y, sobre todo, con el aviso de que no es lo que el usuario hace: compra las 10 y reequilibra
      cada sesion, con una rotacion que en la realidad pagan las comisiones. */
-  /como una sola cartera/.test(txtRes)
-    ? ok('se ve la rentabilidad del listado como una sola cartera')
-    : mal('no hay rentabilidad conjunta, solo la media por entrada');
-  /Esto no es lo que tú haces/.test(txtRes)
-    ? ok('y avisa de que esa cartera no es la operativa real')
+  /* Antes se exigian las frases "como una sola cartera" y "Esto no es lo que tu haces". El titulo
+     decia "si hubieras comprado el listado entero", que se leia como comprar y no vender nunca, y
+     es lo contrario: esa cartera vende cada vez que una accion se cae del top. Lo que hay que
+     garantizar no es el rotulo, es que se entienda CUANDO vende y que ahi no hay stop. */
+  /vendes la que se ha caído del listado/.test(txtRes)
+    ? ok('dice que la cartera del listado vende lo que sale del top')
+    : mal('no explica cuándo vende la cartera del listado', txtRes.slice(0, 200));
+  /Aquí no hay stop/.test(txtRes)
+    ? ok('y que ahí no interviene el stop')
+    : mal('no aclara que esa cartera no usa el stop');
+  /¿Por qué .* aquí y .* más arriba\?/.test(txtRes)
+    ? ok('y por qué no coincide con la cartera operada con el stop')
+    : mal('no reconcilia la cartera del listado con la operada');
+  /no es para copiarlo|no demuestra nada/.test(txtRes)
+    ? ok('y avisa de que no es la operativa real')
     : mal('presenta la cartera como si fuera lo que el usuario opera');
   /se compra al cierre del día siguiente/.test(txtRes)
     ? ok('y de que la compra va con un día de retraso')

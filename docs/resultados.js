@@ -641,32 +641,49 @@ function leyenda(g, nombreA, retA, nombreB, retB) {
 function bloqueCartera() {
   const c = carteraDelTop();
   if (!c) return null;
+  const cuantas = ((HIST[FH[0]] || {}).acciones || []).length || 10;
   const d = el('div', 'blk');
-  d.appendChild(el('div', 'blt', 'Si hubieras comprado el listado entero, como una sola cartera'));
+  /* El titulo era "Si hubieras comprado el listado entero, como una sola cartera" y se leia como
+     "comprar y no vender nunca". Es justo lo contrario: esta cartera VENDE, y vende mucho. Lo que
+     no usa es el stop: la señal de salida es caerse del listado. Sin decir eso, la cifra choca de
+     frente con la de arriba y no hay forma de entenderla. */
+  d.appendChild(el('div', 'blt', 'Si siguieras el listado a rajatabla: fuera lo que sale, dentro lo que entra'));
+  d.appendChild(el('div', 'm', 'Cada sesión te quedas exactamente con las ' + cuantas + ' del top: vendes la que se ha caído del listado ' +
+    'y compras la que ha entrado, a partes iguales. Aquí no hay stop — la única señal de venta es salirse del top.'));
   const st = el('div', 'stats');
-  st.append(stat('la cartera', pc(c.ret), signo(c.ret)),
+  st.append(stat('siguiendo el listado', pc(c.ret), signo(c.ret)),
     stat('el S&P 500 en el mismo tramo', c.spyRet != null ? pc(c.spyRet) : '—', signo(c.spyRet || 0)),
     stat('su peor caída', pc(c.caida), 'down'));
   d.appendChild(st);
   if (c.spy.length >= 3) {
     const g = grafica(c.serie, c.spy);
     d.appendChild(g);
-    d.appendChild(leyenda(g, 'la cartera del top', c.ret, 'el S&P 500', c.spyRet != null ? c.spyRet : 0));
+    d.appendChild(leyenda(g, 'siguiendo el listado', c.ret, 'el S&P 500', c.spyRet != null ? c.spyRet : 0));
   }
-  d.appendChild(el('div', 'm', 'En ' + c.sesiones + ' sesiones. ' +
-    'A diferencia de la cifra grande de más arriba, aquí la rentabilidad se encadena en vez de promediarse: ' +
-    'es el resultado del listado como un todo, no la media de cada entrada por su lado.'));
+
+  /* Puente con la cifra de arriba, que es la primera pregunta que salta al ver las dos juntas. */
+  const operada = operandoElPanel(5);
+  if (operada) {
+    const puente = el('div', 'margen');
+    puente.appendChild(el('b', null, '¿Por qué ' + pc(c.ret) + ' aquí y ' + pc(operada.ret) + ' más arriba?'));
+    const ul = el('div', 'm');
+    ul.appendChild(el('div', null, '· Arriba vendes cuando lo dice el stop, aunque la acción siga en el top. Aquí vendes el día que se cae del listado, aunque el stop no haya saltado.'));
+    ul.appendChild(el('div', null, '· Arriba llevas 5 posiciones; aquí, las ' + cuantas + ' del top.'));
+    ul.appendChild(el('div', null, 'Son dos formas distintas de salir, no dos cuentas del mismo sistema. La de arriba es la tuya.'));
+    puente.appendChild(ul);
+    d.appendChild(puente);
+  }
+
   const av = el('div', 'margen margen-cero');
-  av.appendChild(el('b', null, 'Esto no es lo que tú haces'));
-  av.appendChild(el('div', 'm', 'Esta cartera compra las ' + (((HIST[FH[0]] || {}).acciones || []).length || 10) +
-    ' del top a partes iguales y las reequilibra cada sesión' +
-    (c.rotacion != null ? ', moviendo el ' + n(c.rotacion, 0) + ' % de la cartera cada día' : '') +
-    '. Tú compras unas pocas y las sueltas con el stop. Sirve para saber si el listado acierta, no para copiarlo: ' +
-    'con esa rotación, las comisiones y el diferencial se comen una parte, y con ' + c.sesiones +
-    ' sesiones esto todavía no demuestra nada.'));
+  av.appendChild(el('b', null, 'Y no es para copiarlo'));
+  av.appendChild(el('div', 'm', 'Seguir el listado así mueve el ' + (c.rotacion != null ? n(c.rotacion, 0) : '25') +
+    ' % de la cartera cada sesión. Con esa rotación las comisiones y el diferencial se llevan una parte, ' +
+    'y además te quedarías sin stop: una acción puede desplomarse sin salir del top y aquí la aguantas. ' +
+    'Sirve para saber si el listado acierta, no para operarlo. Con ' + c.sesiones + ' sesiones no demuestra nada.'));
   d.appendChild(av);
   d.appendChild(el('div', 'm', 'El top de cada noche se compra al cierre del día siguiente, que es cuando tú lo verías. ' +
-    'Sin ese retraso la cartera se apuntaría gratis el salto de la noche.'));
+    'Sin ese retraso la cartera se apuntaría gratis el salto de la noche. ' +
+    'La rentabilidad se encadena, no se promedia.'));
   return d;
 }
 
