@@ -1543,3 +1543,48 @@ verde oscuro, discontinua gris, referencia visible).
 
 2 pruebas nuevas en el humo, verificadas con una mutación que quita la leyenda. **336 en verde.**
 Versión `f58eab6f`, en línea.
+
+### 2026-10-24 — Dos simulaciones del mismo stop daban resultados distintos
+
+Borja: *"arriba me pone 2,2 % comprando cuando toca y vendiendo en el stop, y abajo 1 % con lo
+mismo"*. Tenía razón en desconfiar. Había **una incoherencia real**, no solo un problema de
+redacción.
+
+**El fallo.** `simula()` llamaba a `stopDe` con **dos argumentos de menos**:
+
+```
+stopDe(datos, compra, stopPrevio, ganMax)
+simula():           stopDe({ precio },        compra, stopPrevio)          ← sin ema50, sin ganMax
+operandoElPanel():  stopDe({ precio, ema50 }, compra, stop, ganMax)        ← correcto
+```
+
+- **Sin `ema50`** el stop era solo el suelo del −15 %, más flojo que el de verdad. El comentario
+  decía *«sin EMA 50 histórica»* y era cierto cuando se escribió, pero la EMA 50 diaria está en
+  `docs/precios.json` desde el 07/10/2026. Nadie volvió a mirar el comentario.
+- **Sin `ganMax`**, `stopDe` mira la ganancia de HOY y no la máxima alcanzada: **exactamente el fallo
+  que se corrigió en `reglas.js` este mismo mes**, colado otra vez por el punto de llamada.
+
+Síntoma visible: **FEIM salía a −15,7 % en una tabla y a −5,6 % en otra**, la misma acción.
+
+Corregido: el stop dispara ahora 4 veces en vez de 3, FEIM sale el 8/10 a −12,6 % por EMA 50, y la
+media con reglas de salida pasa de +1,0 % a **+1,2 %**.
+
+**Los conceptos tampoco estaban dichos.** Las dos cifras miden cosas distintas y nada lo explicaba:
+- Título y columna: «Cada entrada por separado, operada de tres formas» y «Media por entrada», con
+  un aviso de que **eso no es una cartera**.
+- Bloque nuevo que **reconcilia las dos cifras**: *«¿Por qué +1,2 % aquí y +2,2 % en la cartera de
+  arriba?»*, con las tres diferencias —5 posiciones contra las 28 entradas; componer y reinvertir
+  contra promediar porcentajes sueltos; comprar al cierre del día siguiente contra al del día que
+  entró al top— y la aclaración de que **el stop sí es el mismo**.
+- «Lo que el stop habría vendido, **entrada por entrada**», para no confundirla con la tabla de
+  ventas de la cartera.
+
+**Prueba nueva de integridad:** lee los puntos de llamada a `stopDe` en `resultados.js` y exige que
+todos pasen `ema50` y los cuatro argumentos. Verificada con dos mutaciones, una por omisión.
+
+**La lección, que es la importante:** tener las reglas en un solo fichero **no basta si quien las
+llama se deja argumentos**. La prueba de integridad vigilaba umbrales duplicados; las llamadas
+incompletas pasaban por debajo. Y un comentario que describe una limitación («sin EMA 50 histórica»)
+envejece: cuando la limitación desaparece, el comentario sigue ahí justificando el código viejo.
+
+**338 comprobaciones en verde.** Versión `20e3f47d`, en línea.
