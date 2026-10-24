@@ -1649,3 +1649,43 @@ Verificado contra un recálculo independiente en Python: las seis cifras coincid
 
 Comprobación de humo reescrita: buscaba la frase «Con otro número de huecos», que cambió. Ahora
 exige los dos extremos (1 y 10) y la cifra del abanico. **340 en verde.** Versión `be7451f0`.
+
+### 2026-10-24 — El dinero de las ventas se quedaba parado
+
+Al imprimir el **diario de operaciones** de la cartera para contestar *«¿comprando las 5 primeras y
+vendiendo en el stop sería 2,2 %?»*, salta a la vista: vende FEIM el 8/10 y **no vuelve a comprar
+hasta el 14/10**. Seis sesiones con un hueco vacío.
+
+**El fallo:**
+```js
+const importe = total / huecos;
+if (importe > caja + 1e-9) break;
+```
+Al salir de una posición **con pérdida**, lo que vuelve a la caja ya no da para un quinto de la
+cartera. Y como las posiciones que siguen abiertas suben, el objetivo se aleja cada día: **el hueco
+no se volvía a llenar nunca**. En el registro real eso dejaba **10 de 13 sesiones con un hueco libre
+y un 16 % del dinero sin invertir**. Nadie opera así: si te queda menos de lo que querías, compras
+con lo que tienes.
+
+Corregido con `Math.min(total / huecos, caja)` y un límite para no abrir posición con calderilla
+(menos del 1 % de la cartera).
+
+| huecos | antes | ahora |
+|---|---|---|
+| 1 | −0,20 % | −0,20 % |
+| 2 | +4,79 % | +4,79 % |
+| 3 | **−2,71 %** | **+0,37 %** |
+| 5 (cabecera) | +2,24 % | **+2,44 %** |
+| 8 | +2,89 % | +3,90 % |
+| 10 | +2,56 % | +3,01 % |
+
+El abanico baja de 7,5 a **5,0 puntos**, que sigue siendo enorme para 2 ventas cerradas.
+
+**Cómo apareció, que es lo relevante:** no lo encontró ninguna prueba ni la auditoría de cifras de
+esta misma tarde, que verificó que los números eran los que el código calculaba —y lo eran—. Lo
+encontró **imprimir el diario de operaciones y leerlo**. Una comprobación de coherencia no detecta
+una regla de negocio equivocada: para eso hay que mirar lo que el sistema hace, operación a
+operación.
+
+3 pruebas nuevas, verificadas con una mutación que repone el `break`. **343 en verde.**
+Versión `24ed019c`, en línea: cabecera +2,4 %, 5 posiciones abiertas, abanico 5,0 puntos.
