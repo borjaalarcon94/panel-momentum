@@ -1438,3 +1438,47 @@ la prueba, no el código), y un choque de nombres de variable entre dos bloques 
 pruebas. Ambos del mismo tipo que ya había cometido antes en este proyecto.
 
 Versión `c48ebed1`, en línea.
+
+### 2026-10-24 — Operar el panel de verdad: comprar la señal y vender con el stop
+
+Aclaración de lo que pedía la sugerencia: *"¿qué rentabilidad tendría si fuera comprando cuando la
+app me lo dice y vendiendo los stops?"*. **Ninguna cifra de la pestaña contestaba eso.** La media por
+entrada trata cada posición suelta y en plazos distintos; la cartera del listado reequilibra a diario
+en el top entero, que no es la operativa de nadie.
+
+Se simula el protocolo tal cual: **5 huecos de cartera a partes iguales**, se llenan con lo mejor
+puntuado del top según aparece, cada posición lleva **su** stop —con la EMA 50 real, que se guarda a
+diario desde el 07/10/2026—, y al vender el dinero vuelve a la caja y se reinvierte.
+
+| | |
+|---|---|
+| la cartera | **+2,2 %** |
+| el S&P 500 en el mismo tramo | −2,2 % |
+| lo peor que llegó a estar | −3,2 % |
+| ventas cerradas | **2** |
+
+Las dos ventas: FEIM 07/10 → 08/10, **−5,6 %**, cortada por la EMA 50 (no por el suelo del 15 %);
+COHU 07/10 → 14/10, **−17,7 %**, por stop, con hueco de por medio.
+
+**Se muestra a propósito la sensibilidad al número de huecos**: 3 huecos dan **−2,7 %**, 5 dan +2,2 %,
+8 dan +2,9 %, 10 dan +2,6 %. Un abanico de cinco puntos y medio según cuántas posiciones lleves, con
+dos ventas cerradas, es la demostración de que esto **todavía no es una rentabilidad media**. Esconder
+esa sensibilidad habría dado al +2,2 % una precisión que no tiene. La pestaña lo dice con esas
+palabras.
+
+**Error real encontrado por las pruebas nuevas, no por revisión a ojo:** la compra usaba el top
+publicado antes de *ayer*, o sea con **un día de retraso de más**. Se compra al cierre de hoy, luego
+el top que toca es el último publicado antes de hoy. En `carteraDelTop()` el `s < ayer` **sí** es
+correcto y se queda: allí la posición ya estaba abierta al cierre de ayer y lo que se mide es lo que
+renta de ayer a hoy. Antes del arreglo salía +1,6 %; después, +2,2 %.
+
+También se eliminó una línea muerta (`const R` sin usar) que escribí en el mismo bloque.
+
+**Pruebas:** 9 nuevas, verificadas contra dos mutaciones —reponer el retraso equivocado (caza 5) y no
+reinvertir el dinero de las ventas (caza 2)— más 4 guardarraíles en el humo. **331 en verde.**
+
+**Arreglo de método:** las tres secciones de `tests/resultados.test.js` van ahora en bloques con
+ámbito propio. Habían chocado nombres de variable entre secciones **tres veces** en la misma jornada
+(`cae`, `tres`). Con el bloque, ese error deja de ser posible.
+
+Versión `d7570450`, en línea.
