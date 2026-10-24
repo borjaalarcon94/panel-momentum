@@ -1436,7 +1436,18 @@ for (const f of orden) {
   !/Todav/.test(texto) ? ok('ya no dice "todavía no"') : mal('sigue bloqueada con 40 entradas maduras');
   /Sirve de algo la puntuaci/.test(texto) ? ok('responde si la puntuación discrimina') : mal('no responde a la puntuación');
   /mediana/.test(texto) ? ok('parte por la mediana, no por un 75 fijo que nadie baja') : mal('no usa la mediana');
-  /tres formas de operarlas/.test(texto) ? ok('aparece la comparación de formas de operar') : mal('falta la simulación');
+  /* Buscaba el titulo literal "tres formas de operarlas" y se rompio al renombrarlo. Ahora mira la
+     sustancia: las tres filas y el aviso de que eso NO es una cartera, que es lo que confundia. */
+  ['Comprar y aguantar hasta hoy', 'Vender el día que sale del top', 'Con nuestras reglas de salida']
+    .every(s => texto.includes(s))
+    ? ok('aparecen las tres formas de operar cada entrada')
+    : mal('falta alguna de las tres formas de operar');
+  /Esto no es una cartera/.test(texto)
+    ? ok('y deja claro que eso es media por entrada, no una cartera')
+    : mal('no distingue la media por entrada de la cartera');
+  /¿Por qué .* aquí y .* en la cartera de arriba\?/.test(texto)
+    ? ok('y explica por qué su cifra no coincide con la de la cartera')
+    : mal('no reconcilia las dos cifras de rentabilidad');
 
   /* Hasta ahora "La tengo" solo guardaba el precio, asi que no habia forma de saber cuanto dinero
      tenias metido. Estas cuentas son las que miras antes de vender: tienen que cuadrar al centimo. */

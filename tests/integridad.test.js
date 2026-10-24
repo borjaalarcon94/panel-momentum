@@ -136,6 +136,31 @@ cuantos === 9 ? ok('window.REQUISITOS comprueba 9 cosas')
   ? ok('«Ya no cumple» aclara qué requisitos no cuentan')
   : mal('«Ya no cumple» vuelve a ser ambiguo');
 
+console.log('\nTODAS LAS LLAMADAS AL STOP PASAN LOS MISMOS ARGUMENTOS');
+/* Tener las reglas en un solo fichero no basta si quien las llama se deja argumentos. El 24/10/2026
+   simula() llamaba a stopDe sin ema50 y sin ganMax, asi que la pestana Resultados enseñaba la misma
+   accion salida a -15,7 % en una tabla y a -5,6 % en otra. stopDe(datos, compra, stopPrevio, ganMax):
+   una simulacion que omita ema50 usa un stop mas flojo, y una que omita ganMax reintroduce el fallo
+   de mirar la ganancia de hoy en vez de la maxima, corregido en reglas.js este mismo mes. */
+{
+  const res = fuente['resultados.js'];
+  const llamadas = [...res.matchAll(/stopDe\(([\s\S]{0,200}?)\)\s*\|\|/g)].map(m => m[1]);
+  llamadas.length >= 2
+    ? ok('hay ' + llamadas.length + ' simulaciones del stop en resultados.js')
+    : mal('se esperaban al menos 2 llamadas a stopDe', llamadas.length + ' encontradas');
+  const sinEma = llamadas.filter(c => !/ema50/.test(c));
+  sinEma.length ? mal('una llamada a stopDe no pasa la EMA 50: usaría un stop más flojo', sinEma[0].replace(/\s+/g, ' ').slice(0, 90))
+                : ok('todas pasan la EMA 50');
+  /* El cuarto argumento es ganMax: se cuentan las comas de primer nivel. */
+  const sinGanMax = llamadas.filter(c => {
+    let prof = 0, comas = 0;
+    for (const ch of c) { if ('({['.includes(ch)) prof++; else if (')}]'.includes(ch)) prof--; else if (ch === ',' && prof === 0) comas++ }
+    return comas < 3;
+  });
+  sinGanMax.length ? mal('una llamada a stopDe omite ganMax: volvería a mirar la ganancia de hoy', sinGanMax[0].replace(/\s+/g, ' ').slice(0, 90))
+                   : ok('todas pasan la ganancia máxima, no la de hoy');
+}
+
 console.log('\nLAS REGLAS NO ESTÁN DUPLICADAS');
 const sospechosos = [['perdidaMaxima', /\b15\b.*p[eé]rdida|p[eé]rdida.*\b15\b/i], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/]];
 for (const [nombre, re] of sospechosos) {

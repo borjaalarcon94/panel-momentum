@@ -105,10 +105,20 @@ function simula(xs) {
       peor = Math.min(peor, p);                 // peor momento aguantando hasta hoy
       if (!cerrada) peorConReglas = Math.min(peorConReglas, p);
       const gan = (p / x.precio - 1) * 100, ganMax = (maxVisto / x.precio - 1) * 100;
-      // Mismas reglas que las posiciones reales (docs/reglas.js). Sin EMA 50 historica, el stop usa
-      // el suelo de perdida maxima y la subida al coste; se indica en la nota de la tabla.
+      /* Mismas reglas que las posiciones reales (docs/reglas.js) y, sobre todo, las MISMAS QUE
+         operandoElPanel(): esta llamada se quedo con dos argumentos de menos y daba otro stop.
+         - Faltaba ema50. El comentario decia "sin EMA 50 historica", y era cierto cuando se
+           escribio, pero la EMA 50 diaria se guarda en docs/precios.json desde el 07/10/2026.
+           Sin ella el stop era solo el suelo del -15 %, mas flojo que el de verdad: FEIM salia
+           aqui a -15,7 % y en la cartera a -5,6 %, la misma accion con dos stops distintos.
+         - Faltaba ganMax, que es el cuarto argumento. Sin el, stopDe mira la ganancia de HOY y no
+           la maxima alcanzada: exactamente el fallo que se corrigio en reglas.js este mes, colado
+           otra vez por la puerta de atras en este punto de llamada.
+         La leccion: tener las reglas en un solo fichero no basta si quien las llama se deja
+         argumentos. La prueba de integridad vigilaba umbrales duplicados, no llamadas incompletas. */
       if (!cerrada) {
-        stopPrevio = Math.max(stopPrevio, window.REGLAS.stopDe({ precio: p }, x.precio, stopPrevio) || 0);
+        const ema50 = ((window.__EMAS__ || {})[f] || {})[x.clave];
+        stopPrevio = Math.max(stopPrevio, window.REGLAS.stopDe({ precio: p, ema50 }, x.precio, stopPrevio, ganMax) || 0);
         if (p < stopPrevio) { salida = p; fSalida = f; motivo = 'stop'; cerrada = true; continue }
         const limite = window.REGLAS.limiteDevolucion(ganMax);
         const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
@@ -184,9 +194,16 @@ function tablaSimulacion(xs, maduro) {
       'el stop y la devolución máxima de la pestaña Parámetros'],
   ];
   const d = el('div', 'blk');
-  d.appendChild(el('div', 'blt', 'Las mismas entradas, tres formas de operarlas'));
+  /* El titulo decia "Las mismas entradas, tres formas de operarlas" y la columna, "Media". Las dos
+     cosas son ciertas y aun asi el conjunto se leia como si fuera una cartera, y chocaba con el
+     +2,2 % de arriba: "me dice 2,2 % y aqui 1 % con lo mismo". No es lo mismo. Aqui cada entrada va
+     por su cuenta y luego se promedia; arriba hay UNA cartera que compone y reinvierte. */
+  d.appendChild(el('div', 'blt', 'Cada entrada por separado, operada de tres formas'));
+  d.appendChild(el('div', 'm', 'Esto no es una cartera: cada una de las ' + r.length +
+    ' entradas se mide por su cuenta, desde el día que entró al top, y después se promedian. ' +
+    'No hay dinero que se reparta ni que se reinvierta.'));
   const t = el('table', 'tabla'), h = el('tr');
-  ['Forma de operar', 'Media', 'Mediana', 'En positivo', 'Peor caso', 'Peor momento'].forEach(x => h.appendChild(el('th', null, x)));
+  ['Forma de operar', 'Media por entrada', 'Mediana', 'En positivo', 'Peor caso', 'Peor momento'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
   filas.forEach(([nom, v, dd, ayuda]) => {
     const tr = el('tr'), ord = [...v].sort((a, b) => a - b);
@@ -207,7 +224,7 @@ function tablaSimulacion(xs, maduro) {
   const vendidas = r.filter(x => x.fSalida).sort((a, b) => a.conReglas - b.conReglas);
   if (vendidas.length) {
     const s = el('div', 'blk');
-    s.appendChild(el('div', 'blt', 'Lo que el stop habría vendido, y cuándo'));
+    s.appendChild(el('div', 'blt', 'Lo que el stop habría vendido, entrada por entrada'));
     const tv = el('table', 'tabla'), hv = el('tr');
     ['Acción', 'Entró', 'Habría vendido', 'Por qué', 'Con el stop', 'Aguantando hasta hoy'].forEach(x => hv.appendChild(el('th', null, x)));
     tv.appendChild(hv);
@@ -230,6 +247,24 @@ function tablaSimulacion(xs, maduro) {
         'Ojo: el stop actúa sobre cierres, así que un hueco a la baja al abrir lo salta y la pérdida real puede pasar del ' +
         window.REGLAS.R.perdidaMaxima + ' % declarado.'));
     d.appendChild(s);
+  }
+
+  /* Puente explicito entre los dos numeros. Sin esto, arriba pone +2,2 % "vendiendo con el stop" y
+     aqui +1,2 % "con nuestras reglas de salida", y parece una contradiccion. Son tres diferencias
+     concretas y conviene decirlas, no esconderlas. */
+  const conReglas = media(r.map(x => x.conReglas));
+  const cartera = operandoElPanel(5);
+  if (cartera) {
+    const puente = el('div', 'margen');
+    puente.appendChild(el('b', null, '¿Por qué ' + pc(conReglas) + ' aquí y ' + pc(cartera.ret) + ' en la cartera de arriba?'));
+    const ul = el('div', 'm');
+    ul.appendChild(el('div', null, '· Arriba hay una cartera de 5 posiciones; aquí están las ' + r.length + ' entradas, también las que la cartera nunca llegó a comprar por no haber hueco.'));
+    ul.appendChild(el('div', null, '· Arriba el dinero se compone y se reinvierte al vender; aquí se suman porcentajes sueltos y se dividen.'));
+    ul.appendChild(el('div', null, '· Arriba se compra al cierre del día siguiente, que es cuando tú ves la señal; aquí, al cierre del día que entró al top, que es como está anotado el registro.'));
+    ul.appendChild(el('div', null, 'El stop es el mismo en los dos sitios: EMA 50, suelo del ' +
+      window.REGLAS.R.perdidaMaxima + ' %, subida al coste y devolución máxima.'));
+    puente.appendChild(ul);
+    d.appendChild(puente);
   }
 
   const cob = media(r.map(x => x.cobertura)) * 100;
