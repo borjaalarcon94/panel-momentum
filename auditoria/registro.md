@@ -1344,3 +1344,53 @@ remuestrea por acción en vez de por día (caza 3 de 11). Total: **320 en verde*
 el signo menos tipográfico (−) y la app escribe el guion normal (-), así que la condición era siempre
 falsa y no comprobaba nada. Reescrita para extraer los dos límites y contrastar el aviso contra
 ellos; verificada con una mutación que suprime el aviso.
+
+### 2026-10-24 — Sugerencia externa sobre la rentabilidad del listado: qué se aplica y qué no
+
+Sugerencia recibida: *"las que siguen en el top, o en compra, y de las que salieron de la cartera y
+cuándo salieron (con el drawdown posible según stop)"*, motivada por *"la rentabilidad es conjunta, o
+desde cuándo dio venta o cómo, es que me parece muy poca"*.
+
+**La queja de fondo era correcta y tenía respuesta escondida.** El `+0,1 %` de cabecera es "comprar y
+no vender nunca": la peor de las tres formas de operar y, sobre todo, **la que el sistema no hace**.
+La tabla que lo contesta (`tablaSimulacion`) existía desde hacía semanas pero estaba tras el umbral de
+30 entradas maduras, y hay 0. Nunca se había visto. Con las mismas 28 entradas:
+
+| forma de operar | media | mediana | en positivo | peor caso | peor momento |
+|---|---|---|---|---|---|
+| comprar y aguantar hasta hoy | +0,1 % | −0,9 % | 46 % | −35,0 % | −6,5 % |
+| vender el día que sale del top | +4,2 % | +1,0 % | 57 % | −7,3 % | −6,5 % |
+| con nuestras reglas de salida | +1,0 % | −0,9 % | 46 % | −21,0 % | −5,4 % |
+
+Se saca del umbral y se muestra siempre, marcada como registro y no como previsión, igual que la tabla
+en bruto: es aritmética sobre lo ocurrido, no una inferencia.
+
+**La parte del filtro NO se aplica tal cual, porque mentiría.** Medido:
+
+| grupo | n | media | vs S&P |
+|---|---|---|---|
+| todas | 28 | +0,1 % | +1,8 pt |
+| siguen en el top | 9 | **+12,1 %** | +13,8 pt |
+| ya salieron del top | 19 | −5,6 % | −3,9 pt |
+
+Una acción sale del top **justo cuando se debilita**: filtrar a las de dentro es quedarse con las
+ganadoras por construcción. Doce puntos de diferencia que no son mérito de nada. Es el mismo sesgo que
+el código ya evitaba a conciencia con las deslistadas. Se muestran **los tres grupos juntos**, con el
+aviso de cuánto infla mirar solo el primero, y una comprobación de humo falla si alguien los reduce a
+uno.
+
+**Lo demás de la sugerencia sí se implementa:**
+- Columna **"peor momento"** (máxima excursión adversa): lo que se llegó a estar en rojo por el camino,
+  aunque la operación acabara en verde. −6,5 % de media aguantando, −5,4 % con las reglas.
+- Tabla **"lo que el stop habría vendido, y cuándo"**: COHU el 14/10 a −21,0 % (aguantando hasta hoy,
+  −35,0 %), XMTR el 16/10 a −17,8 % (−19,7 %), FEIM el 13/10 a −15,7 % (−24,9 %). El stop salió **8,3
+  puntos mejor** que aguantar, de media. Nótese que dos de los tres cortaron **por debajo del 15 %
+  declarado**: el stop actúa sobre cierres y un hueco a la baja lo salta. Se avisa en la tabla.
+
+**Fallo propio corregido durante el trabajo:** al añadir el drawdown dejé el `break` original en
+`simula()`, lo que congelaba *los dos* peores momentos en la salida del stop y falseaba el de aguantar.
+Ahora el bucle sigue con una bandera `cerrada`. Probado con una mutación que reintroduce el `break`
+(caza 2 de 20). También se escribió un "15 %" literal en un aviso: lo cazó la prueba de integridad de
+umbrales duplicados y ahora se toma de `reglas.js`.
+
+**324 comprobaciones en verde.** Versión `0da3c7ce`, en línea.
