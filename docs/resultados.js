@@ -241,6 +241,137 @@ function tablaSimulacion(xs, maduro) {
   return d;
 }
 
+/* OPERAR EL PANEL: comprar cuando lo dice, vender cuando salta el stop, y reinvertir.
+
+   Es la pregunta de verdad, y ninguna de las cifras anteriores la contestaba. La media por entrada
+   trata cada posicion por separado y en plazos distintos. La cartera del listado reequilibra a diario
+   en el top entero, que no es lo que nadie hace. Esto es el protocolo tal cual: un numero de huecos
+   de cartera, se llenan con lo mejor puntuado del top segun va apareciendo, cada posicion lleva SU
+   stop (EMA 50 incluida, que desde el 07/10/2026 se guarda a diario) y al vender el dinero vuelve a
+   la caja y se reinvierte.
+
+   Reglas del reparto, que cambian el resultado y se dicen en la pestana:
+   - Retraso de un dia, igual que en el resto: lo del top de esta noche se compra manana al cierre.
+   - Huecos iguales: cada compra se lleva el total entre el numero de huecos.
+   - No se vuelve a entrar en una accion de la que ya se salio. Sin esta regla, una que te acaba de
+     saltar el stop se recompraria al dia siguiente por seguir en el top, que es justo lo que nadie
+     hace y ademas infla las operaciones. */
+function operandoElPanel(huecos) {
+  const dias = Object.keys(PRECIOS || {}).sort();
+  const emas = window.__EMAS__ || {};
+  const ses = [...FH].sort();
+  if (dias.length < 3) return null;
+  let caja = 100, abiertas = [], cerradas = [], pico = 100, caida = 0;
+  const curva = [];
+  for (let i = 1; i < dias.length; i++) {
+    const hoy = dias[i], ayer = dias[i - 1];
+    if (!PRECIOS[hoy]) continue;
+    for (const pos of [...abiertas]) {
+      const c = PRECIOS[hoy][pos.k];
+      if (c == null) continue;
+      pos.maxc = Math.max(pos.maxc, c);
+      const ganMax = (pos.maxc / pos.compra - 1) * 100, gan = (c / pos.compra - 1) * 100;
+      pos.stop = Math.max(pos.stop, window.REGLAS.stopDe(
+        { precio: c, ema50: (emas[hoy] || {})[pos.k] }, pos.compra, pos.stop, ganMax) || 0);
+      const limite = window.REGLAS.limiteDevolucion(ganMax);
+      const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
+      const motivo = c < pos.stop ? 'stop'
+        : (limite != null && devuelto >= limite - 1e-9) ? 'devolución' : null;
+      if (motivo) {
+        caja += pos.acc * c;
+        abiertas = abiertas.filter(x => x !== pos);
+        cerradas.push({ ticker: pos.ticker, entrada: pos.f, salida: hoy, motivo,
+          r: (c / pos.compra - 1) * 100 });
+      }
+    }
+    /* El top que se compra HOY es el ultimo publicado antes de hoy: cierra la sesion de ayer, el
+       panel lo publica esa noche y tu compras al cierre de hoy. Aqui habia 's < ayer', que es el top
+       de ANTEAYER: un dia de retraso de mas, y con el las senales se cogian tarde. Lo encontraron las
+       pruebas nuevas. Ojo, en carteraDelTop() 's < ayer' SI es lo correcto, porque alli la posicion
+       ya estaba abierta al cierre de ayer y lo que se mide es lo que renta de ayer a hoy. */
+    const pub = ses.filter(s => s < hoy).pop();
+    if (pub) {
+      const tengo = new Set(abiertas.map(x => x.k)), hechas = new Set(cerradas.map(x => x.ticker));
+      const cand = (((HIST[pub] || {}).acciones) || [])
+        .filter(a => !tengo.has(a.s || a.t) && !hechas.has(a.t) && PRECIOS[hoy][a.s || a.t] != null)
+        .sort((a, b) => (b.sc || 0) - (a.sc || 0));
+      for (const a of cand) {
+        if (abiertas.length >= huecos) break;
+        const k = a.s || a.t, c = PRECIOS[hoy][k];
+        const total = caja + abiertas.reduce((s, x) => s + x.acc * (PRECIOS[hoy][x.k] || x.compra), 0);
+        const importe = total / huecos;
+        if (importe > caja + 1e-9) break;
+        caja -= importe;
+        abiertas.push({ k, ticker: a.t, f: hoy, compra: c, acc: importe / c, maxc: c, stop: 0 });
+      }
+    }
+    const valor = caja + abiertas.reduce((s, x) => s + x.acc * (PRECIOS[hoy][x.k] || x.compra), 0);
+    pico = Math.max(pico, valor); caida = Math.min(caida, valor / pico - 1);
+    curva.push({ f: hoy, v: valor, n: abiertas.length });
+  }
+  if (curva.length < 3) return null;
+  return { curva, ret: curva[curva.length - 1].v - 100, caida: caida * 100,
+    cerradas, abiertas: abiertas.length, sesiones: curva.length };
+}
+
+function bloqueOperando() {
+  const HUECOS = 5;
+  const r = operandoElPanel(HUECOS);
+  if (!r) return null;
+  const ses = [...FH].sort();
+  const spyDe = f => { const s = ses.filter(x => x <= f).pop(); return s ? (HIST[s] || {}).spy : null };
+  const s0 = spyDe(r.curva[0].f);
+  const spy = s0 ? r.curva.map(x => ({ f: x.f, v: spyDe(x.f) ? 100 * spyDe(x.f) / s0 : null })).filter(x => x.v != null) : [];
+  const spyRet = spy.length ? spy[spy.length - 1].v - 100 : null;
+
+  const d = el('div', 'blk');
+  d.appendChild(el('div', 'blt', 'Si hubieras operado el panel: comprar cuando lo dice, vender con el stop'));
+  const st = el('div', 'stats');
+  st.append(stat('tu cartera', pc(r.ret), signo(r.ret)),
+    stat('el S&P 500 en el mismo tramo', spyRet != null ? pc(spyRet) : '—', signo(spyRet || 0)),
+    stat('lo peor que llegaste a estar', pc(r.caida), 'down'),
+    stat('ventas cerradas', String(r.cerradas.length), ''));
+  d.appendChild(st);
+  if (spy.length >= 3) d.appendChild(grafica(r.curva, spy));
+  d.appendChild(el('div', 'm', 'Con ' + HUECOS + ' huecos de cartera a partes iguales, en ' + r.sesiones + ' sesiones. ' +
+    'Cada posición lleva su propio stop, el de la pestaña Parámetros, y cuando salta el dinero vuelve a la caja y se reinvierte en lo siguiente que entra al top. ' +
+    'Quedan ' + r.abiertas + ' posiciones abiertas al final, contadas a precio de hoy.'));
+
+  /* Sensibilidad al numero de huecos: con pocas operaciones, el resultado depende mucho de cuantas
+     posiciones lleves a la vez, y esconderlo daria una precision que el dato no tiene. */
+  const otras = [3, 8, 10].map(h => ({ h, r: operandoElPanel(h) })).filter(x => x.r);
+  if (otras.length) d.appendChild(el('div', 'm', 'Con otro número de huecos: ' +
+    otras.map(x => x.h + ' huecos ' + pc(x.r.ret)).join(' · ') +
+    '. Con tan pocas operaciones cerradas, esa diferencia es casualidad, no una pista de cuántas llevar.'));
+
+  if (r.cerradas.length) {
+    const tv = el('table', 'tabla'), hv = el('tr');
+    ['Vendida', 'Entró', 'Salió', 'Por qué', 'Resultado'].forEach(x => hv.appendChild(el('th', null, x)));
+    tv.appendChild(hv);
+    [...r.cerradas].sort((a, b) => a.r - b.r).forEach(c => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, c.ticker));
+      tr.appendChild(el('td', null, fFecha(c.entrada)));
+      tr.appendChild(el('td', null, fFecha(c.salida)));
+      tr.appendChild(el('td', null, c.motivo));
+      tr.appendChild(el('td', c.r >= 0 ? 'up' : 'down', pc(c.r)));
+      tv.appendChild(tr);
+    });
+    const w = el('div', 'tw'); w.appendChild(tv); d.appendChild(w);
+  }
+
+  const av = el('div', 'margen margen-cero');
+  av.appendChild(el('b', null, r.cerradas.length < 10
+    ? 'Solo ' + r.cerradas.length + (r.cerradas.length === 1 ? ' venta cerrada' : ' ventas cerradas') + ': esto todavía no es una rentabilidad media'
+    : 'Sin comisiones ni diferencial'));
+  av.appendChild(el('div', 'm', 'Una rentabilidad media necesita decenas de operaciones completas, y aquí ' +
+    (r.cerradas.length === 1 ? 'hay una' : 'hay ' + r.cerradas.length) + '. ' +
+    'El resto son posiciones aún abiertas valoradas a precio de hoy, que puede cambiar mañana. ' +
+    'No hay comisiones ni diferencial, y las compras se hacen al cierre del día siguiente, que es cuando tú verías la señal.'));
+  d.appendChild(av);
+  return d;
+}
+
 /* LA CARTERA: que habria hecho el listado ENTERO, como una sola cosa.
 
    Responde a "¿la rentabilidad es conjunta?". No lo era: la cifra de arriba es la media simple de
@@ -524,6 +655,8 @@ window.resultados = async function () {
   /* Fuera del umbral: son registro, no conclusion, igual que la tabla en bruto. Tenerlas escondidas
      dejaba como unica cifra visible el "comprar y no vender nunca", que es justo la forma de operar
      que el sistema NO hace. */
+  const operando = bloqueOperando();
+  if (operando) R.appendChild(operando);
   const cartera = bloqueCartera();
   if (cartera) R.appendChild(cartera);
   const grupos = porGrupo(medibles);

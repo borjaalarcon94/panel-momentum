@@ -940,6 +940,21 @@ for (const f of orden) {
     ? ok('y de que la compra va con un día de retraso')
     : mal('no dice que la entrada lleva un día de retraso');
 
+  /* Operar el panel: comprar lo que dice y vender con el stop. Es la pregunta que de verdad
+     importa y la que ninguna de las otras cifras contestaba. */
+  /comprar cuando lo dice, vender con el stop/.test(txtRes)
+    ? ok('se ve qué habría pasado operando el panel de verdad')
+    : mal('no hay simulación de la operativa real');
+  /ventas cerradas/.test(txtRes)
+    ? ok('y cuántas ventas se han cerrado de verdad')
+    : mal('no dice cuántas operaciones están cerradas');
+  /todavía no es una rentabilidad media|Sin comisiones ni diferencial/.test(txtRes)
+    ? ok('y avisa de que con tan pocas ventas no hay rentabilidad media')
+    : mal('da una rentabilidad media sin avisar de la muestra');
+  /Con otro número de huecos/.test(txtRes)
+    ? ok('y enseña cuánto cambia según las posiciones que lleves')
+    : mal('esconde la sensibilidad al número de posiciones');
+
   /* El acento de las tarjetas iba por tramo de puntuacion con corte en 75, y como al top solo suben
      las mejores, nueve de cada diez salian con el mismo color: la lista parecia homogenea. */
   console.log('\nCADA TARJETA SE DISTINGUE POR SU VEREDICTO');
