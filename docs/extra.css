@@ -323,3 +323,11 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
    la forma y el final. Sin ejes ni rejilla, que a 15 puntos solo serian ruido visual. */
 .grafica{margin:10px 0;border-radius:8px;background:var(--card);padding:6px 8px}
 .grafica svg{display:block;width:100%;height:70px}
+/* Plegable de "otras formas de medirlo". Cerrado por defecto: lo que responde la pregunta va
+   arriba y esto es segunda lectura. */
+.plegable{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.plegable>summary{cursor:pointer;font-size:14px;color:var(--muted);padding:6px 0;list-style:none}
+.plegable>summary::-webkit-details-marker{display:none}
+.plegable>summary::before{content:"▸";display:inline-block;margin-right:6px}
+.plegable[open]>summary::before{content:"▾"}
+.plegable>summary:hover{color:var(--text)}

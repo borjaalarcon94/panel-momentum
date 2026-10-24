@@ -955,6 +955,26 @@ for (const f of orden) {
     ? ok('y enseña cuánto cambia según las posiciones que lleves')
     : mal('esconde la sensibilidad al número de posiciones');
 
+  /* Freno al amontonamiento. La pestaña llegó a tener SIETE bloques de golpe y se hizo ilegible.
+     Arriba solo puede haber lo que contesta la pregunta; el resto va plegado. */
+  /* El stub de DOM no tiene querySelector (devuelve null siempre), asi que se recorre a mano. */
+  const titulos = x => {
+    let n2 = (x.className || '').split(' ').includes('blt') ? 1 : 0;
+    (x.hijos || []).forEach(h => n2 += titulos(h));
+    return n2;
+  };
+  const plegado = (porId.rres.hijos || []).find(x => x.tagName === 'DETAILS');
+  plegado ? ok('las formas secundarias de medir van plegadas')
+          : mal('no hay plegable: todo se muestra de golpe');
+  if (plegado) {
+    const arriba = (porId.rres.hijos || []).filter(x => x !== plegado).reduce((s, x) => s + titulos(x), 0);
+    arriba <= 2 ? ok('arriba quedan ' + arriba + ' bloques con título, no una pila de tablas')
+                : mal('vuelve a haber demasiado a primera vista', arriba + ' bloques sin plegar');
+    const dentro = titulos(plegado);
+    dentro >= 3 ? ok('y ' + dentro + ' formas secundarias guardadas dentro del plegable')
+                : mal('el plegable está casi vacío', dentro + ' bloques');
+  }
+
   /* El acento de las tarjetas iba por tramo de puntuacion con corte en 75, y como al top solo suben
      las mejores, nueve de cada diez salian con el mismo color: la lista parecia homogenea. */
   console.log('\nCADA TARJETA SE DISTINGUE POR SU VEREDICTO');

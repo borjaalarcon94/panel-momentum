@@ -524,6 +524,12 @@ function registro(xs) {
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
   if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' primeras de ' + orden.length + '. Cambia el desplegable de arriba a «Todas» para verlas todas.'));
+  return d;
+}
+
+/* Comparacion con el indice, en su propio bloque: estaba dentro del registro en bruto y eso
+   obligaba a enseñar los dos juntos. Ahora el registro queda limpio y esto va al plegable. */
+function comparaIndice(xs) {
   /* Comparacion con el indice. Tres cosas que antes faltaban y hacian que un numero en verde se
      leyera como un logro cuando no lo era:
      1. La barra de error. Decir "esto es ruido" en texto pequeno debajo de un "+1,7 pt" en verde
@@ -572,9 +578,9 @@ function registro(xs) {
     }
 
     c.appendChild(el('p', 'nota', 'Cada acción se compara con lo que hizo el índice desde el día que ella entró, no desde el principio.'));
-    d.appendChild(c);
+    return c;
   }
-  return d;
+  return null;
 }
 
 /* Intervalo de confianza del 95 % de la diferencia media contra el indice, remuestreando por DIA de
@@ -598,6 +604,23 @@ function intervalo(filas) {
   }
   muestras.sort((a, b) => a - b);
   return { lo: muestras[Math.floor(4000 * 0.025)], hi: muestras[Math.floor(4000 * 0.975)], dias: dias.length };
+}
+
+/* Un plegable. Hoy la pestana tenia SIETE bloques para contestar una sola pregunta, y el usuario
+   dijo lo obvio: que se hace lioso. Arriba se queda lo que responde —si te puedes fiar, que habria
+   pasado operando el panel y el registro en bruto— y todo lo demas, que son otras maneras de medir
+   lo mismo, baja aqui. No se borra nada: cada una existe por una razon, pero son respuesta de
+   segunda lectura, no lo primero que tienes que ver al abrir. */
+function plegable(titulo, nodos) {
+  const hijos = nodos.filter(Boolean);
+  if (!hijos.length) return null;
+  const d = document.createElement('details');
+  d.className = 'plegable';
+  const s = document.createElement('summary');
+  s.textContent = titulo;
+  d.appendChild(s);
+  hijos.forEach(x => d.appendChild(x));
+  return d;
 }
 
 window.initResultados = function () {
@@ -652,18 +675,20 @@ window.resultados = async function () {
 
   }
 
-  /* Fuera del umbral: son registro, no conclusion, igual que la tabla en bruto. Tenerlas escondidas
-     dejaba como unica cifra visible el "comprar y no vender nunca", que es justo la forma de operar
-     que el sistema NO hace. */
+  /* ARRIBA, lo que contesta la pregunta: que habria pasado operando el panel de verdad.
+     El resto son otras formas de medir lo mismo y van plegadas: ver el comentario de plegable(). */
   const operando = bloqueOperando();
   if (operando) R.appendChild(operando);
-  const cartera = bloqueCartera();
-  if (cartera) R.appendChild(cartera);
-  const grupos = porGrupo(medibles);
-  if (grupos) R.appendChild(grupos);
-  if (medibles.length) R.appendChild(tablaSimulacion(medibles, maduras.length >= MINIMO));
 
   R.appendChild(registro(xs));
+
+  const otras = plegable('Otras formas de medirlo', [
+    bloqueCartera(),
+    porGrupo(medibles),
+    medibles.length ? tablaSimulacion(medibles, maduras.length >= MINIMO) : null,
+    comparaIndice(medibles),
+  ]);
+  if (otras) R.appendChild(otras);
   R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, al precio de cierre de ese día, y se compara con el precio de hoy. ' +
     'Ojo: ese cierre es de la noche en que el panel la detecta, así que no es un precio al que tú pudieras comprar; tú la ves a la mañana siguiente. ' +
     'En las entradas guardadas hasta ahora el hueco de una noche a otra ha sido de −0,6 % de media, pero va de +6 % a −12 % según el caso, así que una fila concreta puede estar desviada varios puntos. ' +
