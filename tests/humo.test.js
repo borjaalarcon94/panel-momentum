@@ -557,6 +557,37 @@ for (const f of orden) {
   sinFl.cls === 'qok' && conFl.cls === 'qwarn'
     ? ok('la misma acción pasa de COMPRA a Vigilar al perder fuerza') : mal('perder fuerza no cambia el veredicto', sinFl.t + ' / ' + conFl.t);
 
+  /* 24/10/2026: el numero de la tarjeta era el indice dentro de lo que se estaba mostrando, asi que
+     la misma accion cambiaba de puesto al desplegar la lista: PAYS era "#6" con las 5 mejores y "#7"
+     al verlas todas, y FIGS era "#6" solo en la vista completa. */
+  console.log('\nEL PUESTO NO CAMBIA AL DESPLEGAR LA LISTA');
+  {
+    porId.segorden.value = 'score'; porId.segest.value = ''; porId.per.value = 90;
+    const lee = () => (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card'))
+      .map(c => (c.textContent.match(/^#(\d+)([A-Z]+)/) || []).slice(1))
+      .filter(x => x.length).map(([n, t]) => t + ':' + n);
+    ventana.seguimiento();
+    const corta = lee();
+    const ver = (porId.rseg.hijos || []).flatMap(function f(x) { return [x, ...(x.hijos || []).flatMap(f)] })
+      .find(b => /Ver las/.test(b.textContent || ''));
+    if (ver && ver.onclick) ver.onclick();
+    const larga = lee();
+    corta.length && larga.length ? ok('hay tarjetas en las dos vistas (' + corta.length + ' y ' + larga.length + ')')
+      : mal('no se han pintado tarjetas', corta.length + ' / ' + larga.length);
+    const mapa = Object.fromEntries(larga.map(x => x.split(':')));
+    const cambian = corta.map(x => x.split(':')).filter(([t, n]) => mapa[t] && mapa[t] !== n)
+      .map(([t, n]) => t + ' ' + n + '->' + mapa[t]);
+    cambian.length === 0
+      ? ok('ninguna acción cambia de número entre las dos vistas')
+      : mal('el puesto cambia al desplegar', cambian.join(', '));
+    const src = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+    /completa\.forEach\(\(a, i\) => \{ a\.puestoLista = i \+ 1 \}\)/.test(src)
+      ? ok('el puesto se fija sobre la lista completa, antes de filtrar') : mal('el puesto sigue saliendo del índice filtrado');
+    /'#' \+ a\.puestoLista/.test(src) ? ok('y es el que se pinta') : mal('se pinta otro número');
+    /LA TIENES|SEÑAL DE SALIDA/.test(src)
+      ? ok('y las que se cuelan por debajo del corte dicen por qué') : mal('no se explica el salto de numeración');
+  }
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);

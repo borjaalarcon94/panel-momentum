@@ -310,3 +310,7 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
   font-variant-numeric:tabular-nums;background:var(--muted);color:var(--bg)}
 .tab .cnt.urge{background:var(--down);color:#fff}
 .tab .cnt.ojo{background:var(--warn);color:#2a1c00}
+
+/* Marca en las tarjetas que se muestran aunque esten por debajo del corte de 5 */
+.card .fuera{display:inline-block;margin-left:7px;padding:2px 7px;border-radius:999px;
+  font-size:10px;font-weight:700;letter-spacing:.5px;background:var(--infobg);color:var(--info)}

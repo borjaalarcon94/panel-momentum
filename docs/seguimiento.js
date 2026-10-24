@@ -92,6 +92,11 @@ window.seguimiento = function () {
      justo esas son las que hay que mirar todos los días. */
   const imprescindible = a => (window.tengoPosicion && window.tengoPosicion(a.ticker)) || (a.salida && a.salida.senales.length);
   const completa = r;
+  /* El puesto se fija ANTES de filtrar. Antes era el indice dentro de lo que se estaba mostrando, asi
+     que la misma accion cambiaba de numero segun la vista: el 24/10/2026 PAYS salia "#6" con las 5
+     mejores y "#7" al verlas todas, y FIGS era "#6" solo en la vista completa. Un puesto que cambia
+     al desplegar una lista no es un puesto. */
+  completa.forEach((a, i) => { a.puestoLista = i + 1 });
   if (!VER_TODAS) r = r.filter((a, i) => i < 5 || imprescindible(a));
   const ocultas = completa.length - r.length;
   const R = $('rseg'); R.replaceChildren();
@@ -117,7 +122,11 @@ window.seguimiento = function () {
   r.forEach((a, i) => {
     // mismo acento por veredicto que en la pestaña Hoy
     const c = el('div', 'card seg v-' + ({ qok: 'ok', qwarn: 'warn', qbad: 'bad' }[a.veredicto.cls] || 'warn')), top = el('div', 'top'), izq = el('div');
-    izq.appendChild(el('span', 'pos', '#' + (i + 1)));
+    izq.appendChild(el('span', 'pos', '#' + a.puestoLista));
+    /* Si esta por debajo del corte y aun asi se muestra, se dice por que: si no, el salto de
+       numeracion (…#5, #7) parece un error. */
+    if (!VER_TODAS && a.puestoLista > 5) izq.appendChild(el('span', 'fuera',
+      window.tengoPosicion && window.tengoPosicion(a.ticker) ? 'LA TIENES' : 'SEÑAL DE SALIDA'));
     const l = el('a', 'tk', a.ticker); l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(a.clave); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);
     if (a.enTop) izq.appendChild(el('span', 'new', 'EN EL TOP HOY'));
