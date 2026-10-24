@@ -1204,3 +1204,47 @@ No es una manía: el historial de posiciones es **lo único de todo el panel que
 reconstruir desde ningún sitio**.
 
 **Pruebas.** 557 comprobaciones en verde (de 543).
+
+## 2026-10-24 — Medición: el stop del panel contra el trailing clásico
+
+Pregunta: *"¿este stop es mejor que el trailing normal?"* No había medición. Se hizo.
+
+**Método.** 766 tickers (muestra aleatoria con semilla del universo nasdaq con cap ≥ 300 M),
+706.175 cierres diarios 2023-01 → 2026-10. Entrada **idéntica para todas las variantes** y
+fijada antes de simular (cierre a ≤ 10 % del máximo de 52 semanas, por encima de la EMA 50,
+RSI ≥ 45, una entrada por ticker cada 60 sesiones): 4.913 entradas. Lo único que cambia entre
+variantes es la regla de salida. IC 95 % por bootstrap de bloques trimestrales.
+
+Una primera pasada dio al `trail15` una ventaja significativa que desapareció al añadir variantes:
+la secuencia de entradas dependía de cuánto aguantaba la variante más lenta. Queda anulada; los
+números de abajo son de la versión con entradas independientes de la variante.
+
+| salida | media/op | acierto | días | p5 | dif vs panel (IC 95 %) |
+|---|---|---|---|---|---|
+| panel (actual) | +0,75 % | 30,8 % | 14 | −13,6 % | referencia |
+| solo EMA 50 | +1,43 % | 31,1 % | 16 | −14,0 % | **+0,69 [+0,29, +1,12]** |
+| trailing 15 % | +2,47 % | 41,0 % | 66 | −16,7 % | +1,71 [−0,17, +3,52] |
+| trailing 20 % | +4,90 % | 43,4 % | 106 | −21,2 % | **+4,16 [+1,36, +7,03]** |
+| trailing 25 % | +6,68 % | 45,2 % | 140 | −26,0 % | **+5,96 [+2,61, +9,36]** |
+| 6 × ADR | +3,62 % | 40,0 % | 56 | −21,7 % | **+2,86 [+0,79, +5,12]** |
+| 8 × ADR | +5,11 % | 41,7 % | 81 | −25,4 % | **+4,36 [+1,70, +7,21]** |
+
+**Lo que sale, y lo que no.**
+
+1. El stop del panel **no es mejor**: es el más estrecho y el que menos renta por operación en
+   esta muestra. Corta a los 14 días de mediana contra 66-140 del trailing.
+2. **Las capas que hay encima de la EMA 50 restan.** Quitar el suelo del 15 %, el escalón de
+   breakeven, la devolución y el RSI deja +0,69 pp [+0,29, +1,12], significativo. La EMA 50 sola
+   funciona mejor que la EMA 50 con los cuatro añadidos.
+3. **A igual anchura media, el adaptativo gana al fijo.** El ADR mediano es 2,50 % del precio,
+   así que 6 × ADR ≈ 15 %: misma anchura que `trail15`, y +1,14 pp [+0,05, +2,31]. Esto resuelve
+   la medición pendiente desde el 7 de octubre, y en el sentido que se sospechaba.
+4. **No es dinero gratis.** El p5 pasa de −13,6 % (panel) a −26,0 % (trailing 25 %). La ventaja
+   se paga con pérdidas individuales el doble de grandes. Por unidad de riesgo (media / |p5|) la
+   escala sigue favoreciendo al trailing ancho (0,26 contra 0,06), pero con 15 % de pérdida
+   máxima declarada como límite, un trailing del 25 % es otro sistema, no un ajuste.
+5. **Depende del régimen.** La ventaja del stop ancho viene de 2024T1, 2025T2 y 2025T3. En 2026
+   (n = 1.418) todas las variantes están entre −0,26 % y +0,36 %: la diferencia desaparece.
+
+**No se cambia nada.** Sigue en pie el acuerdo del 7 de octubre: las reglas de salida no se tocan
+sin decisión explícita. Esto es evidencia para decidir, no una implementación.
