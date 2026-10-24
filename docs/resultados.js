@@ -371,10 +371,14 @@ function bloqueOperando() {
 
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Si hubieras operado el panel: comprar cuando lo dice, vender con el stop'));
+  /* La tercera casilla enseña la DIFERENCIA con el indice, no el peor momento: es la pregunta
+     ("¿le gano al S&P o no?") y hace falta restar dos numeros a mano para saberla. El peor momento
+     no se pierde, baja a la linea de texto. */
+  const dif = spyRet != null ? r.ret - spyRet : null;
   const st = el('div', 'stats');
   st.append(stat('tu cartera', pc(r.ret), signo(r.ret)),
     stat('el S&P 500 en el mismo tramo', spyRet != null ? pc(spyRet) : '—', signo(spyRet || 0)),
-    stat('lo peor que llegaste a estar', pc(r.caida), 'down'),
+    stat('de diferencia', dif != null ? (dif >= 0 ? '+' : '') + n(dif, 1) + ' pt' : '—', signo(dif || 0)),
     stat('ventas cerradas', String(r.cerradas.length), ''));
   d.appendChild(st);
   if (spy.length >= 3) {
@@ -383,6 +387,7 @@ function bloqueOperando() {
     d.appendChild(leyenda(g, 'tu cartera', r.ret, 'el S&P 500', spyRet != null ? spyRet : 0));
   }
   d.appendChild(el('div', 'm', 'Con ' + HUECOS + ' huecos de cartera a partes iguales, en ' + r.sesiones + ' sesiones. ' +
+    'Por el camino llegó a estar en ' + pc(r.caida) + ', que es lo que habrías tenido que aguantar. ' +
     'Cada posición lleva su propio stop, el de la pestaña Parámetros, y cuando salta el dinero vuelve a la caja y se reinvierte en lo siguiente que entra al top. ' +
     'Quedan ' + r.abiertas + ' posiciones abiertas al final, contadas a precio de hoy.'));
 

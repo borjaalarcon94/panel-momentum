@@ -958,6 +958,19 @@ for (const f of orden) {
   /ventas cerradas/.test(txtRes)
     ? ok('y cuántas ventas se han cerrado de verdad')
     : mal('no dice cuántas operaciones están cerradas');
+  /* La diferencia con el indice, calculada y no a ojo: es la pregunta de la pestaña entera.
+     Ojo con el orden: stat() pone el valor DELANTE de la etiqueta en el navegador (usa prepend),
+     pero el stub de aqui devuelve la etiqueta primero. La comprobacion acepta los dos ordenes
+     para no depender de ese detalle del doble. */
+  /* (Y ojo con quitar los espacios antes de buscar un texto que los lleva: la primera version de
+     esta comprobacion hacia replace(/\s+/g,'') y luego buscaba "de diferencia". Nunca encajaba.) */
+  const uno = txtRes.replace(/\s+/g, ' ');
+  /de diferencia ?[+-−][\d,]+ pt|[+-−][\d,]+ pt ?de diferencia/.test(uno)
+    ? ok('y la diferencia con el índice ya restada')
+    : mal('obliga a restar a mano la cartera y el índice', uno.slice(0, 220));
+  /llegó a estar en [+-−][\d,]+ %/.test(txtRes)
+    ? ok('sin perder lo que llegó a estar en rojo por el camino')
+    : mal('se ha perdido el peor momento de la cartera');
   /todavía no es una rentabilidad media|Sin comisiones ni diferencial/.test(txtRes)
     ? ok('y avisa de que con tan pocas ventas no hay rentabilidad media')
     : mal('da una rentabilidad media sin avisar de la muestra');
