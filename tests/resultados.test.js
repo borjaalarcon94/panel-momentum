@@ -119,5 +119,67 @@ const sinCierres = conSerie([], 100);
 comprueba('sin cierres guardados no se inventa una salida',
   sinCierres.fSalida === null && sinCierres.vistos === 0);
 
+
+/* ---- carteraDelTop(): la rentabilidad del listado como UNA cartera ---- */
+console.log('\nLa cartera del top');
+
+/* Monta un escenario: tops por sesion y cierres por dia. */
+function escenario(tops, precios) {
+  ctx.HIST = {}; Object.entries(tops).forEach(([f, ks]) =>
+    ctx.HIST[f] = { acciones: ks.map(k => ({ t: k, s: k, p: 1 })), spy: 100 });
+  ctx.FH = Object.keys(tops).sort().reverse();
+  ctx.PRECIOS = precios;
+  return ctx.carteraDelTop();
+}
+const d = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06'];
+
+/* Retraso de un dia. A entra en el top la noche de d0, con cierre 100, y a la manana siguiente
+   abre disparada: cierra d1 en 200. Ese hueco es lo que NO puedes cobrar, porque tu compras al
+   cierre de d1 (200), no al de d0 (100). Despues se queda plana, asi que la cartera tiene que
+   quedarse en cero. Sin el retraso cobraria el +100 %.
+   (Un primer intento ponia el salto entre d1 y d2, que es un tramo que SI te llevas: la prueba
+   fallaba por estar mal planteada, no por el codigo.) */
+const salto = escenario(
+  { [d[0]]: ['A'], [d[1]]: ['A'], [d[2]]: ['A'], [d[3]]: ['A'] },
+  { [d[0]]: { A: 100 }, [d[1]]: { A: 200 }, [d[2]]: { A: 200 }, [d[3]]: { A: 200 }, [d[4]]: { A: 200 } });
+comprueba('con el retraso de un día, el hueco de la noche en que se detecta NO se cobra',
+  salto && Math.abs(salto.ret) < 1e-6, salto ? 'ret = ' + salto.ret : 'null');
+
+/* Sin supervivencia: A se desploma el dia 4 y sale del top el dia 4. La caida tiene que estar
+   dentro de la curva, porque es lo que te habria pasado teniendola comprada. */
+const hundida = escenario(
+  { [d[0]]: ['A'], [d[1]]: ['A'], [d[2]]: ['B'], [d[3]]: ['B'] },
+  { [d[0]]: { A: 100, B: 100 }, [d[1]]: { A: 100, B: 100 },
+    [d[2]]: { A: 50, B: 100 }, [d[3]]: { A: 50, B: 100 }, [d[4]]: { A: 50, B: 100 } });
+comprueba('una acción que se desploma y sale del top deja su caída dentro de la curva',
+  hundida && hundida.ret < -40, hundida ? 'ret = ' + hundida.ret.toFixed(2) : 'null');
+comprueba('y esa caída queda registrada como peor caída de la cartera',
+  hundida && hundida.caida < -40, hundida ? 'caida = ' + hundida.caida.toFixed(2) : 'null');
+
+/* Compone, no promedia: +10 % y luego +10 % son +21 %, no +20 %. */
+const comp = escenario(
+  { [d[0]]: ['A'], [d[1]]: ['A'], [d[2]]: ['A'], [d[3]]: ['A'] },
+  { [d[0]]: { A: 100 }, [d[1]]: { A: 100 }, [d[2]]: { A: 110 }, [d[3]]: { A: 121 }, [d[4]]: { A: 133.1 } });
+comprueba('encadena la rentabilidad en vez de promediarla',
+  comp && Math.abs(comp.ret - 33.1) < 0.5, comp ? 'ret = ' + comp.ret.toFixed(2) : 'null');
+
+/* Equiponderada: dos acciones, una +20 % y otra -20 %, dejan la cartera plana. */
+const eq = escenario(
+  { [d[0]]: ['A', 'B'], [d[1]]: ['A', 'B'], [d[2]]: ['A', 'B'], [d[3]]: ['A', 'B'] },
+  { [d[0]]: { A: 100, B: 100 }, [d[1]]: { A: 100, B: 100 },
+    [d[2]]: { A: 120, B: 80 }, [d[3]]: { A: 120, B: 80 }, [d[4]]: { A: 120, B: 80 } });
+comprueba('pesa las posiciones a partes iguales',
+  eq && Math.abs(eq.ret) < 1e-6, eq ? 'ret = ' + eq.ret.toFixed(4) : 'null');
+
+/* Rotacion: si el top no cambia, no se mueve nada despues del primer dia. */
+const quieta = escenario(
+  { [d[0]]: ['A'], [d[1]]: ['A'], [d[2]]: ['A'], [d[3]]: ['A'] },
+  { [d[0]]: { A: 100 }, [d[1]]: { A: 100 }, [d[2]]: { A: 100 }, [d[3]]: { A: 100 }, [d[4]]: { A: 100 } });
+comprueba('mide la rotación: un top que no cambia apenas rota',
+  quieta && quieta.rotacion < 60, quieta ? 'rotacion = ' + quieta.rotacion.toFixed(0) : 'null');
+
+const corta = escenario({ [d[0]]: ['A'] }, { [d[0]]: { A: 100 }, [d[1]]: { A: 100 } });
+comprueba('con menos de 3 días no devuelve curva', corta === null);
+
 console.log(`\n${total - fallos}/${total} comprobaciones`);
 process.exit(fallos ? 1 : 0);

@@ -927,6 +927,19 @@ for (const f of orden) {
     ? ok('y cuánto se llegó a estar en rojo por el camino')
     : mal('no muestra el drawdown');
 
+  /* La cartera: la rentabilidad del listado como un todo, encadenada en vez de promediada.
+     Y, sobre todo, con el aviso de que no es lo que el usuario hace: compra las 10 y reequilibra
+     cada sesion, con una rotacion que en la realidad pagan las comisiones. */
+  /como una sola cartera/.test(txtRes)
+    ? ok('se ve la rentabilidad del listado como una sola cartera')
+    : mal('no hay rentabilidad conjunta, solo la media por entrada');
+  /Esto no es lo que tú haces/.test(txtRes)
+    ? ok('y avisa de que esa cartera no es la operativa real')
+    : mal('presenta la cartera como si fuera lo que el usuario opera');
+  /se compra al cierre del día siguiente/.test(txtRes)
+    ? ok('y de que la compra va con un día de retraso')
+    : mal('no dice que la entrada lleva un día de retraso');
+
   /* El acento de las tarjetas iba por tramo de puntuacion con corte en 75, y como al top solo suben
      las mejores, nueve de cada diez salian con el mismo color: la lista parecia homogenea. */
   console.log('\nCADA TARJETA SE DISTINGUE POR SU VEREDICTO');

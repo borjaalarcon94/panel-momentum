@@ -241,6 +241,103 @@ function tablaSimulacion(xs, maduro) {
   return d;
 }
 
+/* LA CARTERA: que habria hecho el listado ENTERO, como una sola cosa.
+
+   Responde a "¿la rentabilidad es conjunta?". No lo era: la cifra de arriba es la media simple de
+   cada entrada por separado, cada una medida en un plazo distinto (una lleva 13 sesiones y otra 1),
+   y pesan igual. Eso no es la rentabilidad de una cartera, es el promedio de apuestas sueltas.
+
+   Aqui se compone de verdad: compras el top a partes iguales, lo reequilibras cada sesion y la
+   rentabilidad se encadena. Dos decisiones que cambian el numero y conviene saber:
+
+   1. El top publicado la noche de t se compra al cierre de t+1, no al de t. El precio de la noche
+      en que el panel detecta una accion no es un precio al que pudieras comprar: la ves a la manana
+      siguiente. Sin este retraso la cartera cobraria gratis el hueco de la noche.
+   2. No hay supervivencia escondida: una accion que cae y sale del top deja su caida dentro de la
+      curva hasta el dia que sale, que es lo que te habria pasado. */
+function carteraDelTop() {
+  const dias = Object.keys(PRECIOS || {}).sort();
+  const ses = [...FH].sort();
+  if (dias.length < 3) return null;
+  let v = 100, pesos = {}, pico = 100, caida = 0;
+  const serie = [{ f: dias[0], v: 100 }], rot = [];
+  for (let i = 1; i < dias.length; i++) {
+    const hoy = dias[i], ayer = dias[i - 1];
+    const pub = ses.filter(s => s < ayer).pop();      // el retraso de un dia
+    if (!pub) continue;
+    const m = ((HIST[pub] || {}).acciones || []).map(a => a.s || a.t)
+      .filter(k => PRECIOS[ayer] && PRECIOS[hoy] && PRECIOS[ayer][k] != null && PRECIOS[hoy][k] != null);
+    if (!m.length) continue;
+    const objetivo = {};
+    m.forEach(k => objetivo[k] = 1 / m.length);
+    let giro = 0;
+    new Set([...Object.keys(pesos), ...Object.keys(objetivo)])
+      .forEach(k => giro += Math.abs((objetivo[k] || 0) - (pesos[k] || 0)));
+    rot.push(giro / 2);
+    const r = m.reduce((s, k) => s + (PRECIOS[hoy][k] / PRECIOS[ayer][k] - 1), 0) / m.length;
+    v *= 1 + r;
+    pico = Math.max(pico, v); caida = Math.min(caida, v / pico - 1);
+    serie.push({ f: hoy, v });
+    const bruto = {}; let suma = 0;
+    m.forEach(k => { const w = (1 / m.length) * (PRECIOS[hoy][k] / PRECIOS[ayer][k]); bruto[k] = w; suma += w });
+    pesos = {}; m.forEach(k => pesos[k] = bruto[k] / suma);
+  }
+  if (serie.length < 3) return null;
+  /* El indice, en el mismo tramo y con el mismo arranque, para que las dos curvas sean comparables. */
+  const spyDe = f => { const s = ses.filter(x => x <= f).pop(); return s ? (HIST[s] || {}).spy : null };
+  const s0 = spyDe(serie[0].f);
+  const spy = s0 ? serie.map(x => ({ f: x.f, v: spyDe(x.f) ? 100 * spyDe(x.f) / s0 : null })).filter(x => x.v != null) : [];
+  return { serie, spy, ret: v - 100, caida: caida * 100,
+    spyRet: spy.length ? spy[spy.length - 1].v - 100 : null,
+    rotacion: rot.length ? 100 * rot.reduce((s, x) => s + x, 0) / rot.length : null,
+    sesiones: serie.length - 1 };
+}
+
+/* Dos curvas en un SVG pequeno. Sin libreria: son 15 puntos. */
+function grafica(a, b) {
+  const W = 320, A = 70, todo = [...a.map(x => x.v), ...b.map(x => x.v)];
+  const lo = Math.min(...todo), hi = Math.max(...todo), rango = (hi - lo) || 1;
+  const px = (xs, i) => 1 + i * (W - 2) / Math.max(xs.length - 1, 1);
+  const py = v => A - 4 - (v - lo) / rango * (A - 8);
+  const linea = (xs, color, ancho) => {
+    const d = xs.map((p, i) => (i ? 'L' : 'M') + px(xs, i).toFixed(1) + ' ' + py(p.v).toFixed(1)).join(' ');
+    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${ancho}" stroke-linejoin="round"/>`;
+  };
+  const s = document.createElement('div');
+  s.className = 'grafica';
+  s.innerHTML = `<svg viewBox="0 0 ${W} ${A}" preserveAspectRatio="none" role="img" aria-label="Curva de la cartera frente al S&P 500">` +
+    linea(b, 'var(--muted)', 1.5) + linea(a, a[a.length - 1].v >= 100 ? 'var(--up)' : 'var(--down)', 2) + '</svg>';
+  return s;
+}
+
+function bloqueCartera() {
+  const c = carteraDelTop();
+  if (!c) return null;
+  const d = el('div', 'blk');
+  d.appendChild(el('div', 'blt', 'Si hubieras comprado el listado entero, como una sola cartera'));
+  const st = el('div', 'stats');
+  st.append(stat('la cartera', pc(c.ret), signo(c.ret)),
+    stat('el S&P 500 en el mismo tramo', c.spyRet != null ? pc(c.spyRet) : '—', signo(c.spyRet || 0)),
+    stat('su peor caída', pc(c.caida), 'down'));
+  d.appendChild(st);
+  if (c.spy.length >= 3) d.appendChild(grafica(c.serie, c.spy));
+  d.appendChild(el('div', 'm', 'En ' + c.sesiones + ' sesiones. La línea gruesa es la cartera; la gris, el índice. ' +
+    'A diferencia de la cifra grande de más arriba, aquí la rentabilidad se encadena en vez de promediarse: ' +
+    'es el resultado del listado como un todo, no la media de cada entrada por su lado.'));
+  const av = el('div', 'margen margen-cero');
+  av.appendChild(el('b', null, 'Esto no es lo que tú haces'));
+  av.appendChild(el('div', 'm', 'Esta cartera compra las ' + (((HIST[FH[0]] || {}).acciones || []).length || 10) +
+    ' del top a partes iguales y las reequilibra cada sesión' +
+    (c.rotacion != null ? ', moviendo el ' + n(c.rotacion, 0) + ' % de la cartera cada día' : '') +
+    '. Tú compras unas pocas y las sueltas con el stop. Sirve para saber si el listado acierta, no para copiarlo: ' +
+    'con esa rotación, las comisiones y el diferencial se comen una parte, y con ' + c.sesiones +
+    ' sesiones esto todavía no demuestra nada.'));
+  d.appendChild(av);
+  d.appendChild(el('div', 'm', 'El top de cada noche se compra al cierre del día siguiente, que es cuando tú lo verías. ' +
+    'Sin ese retraso la cartera se apuntaría gratis el salto de la noche.'));
+  return d;
+}
+
 /* El registro en bruto. Esto no concluye nada, pero se entiende sin saber estadistica: cada accion que
    ha entrado, con que nota, a que precio y que ha hecho desde entonces. */
 /* Las que han dejado de cotizar no tienen resultado: van siempre al final, ordene como ordene.
@@ -427,6 +524,8 @@ window.resultados = async function () {
   /* Fuera del umbral: son registro, no conclusion, igual que la tabla en bruto. Tenerlas escondidas
      dejaba como unica cifra visible el "comprar y no vender nunca", que es justo la forma de operar
      que el sistema NO hace. */
+  const cartera = bloqueCartera();
+  if (cartera) R.appendChild(cartera);
   const grupos = porGrupo(medibles);
   if (grupos) R.appendChild(grupos);
   if (medibles.length) R.appendChild(tablaSimulacion(medibles, maduras.length >= MINIMO));
