@@ -375,12 +375,28 @@ function bloqueOperando() {
     'Cada posición lleva su propio stop, el de la pestaña Parámetros, y cuando salta el dinero vuelve a la caja y se reinvierte en lo siguiente que entra al top. ' +
     'Quedan ' + r.abiertas + ' posiciones abiertas al final, contadas a precio de hoy.'));
 
-  /* Sensibilidad al numero de huecos: con pocas operaciones, el resultado depende mucho de cuantas
-     posiciones lleves a la vez, y esconderlo daria una precision que el dato no tiene. */
-  const otras = [3, 8, 10].map(h => ({ h, r: operandoElPanel(h) })).filter(x => x.r);
-  if (otras.length) d.appendChild(el('div', 'm', 'Con otro número de huecos: ' +
-    otras.map(x => x.h + ' huecos ' + pc(x.r.ret)).join(' · ') +
-    '. Con tan pocas operaciones cerradas, esa diferencia es casualidad, no una pista de cuántas llevar.'));
+  /* Sensibilidad al numero de huecos. Se incluyen 1 y 2 porque "comprar lo que mas momentum tiene"
+     tambien puede querer decir una sola accion, y es justo donde mas se dispara el resultado: con
+     13 sesiones va de -2,7 % (3 huecos) a +4,8 % (2 huecos). Ese abanico es la mejor prueba de que
+     la cifra de arriba todavia no mide nada, y esconderlo daria una precision que el dato no tiene. */
+  const otras = [1, 2, 3, 8, 10].map(h => ({ h, r: operandoElPanel(h) })).filter(x => x.r);
+  if (otras.length) {
+    const todos = [...otras.map(x => x.r.ret), r.ret];
+    const abanico = Math.max(...todos) - Math.min(...todos);
+    const li = el('div', 'margen margen-cero');
+    li.appendChild(el('b', null, 'Cambiando solo cuántas posiciones llevas, el resultado se mueve ' +
+      n(abanico, 1) + ' puntos'));
+    const det = el('div', 'm');
+    det.appendChild(el('div', null, otras.concat([{ h: HUECOS, r }])
+      .sort((a, b) => a.h - b.h)
+      .map(x => x.h + (x.h === 1 ? ' posición ' : ' posiciones ') + pc(x.r.ret) + (x.h === HUECOS ? ' ←' : ''))
+      .join(' · ')));
+    det.appendChild(el('div', null, 'Con 1 posición compras solo la de más momentum en cada momento; con 10, el top entero. ' +
+      'Que la diferencia entre unas y otras sea de ' + n(abanico, 1) + ' puntos, con tan pocas ventas cerradas, ' +
+      'significa que esto es casualidad y no una pista de cuántas llevar.'));
+    li.appendChild(det);
+    d.appendChild(li);
+  }
 
   if (r.cerradas.length) {
     const tv = el('table', 'tabla'), hv = el('tr');

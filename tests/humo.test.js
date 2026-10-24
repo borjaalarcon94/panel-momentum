@@ -951,9 +951,14 @@ for (const f of orden) {
   /todavía no es una rentabilidad media|Sin comisiones ni diferencial/.test(txtRes)
     ? ok('y avisa de que con tan pocas ventas no hay rentabilidad media')
     : mal('da una rentabilidad media sin avisar de la muestra');
-  /Con otro número de huecos/.test(txtRes)
-    ? ok('y enseña cuánto cambia según las posiciones que lleves')
-    : mal('esconde la sensibilidad al número de posiciones');
+  /* Buscaba la frase "Con otro número de huecos", que cambió. Ahora mira la sustancia: que estén
+     los dos extremos —1 posición (solo la de más momentum) y 10 (el top entero)— y el abanico. */
+  /1 posición [+-−]/.test(txtRes) && /10 posiciones [+-−]/.test(txtRes)
+    ? ok('enseña desde 1 posición hasta 10, no solo la cifra elegida')
+    : mal('esconde la sensibilidad al número de posiciones', txtRes.slice(0, 200));
+  /el resultado se mueve [\d,.]+ puntos/.test(txtRes)
+    ? ok('y cuánto se mueve el resultado solo por esa decisión')
+    : mal('no cuantifica el abanico entre unas y otras');
 
   /* Las graficas tienen que decir cual linea es cual. Antes eran dos trazos sueltos y habia que
      leer el parrafo de debajo para saberlo. La leyenda va en HTML y no dentro del SVG justo para
