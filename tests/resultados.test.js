@@ -268,6 +268,33 @@ comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia 
 
   const cortito = opEscenario({ [e[0]]: ['A'] }, { [e[0]]: { A: 100 }, [e[1]]: { A: 100 } }, null, 1);
   comprueba('con menos de 3 días no devuelve cartera', cortito === null);
+
+  /* El dinero no se queda parado. A cae y la vende el stop: lo que vuelve a la caja ya no llega a
+     un tercio de la cartera, porque B y C han subido. Con el "break" anterior ese hueco se quedaba
+     vacio PARA SIEMPRE y el dinero sin invertir. Medido en el registro real: 10 de 13 sesiones con
+     un hueco libre y un 16 % en caja. */
+  const reparto = opEscenario(
+    { [e[0]]: ['A', 'B', 'C'], [e[1]]: ['A', 'B', 'C', 'D'], [e[2]]: ['B', 'C', 'D'],
+      [e[3]]: ['B', 'C', 'D'], [e[4]]: ['B', 'C', 'D'] },
+    { [e[0]]: { A: 100, B: 100, C: 100, D: 100 }, [e[1]]: { A: 100, B: 100, C: 100, D: 100 },
+      [e[2]]: { A: 100, B: 140, C: 140, D: 100 }, [e[3]]: { A: 70, B: 160, C: 160, D: 100 },
+      [e[4]]: { A: 70, B: 160, C: 160, D: 100 }, [e[5]]: { A: 70, B: 160, C: 160, D: 100 } },
+    null, 3);
+  comprueba('el stop vende A y queda un hueco libre',
+    reparto && reparto.cerradas.length === 1, reparto ? JSON.stringify(reparto.cerradas) : 'null');
+  comprueba('y el hueco se vuelve a llenar aunque la caja no dé para una parte entera',
+    reparto && reparto.abiertas === 3,
+    reparto ? 'abiertas = ' + reparto.abiertas + ' (deberían ser 3)' : 'null');
+
+  /* Pero no se abre una posicion con calderilla: si en caja queda menos del 1 % de la cartera,
+     no se compra. Sin ese limite se abrian posiciones ridiculas que solo generan ruido. */
+  const migajas = opEscenario(
+    { [e[0]]: ['A'], [e[1]]: ['A', 'B'], [e[2]]: ['A', 'B'], [e[3]]: ['A', 'B'], [e[4]]: ['A', 'B'] },
+    { [e[0]]: { A: 100, B: 100 }, [e[1]]: { A: 100, B: 100 }, [e[2]]: { A: 100, B: 100 },
+      [e[3]]: { A: 100, B: 100 }, [e[4]]: { A: 100, B: 100 }, [e[5]]: { A: 100, B: 100 } },
+    null, 1);
+  comprueba('con un solo hueco ya lleno no se abre nada más',
+    migajas && migajas.abiertas === 1, migajas ? 'abiertas = ' + migajas.abiertas : 'null');
 }
 
 console.log(`\n${total - fallos}/${total} comprobaciones`);

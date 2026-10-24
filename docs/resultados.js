@@ -334,8 +334,14 @@ function operandoElPanel(huecos) {
         if (abiertas.length >= huecos) break;
         const k = a.s || a.t, c = PRECIOS[hoy][k];
         const total = caja + abiertas.reduce((s, x) => s + x.acc * (PRECIOS[hoy][x.k] || x.compra), 0);
-        const importe = total / huecos;
-        if (importe > caja + 1e-9) break;
+        /* Se invierte lo que haya en caja cuando no llega al hueco entero. Antes esto era
+           "if (importe > caja) break", y dejaba el dinero parado PARA SIEMPRE: al salir de una
+           posicion con perdida, lo que vuelve a la caja ya no da para un quinto de la cartera, y
+           como las que siguen abiertas suben, el objetivo se aleja cada dia. En el registro real
+           eso dejaba 10 de 13 sesiones con un hueco vacio y un 16 % sin invertir. Nadie opera asi:
+           si te queda menos de lo que querias, compras con lo que tienes. */
+        const importe = Math.min(total / huecos, caja);
+        if (importe <= total * 0.01) break;   // calderilla: no se abre posicion por migajas
         caja -= importe;
         abiertas.push({ k, ticker: a.t, f: hoy, compra: c, acc: importe / c, maxc: c, stop: 0 });
       }
