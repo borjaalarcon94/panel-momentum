@@ -1288,3 +1288,59 @@ y en 2023-2025 eso costó rentabilidad frente a un stop ancho. En 2026 no se dis
 Para contexto, de las 4.913 salidas del panel: 70,4 % por stop (media −2,49 %), 24,6 % por RSI
 (media +6,55 %, mediana +1,15 %) y 2,4 % por devolución (media +26,49 %). La regla de devolución
 dispara poco pero es la única que corta con ganancia grande de verdad.
+
+## 2026-10-24 — Pestaña Resultados: la comparación con el S&P 500 no era honesta
+
+Alguien con criterio hizo preguntas sobre la rentabilidad mostrada. Al revisar el cálculo aparecen
+tres defectos reales en la presentación (el cálculo en sí estaba bien) y uno de despliegue.
+
+**Lo que ya estaba bien y no se toca:** la supervivencia está resuelta (las deslistadas se quedan en
+el registro con su último precio conocido y se avisa, en vez de desaparecer y dejar solo supervivientes);
+la tabla "tres formas de operar" sí aplica las reglas de salida; el contador de madurez bloquea las
+conclusiones hasta 30 entradas.
+
+**1. Un número sin barra de error.** Se mostraba `+1,8 pt` en verde grande y debajo, en gris pequeño,
+"todavía es ruido". Se lee el número. Ahora va el intervalo al lado: **[−1,7, +7,4] pt**, que cruza el
+cero, y el texto lo dice con esas palabras. La pregunta "¿mejor que comprar el índice?" responde
+"todavía no se puede decir" en lugar de "Sí, +1,8 puntos" cuando el margen cruza el cero.
+
+**2. Las entradas no eran observaciones independientes.** El 05/10/2026 entraron **nueve acciones a
+la vez**; si el mercado se mueve ese día, se mueven las nueve. El remuestreo se hace ahora por día de
+entrada: son **28 entradas en 11 días**, y el texto lo dice así. Nota: en estos datos agrupar sale
+algo *más estrecho* que el método ingenuo (8,6 pt contra 9,6), no más ancho. Se hace por ser el
+método válido para datos agrupados, no porque dé un número mayor. Un comentario del código afirmaba
+lo contrario y se corrigió antes de publicar.
+
+**3. No se descontaba la beta.** Las anotadas tienen beta media **1,63** y un ADR mediano de 4,5 %
+diario contra 0,81 % del SPY: se mueven 5,5 veces más. Con el S&P en −1,7 %, una cesta así debería
+haber hecho −2,7 % sin mérito ninguno. Hizo +0,1 %, así que el exceso real es **+2,8 pt**, no +1,8.
+Hoy la beta juega a favor porque el mercado cayó; con el mercado subiendo, el mismo panel habría
+mostrado como acierto lo que sería solo volatilidad. Se muestra en línea aparte.
+
+**4. El precio de entrada es uno que no se pudo pagar.** Se anota el cierre de la noche en que el
+panel detecta la acción, pero él la ve a la mañana siguiente. Medido sobre las 29 entradas reales, el
+hueco de una noche a otra es **−0,64 % de media** (mediana −0,05 %, 11 de 29 en positivo): va *en
+contra* del panel, no a favor, al revés de lo que cabía esperar. Pero la dispersión va de **+6,1 %
+(TEAM) a −11,6 % (OABI)**, así que una fila concreta puede estar desviada varios puntos. Se dice en
+la nota del pie.
+
+**5. Defecto de despliegue, el más grave de los cinco.** El `paths:` del workflow solo incluía
+`docs/puntuacion.js` y `docs/reglas.js`: **un arreglo en `resultados.js` o en un CSS se subía sin
+republicar**, la versión no se movía y el navegador seguía sirviendo el fichero viejo de su caché.
+Y el trigger por push ejecutaba un build completo, que escanea: desplegar un cambio de interfaz
+costaba llamadas del presupuesto de 4/día o había que esperar a la noche.
+
+Arreglado con **`build.py --rehacer`**: republica desde los datos ya guardados con **cero llamadas**.
+Rehace lo derivado (histórico, con los campos nuevos rellenados también hacia atrás, y el hash de
+versión) y conserva intacto lo que solo se sabe preguntando al mercado (precios, actual, mercadoHoy,
+referenciaHoy, régimen, actualizado) y `docs/precios.json`. Verificado bloqueando el socket: si
+tocara la red, revienta. El `paths:` pasa a incluir `docs/*.js` y `docs/*.css`, todos los ficheros
+que entran en el hash.
+
+**Pruebas.** `tests/resultados.test.js`, 11 comprobaciones, verificadas contra una mutación que
+remuestrea por acción en vez de por día (caza 3 de 11). Total: **320 en verde**.
+
+**Error propio detectado durante el trabajo:** la comprobación de humo que escribí para esto buscaba
+el signo menos tipográfico (−) y la app escribe el guion normal (-), así que la condición era siempre
+falsa y no comprobaba nada. Reescrita para extraer los dos límites y contrastar el aviso contra
+ellos; verificada con una mutación que suprime el aviso.
