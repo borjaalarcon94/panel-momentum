@@ -105,7 +105,7 @@ $('cuenta').textContent='';
 /* Contador en la subpestaña: con Hoy dentro de Seguimiento hay que poder ver desde fuera si hoy
    hay algo que comprar, sin entrar. Cuenta los veredictos verdes (COMPRA) del top. */
 const nc=$('nhoy');
-if(nc){const compras=top.filter(a=>window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento}).cls==='qok').length;
+if(nc){const compras=top.filter(a=>window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento,flojea:!!a.flojea}).cls==='qok').length;
 nc.textContent=compras||'';nc.hidden=!compras;}
 if(!top.length){L.appendChild(el('div','empty','Ese día ninguna acción cumplió los requisitos.'));return}
 top.forEach((a,i)=>L.appendChild(tarjeta(a,i)));
@@ -126,7 +126,7 @@ b.onclick=()=>{S.top=S.top>5?5:99;window.pinta()};L.appendChild(b)}};
 /* El acento de la tarjeta lo marca el VEREDICTO, no el tramo de puntuacion: al top solo suben las
    mejores, asi que con el corte en 75 nueve de cada diez tarjetas salian con el mismo color y la
    lista entera parecia homogenea. El veredicto si cambia de una a otra, que es lo que hay que ver. */
-function tarjeta(a,i){const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento});
+function tarjeta(a,i){const v=window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento,flojea:!!a.flojea});
 const nivel=' v-'+({qok:'ok',qwarn:'warn',qbad:'bad'}[v.cls]||'warn');
 const c=el('div','card'+nivel+(i===0?' destacada':'')),top=el('div','top'),izq=el('div');
 const tk=el('a','tk',a.ticker);tk.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(a.simbolo||a.ticker);tk.target='_blank';tk.rel='noopener';

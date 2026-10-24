@@ -534,6 +534,29 @@ for (const f of orden) {
   /if \(!pos\.length\) return;/.test(srcApp9)
     ? ok('sin posiciones abiertas no se pinta ninguna chapa') : mal('pintaría chapa sin posiciones');
 
+  /* 24/10/2026: PAYS entro con 91,5 y hoy puntua 80,5. Seguimiento calculaba esa caida y la marcaba
+     como "pierde fuerza" -> Vigilar; Hoy no se enteraba y decia COMPRA. La misma accion, el mismo
+     dia, dos veredictos. El umbral estaba duplicado en seguimiento.js. */
+  console.log('\nEL UMBRAL DE «PIERDE FUERZA» VIVE EN UN SOLO SITIO');
+  const srcApp10 = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
+  const srcSeg10 = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+  const srcHoy10 = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
+  typeof ventana.CAIDA_FUERZA === 'number'
+    ? ok('window.CAIDA_FUERZA existe y vale ' + ventana.CAIDA_FUERZA) : mal('no hay umbral compartido');
+  /CAIDA_SCORE = window\.CAIDA_FUERZA/.test(srcSeg10)
+    ? ok('Seguimiento lo toma de ahí, no tiene el suyo') : mal('Seguimiento sigue con su propio umbral');
+  !/CAIDA_SCORE = \d/.test(srcSeg10) ? ok('y no queda ningún número suelto') : mal('queda un umbral duplicado');
+  /flojea: !!a\.flojea/.test(srcApp10) ? ok('PRIORIDAD tiene en cuenta que pierda fuerza') : mal('PRIORIDAD lo ignora');
+  /flojea:!!a\.flojea/.test(srcHoy10) ? ok('y la tarjeta de Hoy también') : mal('la tarjeta de Hoy lo ignora');
+  /function caidaDesdeEntrada/.test(srcApp10)
+    ? ok('la caída desde la entrada se calcula una vez, en app.js') : mal('no se calcula en app.js');
+  // y que de verdad cambie el veredicto
+  const flD = { precio: 14.92, ema50: 13.46, ema21: 14.5, sma200: 11, rsi: 60, max52: 16.15, volmedio: 1e6, ingresos: 40, cap: 1e9 };
+  const sinFl = ventana.VEREDICTO(flD, { fallos: [] });
+  const conFl = ventana.VEREDICTO(flD, { fallos: [], flojea: true });
+  sinFl.cls === 'qok' && conFl.cls === 'qwarn'
+    ? ok('la misma acción pasa de COMPRA a Vigilar al perder fuerza') : mal('perder fuerza no cambia el veredicto', sinFl.t + ' / ' + conFl.t);
+
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
   const reqCap = a => ventana.REQUISITOS({ ...datos, cap: a }).find(x => x.t.includes('Capitalización'));
   const mega = reqCap(484e9), grande = reqCap(13e9), micro = reqCap(100e6);

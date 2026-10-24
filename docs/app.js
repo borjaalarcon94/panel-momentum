@@ -150,7 +150,7 @@ window.SALIDA = function (a) {
 const NIVEL = { qok: 0, qwarn: 1, qbad: 2 };
 window.PRIORIDAD = function (a) {
   if (a.sinSeguimiento) return 3;   // sin datos de hoy no se compra: al final de todo
-  const v = window.VEREDICTO(a, { extendida: a.pt ? a.pt.extendida : false });
+  const v = window.VEREDICTO(a, { extendida: a.pt ? a.pt.extendida : false, flojea: !!a.flojea });
   return NIVEL[v.cls] != null ? NIVEL[v.cls] : 2;
 };
 
@@ -261,6 +261,25 @@ function ctxDia(f, a, d) {
   return { fecha: f, spy: { tres: m.tres, seis: m.seis }, sector: (((d || {}).referencia || {}).sectores || {})[a.sector] || null,
     dilucion: dilucionDe(a.ticker, f) };
 }
+/* Caida de puntuacion desde que la accion entro en el top. Seguimiento ya la calculaba y la usaba
+   para marcar "pierde fuerza"; Hoy no se enteraba, asi que las dos pestañas daban VEREDICTOS
+   DISTINTOS de la misma accion el mismo dia. Paso con PAYS el 24/10/2026: entro con 91,5, hoy 80,5,
+   y Hoy decia COMPRA mientras Seguimiento decia Vigilar. El umbral es el mismo (8 puntos) y vive
+   aqui para que no pueda volver a divergir. */
+window.CAIDA_FUERZA = 8;
+function caidaDesdeEntrada(ticker, f) {
+  const hasta = FH.indexOf(f);
+  if (hasta < 0) return null;
+  let entrada = null;
+  for (let i = FH.length - 1; i >= hasta; i--) {
+    const x = ((HIST[FH[i]] || {}).acciones || []).find(y => y.t === ticker);
+    if (x) { if (entrada == null && x.sc != null) entrada = x.sc; }
+    else entrada = null;   // si falto un dia, la racha se corta y se recuenta desde la siguiente
+  }
+  const hoy = ((HIST[f] || {}).acciones || []).find(y => y.t === ticker);
+  return entrada != null && hoy && hoy.sc != null ? hoy.sc - entrada : null;
+}
+
 function puntua(f, d, lista, conNueva) {
   const fprev = FH[FH.indexOf(f) + 1], prev = (HIST[fprev] || {}).acciones;
   const comparable = !!prev && prev.some(x => x.sc != null), antes = new Set((prev || []).map(x => x.t));
@@ -269,8 +288,10 @@ function puntua(f, d, lista, conNueva) {
     return { ...a, pt: p, score: p ? p.total : null, acel: p ? p.acel : null, g: p ? p.g : null,
       dmax: p ? p.dmax : null, ext: p ? p.extEma : null, racha: racha(a.ticker, f),
       sinSeguimiento: f === FH[0] && !!a.simbolo && !ACT[a.simbolo],
-      nueva: conNueva && comparable && !antes.has(a.ticker) };
-  }).map(x => ({ ...x, prio: window.PRIORIDAD(x) }));
+      nueva: conNueva && comparable && !antes.has(a.ticker),
+      dScore: caidaDesdeEntrada(a.ticker, f) };
+  }).map(x => ({ ...x, flojea: x.dScore != null && x.dScore < -window.CAIDA_FUERZA }))
+    .map(x => ({ ...x, prio: window.PRIORIDAD(x) }));
 }
 
 /* Desempate siempre por capitalizacion menor: a igualdad, la pequena tiene mas recorrido. */
