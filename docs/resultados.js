@@ -95,56 +95,149 @@ function discrimina(maduras) {
 /* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice. */
 function simula(xs) {
   return xs.map(x => {
-    let maxVisto = x.precio, salida = null, motivo = null, stopPrevio = 0, vistos = 0;
+    let maxVisto = x.precio, peor = x.precio, peorConReglas = x.precio;
+    let salida = null, fSalida = null, motivo = null, stopPrevio = 0, vistos = 0, cerrada = false;
     for (const f of FH.filter(f => f > x.entrada && esSesion(f)).sort()) {
       const p = cierre(f, x.clave);
       if (p == null) continue;                  // no tenemos su cierre ese dia
-      const fila = { p };
       vistos++;
-      maxVisto = Math.max(maxVisto, fila.p);
-      const gan = (fila.p / x.precio - 1) * 100, ganMax = (maxVisto / x.precio - 1) * 100;
+      maxVisto = Math.max(maxVisto, p);
+      peor = Math.min(peor, p);                 // peor momento aguantando hasta hoy
+      if (!cerrada) peorConReglas = Math.min(peorConReglas, p);
+      const gan = (p / x.precio - 1) * 100, ganMax = (maxVisto / x.precio - 1) * 100;
       // Mismas reglas que las posiciones reales (docs/reglas.js). Sin EMA 50 historica, el stop usa
       // el suelo de perdida maxima y la subida al coste; se indica en la nota de la tabla.
-      stopPrevio = Math.max(stopPrevio, window.REGLAS.stopDe({ precio: fila.p }, x.precio, stopPrevio) || 0);
-      if (fila.p < stopPrevio) { salida = fila.p; motivo = 'stop'; break }
-      const limite = window.REGLAS.limiteDevolucion(ganMax);
-      const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
-      if (limite != null && devuelto >= limite) { salida = fila.p; motivo = 'devolución'; break }
+      if (!cerrada) {
+        stopPrevio = Math.max(stopPrevio, window.REGLAS.stopDe({ precio: p }, x.precio, stopPrevio) || 0);
+        if (p < stopPrevio) { salida = p; fSalida = f; motivo = 'stop'; cerrada = true; continue }
+        const limite = window.REGLAS.limiteDevolucion(ganMax);
+        const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
+        if (limite != null && devuelto >= limite) { salida = p; fSalida = f; motivo = 'devolución'; cerrada = true }
+      }
     }
     /* Sesiones con cierre frente a sesiones transcurridas: si faltan muchas, la simulacion no ha
        podido aplicar las reglas y hay que decirlo en vez de dar la media por buena. */
-    return { ...x, conReglas: salida != null ? (salida / x.precio - 1) * 100 : x.ret, motivo,
+    const pct = v => (v / x.precio - 1) * 100;
+    return { ...x, conReglas: salida != null ? pct(salida) : x.ret, motivo, fSalida,
       vistos, cobertura: x.sesiones ? vistos / x.sesiones : 1,
-      alSalirDelTop: x.retAlSalir != null ? x.retAlSalir : x.ret };
+      alSalirDelTop: x.retAlSalir != null ? x.retAlSalir : x.ret,
+      /* Peor momento (drawdown): cuanto llego a estar en rojo antes de donde acabo. Es lo que de
+         verdad tienes que aguantar, y no se veia por ningun lado: una entrada que acaba en +3 % pero
+         paso por -18 % no es la misma operacion que una que subio recta. */
+      peor: pct(peor), peorConReglas: pct(peorConReglas) };
   });
 }
 
-function tablaSimulacion(maduras) {
-  const r = simula(maduras);
+/* Como va cada grupo. Nace de una sugerencia razonable ("saca la rentabilidad de solo las que siguen
+   en el top") que, aplicada como filtro, mentiria: una accion sale del top JUSTO cuando se debilita,
+   asi que quedarse con las de dentro es quedarse con las ganadoras por construccion. Medido con el
+   registro del 24/10/2026: todas +0,1 %, las que siguen dentro +10,9 %, las que salieron -5,6 %.
+   Once puntos de diferencia que no son merito de nada. Por eso se muestran LOS DOS GRUPOS A LA VEZ,
+   y nunca uno solo. */
+function porGrupo(xs) {
+  const dentro = xs.filter(a => !a.fuera), fuera = xs.filter(a => a.fuera);
+  if (!dentro.length || !fuera.length) return null;
+  const d = el('div', 'blk');
+  d.appendChild(el('div', 'blt', 'Las que siguen en el top y las que ya salieron'));
+  const t = el('table', 'tabla'), h = el('tr');
+  ['Grupo', 'Cuántas', 'Media', 'Frente al S&P 500', 'Peor'].forEach(x => h.appendChild(el('th', null, x)));
+  t.appendChild(h);
+  [['Siguen en el top', dentro], ['Ya salieron del top', fuera], ['Todas', xs]].forEach(([nom, v]) => {
+    const tr = el('tr'), m = media(v.map(a => a.ret));
+    const conSp = v.filter(a => a.sp != null);
+    const peor = [...v].sort((a, b) => a.ret - b.ret)[0];
+    tr.appendChild(el('td', null, nom));
+    tr.appendChild(el('td', null, String(v.length)));
+    tr.appendChild(el('td', m >= 0 ? 'up' : 'down', pc(m)));
+    tr.appendChild(el('td', null, conSp.length ? (media(conSp.map(a => a.ret - a.sp)) >= 0 ? '+' : '') + n(media(conSp.map(a => a.ret - a.sp)), 1) + ' pt' : '—'));
+    tr.appendChild(el('td', 'down', pc(peor.ret) + ' (' + peor.ticker + ')'));
+    t.appendChild(tr);
+  });
+  const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  const dif = media(dentro.map(a => a.ret)) - media(xs.map(a => a.ret));
+  const aviso = el('div', 'margen margen-cero');
+  aviso.appendChild(el('b', null, 'Mirar solo la primera fila infla el resultado ' + n(Math.abs(dif), 1) + ' puntos'));
+  aviso.appendChild(el('div', 'm', 'Una acción sale del top justo cuando se debilita, así que las que siguen dentro son las que van bien por definición. ' +
+    'La fila de arriba no es «cómo va el sistema»: es «cómo van las que todavía no han fallado». Las tres filas juntas sí lo cuentan.'));
+  d.appendChild(aviso);
+  return d;
+}
+
+/* Las mismas entradas, tres formas de operarlas.
+
+   Estaba escondida tras el umbral de 30 entradas maduras, asi que nunca se habia visto. Eso dejaba
+   como unica cifra visible el "+0,1 %", que es "comprar y no vender nunca": la PEOR de las tres y,
+   sobre todo, la que NO corresponde al sistema, porque el sistema vende. La pregunta razonable
+   "me parece muy poca rentabilidad" no tenia donde responderse.
+
+   Se muestra siempre, igual que el registro en bruto, porque es aritmetica sobre lo ya ocurrido y
+   no una inferencia: no dice "esto es lo que ganaras", dice "esto es lo que habria pasado con las
+   entradas que hay". El aviso de madurez sigue arriba del todo. */
+function tablaSimulacion(xs, maduro) {
+  const r = simula(xs);
   const filas = [
-    ['Comprar y aguantar hasta hoy', r.map(x => x.ret), 'sin vender nunca'],
-    ['Vender el día que sale del top', r.map(x => x.alSalirDelTop), 'disciplina máxima'],
-    ['Con nuestras reglas de salida', r.map(x => x.conReglas), 'el stop y la devolución máxima de la pestaña Parámetros'],
+    ['Comprar y aguantar hasta hoy', r.map(x => x.ret), r.map(x => x.peor),
+      'sin vender nunca — es la cifra grande de arriba'],
+    ['Vender el día que sale del top', r.map(x => x.alSalirDelTop), r.map(x => x.peor),
+      'disciplina máxima'],
+    ['Con nuestras reglas de salida', r.map(x => x.conReglas), r.map(x => x.peorConReglas),
+      'el stop y la devolución máxima de la pestaña Parámetros'],
   ];
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Las mismas entradas, tres formas de operarlas'));
   const t = el('table', 'tabla'), h = el('tr');
-  ['Forma de operar', 'Media', 'Mediana', 'En positivo', 'Peor caso'].forEach(x => h.appendChild(el('th', null, x)));
+  ['Forma de operar', 'Media', 'Mediana', 'En positivo', 'Peor caso', 'Peor momento'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
-  filas.forEach(([nom, v, ayuda]) => {
+  filas.forEach(([nom, v, dd, ayuda]) => {
     const tr = el('tr'), ord = [...v].sort((a, b) => a - b);
     const td = el('td'); td.appendChild(el('b', null, nom)); td.appendChild(el('div', 'name', ayuda)); tr.appendChild(td);
     tr.appendChild(el('td', media(v) >= 0 ? 'up' : 'down', pc(media(v))));
     tr.appendChild(el('td', null, pc(ord[Math.floor(ord.length / 2)])));
     tr.appendChild(el('td', null, Math.round(100 * v.filter(x => x > 0).length / v.length) + ' %'));
     tr.appendChild(el('td', 'down', pc(ord[0])));
+    tr.appendChild(el('td', 'down', pc(media(dd))));
     t.appendChild(tr);
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
+  d.appendChild(el('div', 'm', '«Peor momento» es lo que llegaste a estar en rojo por el camino, de media, aunque acabaras en verde. ' +
+    'Es lo que hay que aguantar para llegar al número de la izquierda.'));
+
+  /* Que vendio el stop y cuando. Sin esto, "con nuestras reglas de salida" es un numero sin cara:
+     no se ve si el stop corto a tiempo o si corto de mas. */
+  const vendidas = r.filter(x => x.fSalida).sort((a, b) => a.conReglas - b.conReglas);
+  if (vendidas.length) {
+    const s = el('div', 'blk');
+    s.appendChild(el('div', 'blt', 'Lo que el stop habría vendido, y cuándo'));
+    const tv = el('table', 'tabla'), hv = el('tr');
+    ['Acción', 'Entró', 'Habría vendido', 'Por qué', 'Con el stop', 'Aguantando hasta hoy'].forEach(x => hv.appendChild(el('th', null, x)));
+    tv.appendChild(hv);
+    vendidas.forEach(x => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, x.ticker));
+      tr.appendChild(el('td', null, fFecha(x.entrada)));
+      tr.appendChild(el('td', null, fFecha(x.fSalida)));
+      tr.appendChild(el('td', null, x.motivo));
+      tr.appendChild(el('td', x.conReglas >= 0 ? 'up' : 'down', pc(x.conReglas)));
+      tr.appendChild(el('td', x.ret >= 0 ? 'up' : 'down', pc(x.ret)));
+      tv.appendChild(tr);
+    });
+    const wv = el('div', 'tw'); wv.appendChild(tv); s.appendChild(wv);
+    const ahorro = media(vendidas.map(x => x.conReglas - x.ret));
+    s.appendChild(el('div', 'm', vendidas.length === 1
+      ? 'En esa entrada el stop habría salido ' + n(Math.abs(ahorro), 1) + ' puntos ' + (ahorro >= 0 ? 'mejor' : 'peor') + ' que aguantar.'
+      : 'En esas ' + vendidas.length + ' entradas el stop habría salido ' + n(Math.abs(ahorro), 1) + ' puntos ' +
+        (ahorro >= 0 ? 'mejor' : 'peor') + ' que aguantar, de media. ' +
+        'Ojo: el stop actúa sobre cierres, así que un hueco a la baja al abrir lo salta y la pérdida real puede pasar del ' +
+        window.REGLAS.R.perdidaMaxima + ' % declarado.'));
+    d.appendChild(s);
+  }
+
   const cob = media(r.map(x => x.cobertura)) * 100;
   if (cob < 90) d.appendChild(el('div', 'm', 'Aviso: solo tenemos el cierre del ' + n(cob, 0) +
     ' % de las sesiones de estas entradas, así que las reglas de salida no se han podido aplicar en el resto. ' +
     'La serie diaria se guarda desde el 7 de octubre de 2026; las entradas anteriores van incompletas.'));
+  if (!maduro) d.appendChild(el('div', 'm', 'Esto es el registro de lo que ha pasado con las entradas que hay, no una previsión. ' +
+    'Hasta que no haya entradas con recorrido suficiente (el contador de arriba), no se puede concluir de aquí que el sistema funcione.'));
   return d;
 }
 
@@ -329,8 +422,14 @@ window.resultados = async function () {
       'Partiendo por la mediana (' + n(dis.corte, 0) + '): de ' + n(dis.corte, 0) + ' para arriba, ' + pc(media(dis.altas.map(a => a.ret))) + ' en ' + dis.altas.length +
       ' casos; por debajo, ' + pc(media(dis.bajas.map(a => a.ret))) + ' en ' + dis.bajas.length + '.', dis.dif >= 0));
 
-    R.appendChild(tablaSimulacion(maduras));
   }
+
+  /* Fuera del umbral: son registro, no conclusion, igual que la tabla en bruto. Tenerlas escondidas
+     dejaba como unica cifra visible el "comprar y no vender nunca", que es justo la forma de operar
+     que el sistema NO hace. */
+  const grupos = porGrupo(medibles);
+  if (grupos) R.appendChild(grupos);
+  if (medibles.length) R.appendChild(tablaSimulacion(medibles, maduras.length >= MINIMO));
 
   R.appendChild(registro(xs));
   R.appendChild(el('p', 'nota', 'Cada acción se anota el primer día que entra en el top, al precio de cierre de ese día, y se compara con el precio de hoy. ' +

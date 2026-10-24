@@ -68,5 +68,56 @@ const conSp = intervalo([{ dia: 'a', ret: 10, sp: 10 }, { dia: 'b', ret: 10, sp:
 comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia es 0',
   Math.abs(conSp.lo) < 1e-9 && Math.abs(conSp.hi) < 1e-9, JSON.stringify(conSp));
 
+
+/* ---- simula(): salida por stop, fecha de salida y peor momento (drawdown) ---- */
+console.log('\nSimulacion de salidas y drawdown');
+
+/* Entorno minimo: la funcion usa FH (sesiones), esSesion, cierre() y window.REGLAS. */
+function conSerie(serie, compra) {
+  const fechas = serie.map((_, i) => '2026-11-' + String(i + 2).padStart(2, '0'));
+  ctx.FH = ['2026-11-01', ...fechas];
+  ctx.esSesion = () => true;
+  ctx.cierre = (f) => { const i = fechas.indexOf(f); return i < 0 ? null : serie[i] };
+  ctx.window.REGLAS = {
+    /* Mismo contrato que docs/reglas.js: suelo al -15 %, sube al coste superado el +20 %, nunca baja. */
+    stopDe: (datos, c, prev) => Math.max(c * 0.85, prev || 0),
+    limiteDevolucion: () => null,
+  };
+  return ctx.simula([{ clave: 'X', ticker: 'X', entrada: '2026-11-01', precio: compra,
+                       sesiones: serie.length, ret: (serie[serie.length - 1] / compra - 1) * 100,
+                       retAlSalir: null }])[0];
+}
+
+const sube = conSerie([105, 110, 120], 100);
+comprueba('sin tocar el stop no hay salida', sube.fSalida === null && sube.motivo === null,
+  JSON.stringify({ f: sube.fSalida, m: sube.motivo }));
+comprueba('si nunca baja del precio de compra, el peor momento es 0',
+  Math.abs(sube.peor) < 1e-9, 'peor = ' + sube.peor);
+
+const cae = conSerie([95, 90, 80, 70], 100);
+comprueba('el stop corta cuando el cierre pierde el suelo del 15 %',
+  cae.motivo === 'stop' && cae.fSalida === '2026-11-04', JSON.stringify({ m: cae.motivo, f: cae.fSalida }));
+comprueba('la rentabilidad con reglas es la del dia en que cortó, no la de hoy',
+  Math.abs(cae.conReglas - (-20)) < 1e-9 && Math.abs(cae.ret - (-30)) < 1e-9,
+  `conReglas=${cae.conReglas} ret=${cae.ret}`);
+
+/* El punto fino: tras cortar, "peor momento con reglas" se CONGELA, pero el de aguantar sigue.
+   Si se usara un break, los dos se quedarian congelados y el drawdown de aguantar saldria falso. */
+comprueba('tras la salida, el peor momento con reglas se congela',
+  Math.abs(cae.peorConReglas - (-20)) < 1e-9, 'peorConReglas = ' + cae.peorConReglas);
+comprueba('pero el peor momento aguantando sigue bajando despues de la salida',
+  Math.abs(cae.peor - (-30)) < 1e-9, 'peor = ' + cae.peor);
+
+/* Recuperacion: acaba en verde pero paso por rojo. El drawdown tiene que recordarlo. */
+const vuelve = conSerie([88, 92, 103], 100);
+comprueba('una entrada que acaba en verde recuerda lo que llegó a estar en rojo',
+  Math.abs(vuelve.peor - (-12)) < 1e-9 && vuelve.ret > 0, `peor=${vuelve.peor} ret=${vuelve.ret}`);
+comprueba('el peor momento nunca es mejor que el resultado final',
+  vuelve.peor <= vuelve.ret + 1e-9 && cae.peor <= cae.ret + 1e-9);
+
+const sinCierres = conSerie([], 100);
+comprueba('sin cierres guardados no se inventa una salida',
+  sinCierres.fSalida === null && sinCierres.vistos === 0);
+
 console.log(`\n${total - fallos}/${total} comprobaciones`);
 process.exit(fallos ? 1 : 0);

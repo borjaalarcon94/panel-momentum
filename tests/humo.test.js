@@ -906,6 +906,27 @@ for (const f of orden) {
     ? ok('dice en cuántos días distintos entraron, no solo cuántas entradas')
     : mal('no distingue entradas de días de entrada');
 
+  /* Guardarrail contra el sesgo de supervivencia. La sugerencia original era filtrar a "solo las
+     que siguen en el top". Medido el 24/10/2026 eso pasa de +0,1 % a +12,1 %: doce puntos que son
+     solo las perdedoras saliendo por la puerta de atras. Se muestran los DOS grupos o ninguno. */
+  const grupoDentro = /Siguen en el top/.test(txtRes), grupoFuera = /Ya salieron del top/.test(txtRes);
+  grupoDentro === grupoFuera
+    ? ok(grupoDentro ? 'los dos grupos (dentro y fuera del top) se muestran juntos' : 'no hay desglose por grupo')
+    : mal('se muestra un solo grupo: eso es sesgo de supervivencia',
+          `dentro=${grupoDentro} fuera=${grupoFuera}`);
+  !grupoDentro || /infla el resultado/.test(txtRes)
+    ? ok(grupoDentro ? 'y avisa de cuánto infla mirar solo las que siguen dentro' : 'sin desglose, sin aviso')
+    : mal('desglosa por grupo sin avisar del sesgo de supervivencia');
+
+  /* La tabla de tres formas de operar estaba tras un umbral de 30 entradas maduras y nunca se habia
+     visto: dejaba como unica cifra el "comprar y no vender nunca", que es lo que el sistema NO hace. */
+  /Con nuestras reglas de salida/.test(txtRes)
+    ? ok('se ve qué habría pasado con las reglas de salida, sin esperar a 30 entradas')
+    : mal('la simulación de las reglas de salida sigue escondida');
+  /Peor momento/.test(txtRes)
+    ? ok('y cuánto se llegó a estar en rojo por el camino')
+    : mal('no muestra el drawdown');
+
   /* El acento de las tarjetas iba por tramo de puntuacion con corte en 75, y como al top solo suben
      las mejores, nueve de cada diez salian con el mismo color: la lista parecia homogenea. */
   console.log('\nCADA TARJETA SE DISTINGUE POR SU VEREDICTO');
