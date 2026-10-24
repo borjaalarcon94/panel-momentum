@@ -1,7 +1,8 @@
 /* Pestana "Seguimiento": de las que han pasado por el top 10, si la compra sigue siendo viable y como va.
    Usa el resumen ligero de cada dia (historico) y los datos de HOY de cada accion (actual). */
 const CAIDA_SCORE = window.CAIDA_FUERZA;   // mismo umbral que Hoy, definido en app.js: si cada pestaña tuviera el suyo volverian a contradecirse
-let VER_TODAS = false;            // por defecto se muestran las 5 mejores
+let VER_TODAS = false;            // por defecto se muestran las VISIBLES mejores
+const VISIBLES = 10;              // ver el comentario largo mas abajo: cortar en 5 escondia por medio punto
 
 function estadoHoy(sim) {
   const a = ACT[sim];
@@ -88,8 +89,13 @@ window.seguimiento = function () {
     reco: a => -(a.prioridad * 1000 + (a.salida && a.salida.senales.length ? 300 : 0) - (a.score ?? 0)),
     score: a => a.score ?? -1e9, ret: a => a.ret, entrada: a => -FH.indexOf(a.entrada), max: a => a.max };
   r.sort((x, y) => (clave[orden](y) ?? -1e18) - (clave[orden](x) ?? -1e18));
-  /* Se muestran 5, pero nunca se ocultan las que tienes compradas ni las que han dado señal de salida:
-     justo esas son las que hay que mirar todos los días. */
+  /* Se muestran 10, no 5. Medido el 24/10/2026 sobre el historial: la puntuacion se mueve 2 puntos
+     de mediana al dia (media 2,9), y dos acciones separadas por 1 punto o menos SE INTERCAMBIAN EL
+     PUESTO al dia siguiente el 43 % de las veces; separadas por 5 puntos, el 36 %. O sea que el
+     orden dentro de unos pocos puntos es ruido, y cortar en la quinta escondia cosas por medio
+     punto: FIGS (82, y +34,8 % desde su entrada) quedaba fuera mientras VSTM (82) se veia.
+     Diez es ademas el numero que el sistema selecciona cada dia (GUARDAR en build.py).
+     Nunca se ocultan las que tienes compradas ni las que han dado señal de salida. */
   const imprescindible = a => (window.tengoPosicion && window.tengoPosicion(a.ticker)) || (a.salida && a.salida.senales.length);
   const completa = r;
   /* El puesto se fija ANTES de filtrar. Antes era el indice dentro de lo que se estaba mostrando, asi
@@ -97,7 +103,7 @@ window.seguimiento = function () {
      mejores y "#7" al verlas todas, y FIGS era "#6" solo en la vista completa. Un puesto que cambia
      al desplegar una lista no es un puesto. */
   completa.forEach((a, i) => { a.puestoLista = i + 1 });
-  if (!VER_TODAS) r = r.filter((a, i) => i < 5 || imprescindible(a));
+  if (!VER_TODAS) r = r.filter((a, i) => i < VISIBLES || imprescindible(a));
   const ocultas = completa.length - r.length;
   const R = $('rseg'); R.replaceChildren();
   if (!r.length) {
@@ -125,7 +131,7 @@ window.seguimiento = function () {
     izq.appendChild(el('span', 'pos', '#' + a.puestoLista));
     /* Si esta por debajo del corte y aun asi se muestra, se dice por que: si no, el salto de
        numeracion (…#5, #7) parece un error. */
-    if (!VER_TODAS && a.puestoLista > 5) izq.appendChild(el('span', 'fuera',
+    if (!VER_TODAS && a.puestoLista > VISIBLES) izq.appendChild(el('span', 'fuera',
       window.tengoPosicion && window.tengoPosicion(a.ticker) ? 'LA TIENES' : 'SEÑAL DE SALIDA'));
     const l = el('a', 'tk', a.ticker); l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(a.clave); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);
@@ -248,7 +254,7 @@ window.seguimiento = function () {
       R.appendChild(t) }
   }
   if (ocultas > 0 || VER_TODAS) {
-    const b = el('button', 'chip', VER_TODAS ? 'Ver solo las 5 mejores' : 'Ver las ' + completa.length + ' que siguen vivas');
+    const b = el('button', 'chip', VER_TODAS ? 'Ver solo las ' + VISIBLES + ' mejores' : 'Ver las ' + completa.length + ' que siguen vivas');
     b.style.margin = '6px 0';
     b.onclick = () => { VER_TODAS = !VER_TODAS; window.seguimiento() };
     R.appendChild(b);

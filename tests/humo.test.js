@@ -588,12 +588,26 @@ for (const f of orden) {
       ? ok('y las que se cuelan por debajo del corte dicen por qué') : mal('no se explica el salto de numeración');
     /* Se deja la lista plegada otra vez: pulsar "Ver las N" cambia un estado del modulo que
        sobrevive a esta prueba, y la de orden de mas abajo daba por bueno un listado desplegado. */
-    const volver = (porId.rseg.hijos || []).flatMap(function f(x) { return [x, ...(x.hijos || [])] .flat() })
-      .find(b => /Ver solo las 5/.test(b.textContent || ''));
+    const volver = (porId.rseg.hijos || []).flatMap(function f(x) { return [x, ...(x.hijos || []).flatMap(f)] })
+      .find(b => /Ver solo las/.test(b.textContent || ''));
     if (volver && volver.onclick) volver.onclick();
     const plegada = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card')).length;
-    plegada <= 8 ? ok('y la lista vuelve a plegarse, sin dejar estado colgando (' + plegada + ' tarjetas)')
+    const visAqui = Number((src.match(/const VISIBLES = (\d+)/) || [])[1] || 5);
+    plegada <= visAqui + 4 ? ok('y la lista vuelve a plegarse, sin dejar estado colgando (' + plegada + ' tarjetas)')
       : mal('la lista se queda desplegada y contamina las pruebas siguientes', String(plegada));
+  }
+
+  /* El corte no es un numero elegido a ojo: se midio que la puntuacion se mueve 2 puntos de mediana
+     al dia y que dos acciones separadas por 1 punto se intercambian el puesto el 43 % de las veces.
+     Cortar en 5 escondia a FIGS (82, +34,8 %) mientras se veia VSTM (82). */
+  console.log('\nEL CORTE DE LA LISTA ESTÁ DONDE DEBE');
+  {
+    const srcS11 = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+    const vis = Number((srcS11.match(/const VISIBLES = (\d+)/) || [])[1] || 0);
+    vis >= 10 ? ok('se muestran ' + vis + ', no 5') : mal('el corte sigue escondiendo por décimas', String(vis));
+    !/i < 5 \|\| imprescindible/.test(srcS11) ? ok('y no queda ningún 5 a mano en el filtro') : mal('queda un 5 escrito a mano');
+    (srcS11.match(/VISIBLES/g) || []).length >= 4
+      ? ok('el número vive en un sitio y lo usan el filtro, la marca y el botón') : mal('el corte está duplicado');
   }
 
   console.log('\nSIN TECHO DE CAPITALIZACIÓN');
@@ -692,16 +706,18 @@ for (const f of orden) {
      casualidad; el 21/10/2026 aparecio ARQT (80) sexta por delante de KNSA (82) y la prueba fallo,
      lo que ADEMAS bloqueo la publicacion diaria. Ahora se comprueba el contrato de verdad. */
   const nota = Object.fromEntries(porNota.map(x => [x.split(':')[0], Number(x.split(':')[1])]));
-  const cinco = enPantalla.slice(0, 5), extras = enPantalla.slice(5);
+  // el corte vive en seguimiento.js (VISIBLES); la prueba lo lee de ahi para no fijar un 5 a mano
+  const VIS = Number((fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8').match(/const VISIBLES = (\d+)/) || [])[1] || 5);
+  const cinco = enPantalla.slice(0, VIS), extras = enPantalla.slice(VIS);
   const ordenados = cinco.every((t, i) => i === 0 || nota[cinco[i - 1]] >= nota[t]);
-  ordenados ? ok('los 5 primeros van por nota de mayor a menor (' + cinco.join(' > ') + ')')
-    : mal('los 5 primeros no siguen el orden de nota', cinco.map(t => t + ':' + nota[t]).join(', '));
+  ordenados ? ok('los ' + VIS + ' primeros van por nota de mayor a menor (' + cinco.slice(0, 5).join(' > ') + (cinco.length > 5 ? ' …' : '') + ')')
+    : mal('los primeros no siguen el orden de nota', cinco.map(t => t + ':' + nota[t]).join(', '));
   const forzadas = extras.filter(t => {
     const a = vm.runInContext(`historial(90).find(x => x.ticker === ${JSON.stringify(t)})`, ctx);
     return a && ((a.salida && a.salida.senales.length) || (ventana.tengoPosicion && ventana.tengoPosicion(t)));
   });
   extras.length === forzadas.length
-    ? ok(extras.length ? 'y las ' + extras.length + ' extra están por señales de salida, no por nota (' + extras.join(', ') + ')'
+    ? ok(extras.length ? 'y las ' + extras.length + ' extra están por señales o por ser tuyas (' + extras.join(', ') + ')'
                        : 'y no hay ninguna extra forzada hoy')
     : mal('hay tarjetas fuera de los 5 que no tienen señales que las justifiquen',
           extras.filter(t => !forzadas.includes(t)).join(', '));
