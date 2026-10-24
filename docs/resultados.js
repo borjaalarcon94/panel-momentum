@@ -587,8 +587,16 @@ function grafica(a, b, nombreA, nombreB) {
   env._leer = null;
   const mover = ev => {
     const r = lienzo.getBoundingClientRect();
-    const frac = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
-    const i = Math.round(frac * (a.length - 1));
+    /* Ancho cero: la pestaña esta oculta o aun no se ha maquetado. Dividir por el daba NaN, el
+       indice se salia del array y el manejador reventaba con "Cannot read properties of undefined".
+       Lo encontro la auditoria del 25/10/2026 recorriendo las pestañas por codigo. No se puede
+       provocar tocando (no se ve), pero un manejador no debe poder romperse. */
+    if (!r.width) return;
+    const frac = (ev.clientX - r.left) / r.width;
+    /* Math.min/Math.max PROPAGAN NaN, asi que recortar no basta: con una coordenada no numerica el
+       indice salia NaN igual y a[NaN] es undefined. Hay que descartarlo antes. */
+    if (!Number.isFinite(frac)) return;
+    const i = Math.max(0, Math.min(a.length - 1, Math.round(Math.min(1, Math.max(0, frac)) * (a.length - 1))));
     const pos = 100 * i / (a.length - 1);
     marca.style.display = ''; marca.style.left = pos + '%';
     ptA.style.display = ''; ptA.style.left = pos + '%'; ptA.style.top = (100 * py(a[i].v) / A) + '%';

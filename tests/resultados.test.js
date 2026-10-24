@@ -364,5 +364,53 @@ comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia 
     op && op.curva[0].n === 0, op ? 'n = ' + op.curva[0].n : 'null');
 }
 
+
+/* ---- la grafica no puede romperse ---- */
+{
+  console.log('\nLa grafica aguanta que la señalen mal');
+  /* Un DOM minimo con eventos, suficiente para ejecutar el manejador del puntero. */
+  function nodo(tag) {
+    const e = {
+      tagName: (tag || 'div').toUpperCase(), hijos: [], _t: '', className: '', style: {}, _ev: {},
+      set textContent(v) { this._t = String(v) }, get textContent() { return this._t },
+      set innerHTML(v) { }, get innerHTML() { return '' },
+      appendChild(h) { this.hijos.push(h); return h }, append(...h) { h.forEach(x => this.hijos.push(x)) },
+      classList: { toggle() {}, add() {}, remove() {} },
+      addEventListener(n2, f) { this._ev[n2] = f },
+      getBoundingClientRect() { return this._rect || { left: 0, width: 0 } },
+    };
+    return e;
+  }
+  const antes = ctx.document, antesEl = ctx.el, antesF = ctx.fFecha;
+  ctx.document = { createElement: nodo };
+  /* grafica() usa los ayudantes globales de app.js: aqui se sustituyen por lo minimo. */
+  ctx.el = (tag, clase, txt) => { const e = nodo(tag); if (clase) e.className = clase; if (txt != null) e.textContent = txt; return e };
+  ctx.fFecha = f => f;
+  const serie = ['2026-12-01', '2026-12-02', '2026-12-03'].map((f, i) => ({ f, v: 100 + i }));
+  const g = ctx.grafica(serie, serie);
+  const lienzo = g.hijos.find(x => x.className === 'lienzo');
+  const disparar = (rect, x) => {
+    lienzo._rect = rect;
+    try { lienzo._ev.pointermove({ clientX: x }); return null } catch (e) { return e.message }
+  };
+  /* El caso que reventaba de verdad es 0/0 -> NaN: ancho cero Y el puntero justo en el borde
+     izquierdo, que es lo que pasa cuando la pestaña esta oculta y left vale 0. Con clientX > left
+     la division da Infinity, que se recorta a 1 y no rompe: por eso un primer intento de esta
+     prueba pasaba igual con el codigo roto y hubo que afinarla. */
+  comprueba('con la pestaña oculta (ancho 0, puntero en el borde) no revienta',
+    disparar({ left: 0, width: 0 }, 0) === null, disparar({ left: 0, width: 0 }, 0));
+  comprueba('ni con ancho 0 y el puntero a la derecha',
+    disparar({ left: 0, width: 0 }, 50) === null, disparar({ left: 0, width: 0 }, 50));
+  comprueba('ni con coordenada no numérica',
+    disparar({ left: 0, width: 300 }, NaN) === null, disparar({ left: 0, width: 300 }, NaN));
+  comprueba('señalando a la izquierda del todo tampoco',
+    disparar({ left: 0, width: 300 }, -500) === null, disparar({ left: 0, width: 300 }, -500));
+  comprueba('ni muy a la derecha',
+    disparar({ left: 0, width: 300 }, 99999) === null, disparar({ left: 0, width: 300 }, 99999));
+  comprueba('y al soltar se limpia sin error',
+    (() => { try { lienzo._ev.pointerleave(); return true } catch (e) { return false } })());
+  ctx.document = antes; ctx.el = antesEl; ctx.fFecha = antesF;
+}
+
 console.log(`\n${total - fallos}/${total} comprobaciones`);
 process.exit(fallos ? 1 : 0);
