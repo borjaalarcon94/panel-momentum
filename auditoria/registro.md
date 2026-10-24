@@ -1689,3 +1689,56 @@ operación.
 
 3 pruebas nuevas, verificadas con una mutación que repone el `break`. **343 en verde.**
 Versión `24ed019c`, en línea: cabecera +2,4 %, 5 posiciones abiertas, abanico 5,0 puntos.
+
+## 2026-10-24 — Qué pasará con Resultados según pasen los meses (y un defecto con fecha)
+
+Pregunta de Borja. Medido en vez de supuesto, con un histórico sintético de 14, 90 y 250 sesiones.
+
+**Rendimiento: no es un problema.** Todo el cálculo de la pestaña (7 carteras, el listado, `simula`
+sobre todas las entradas y el bootstrap del intervalo) tarda:
+
+| sesiones | símbolos | entradas | cálculo total | panel.historico | precios.json |
+|---|---|---|---|---|---|
+| 14 (hoy) | 25 | 24 | ~23 ms | 10 KB | 6 KB |
+| 90 (tope) | 116 | 99 | ~43 ms | 66 KB | 134 KB |
+| 250 (si no hubiera tope) | 308 | 195 | ~103 ms | 185 KB | **970 KB** |
+
+Como `DIAS = 90`, el estado estacionario es la fila del medio: **panel.json ~150-200 KB y
+precios.json ~130-180 KB**, que se descargan en cada visita. Aceptable, y ya acotado.
+
+**El defecto, que sí importa y tiene fecha: 19 de enero de 2027.**
+
+`entradas()` reconstruye la primera aparición de cada acción **leyendo la ventana de 90 sesiones**.
+Cuando una acción lleve más de 90 sesiones y su primera aparición salga de la ventana, el panel la
+re-fechará a la sesión más antigua que le quede dentro, **con el precio de ese día**. El registro se
+reescribiría solo. Simulado quitando 5 sesiones del principio, 10 de 28 acciones cambian:
+
+| acción | entrada real | cambio real | entrada vista | cambio visto |
+|---|---|---|---|---|
+| FIGS | 08/10 a 14,98 $ | **+34,8 %** | 12/10 a 17,74 $ | **+13,9 %** |
+| CDNA | 05/10 a 69,85 $ | **−0,9 %** | 12/10 a 63,12 $ | **+9,6 %** |
+| RSKD | 05/10 a 7,81 $ | +17,2 % | 12/10 a 8,57 $ | +6,8 % |
+| HNGE | 05/10 a 98,35 $ | +13,4 % | 12/10 a 104,82 $ | +6,4 % |
+
+Una posición ganadora puede pasar a parecer perdedora y al revés, **sin que nadie toque nada**.
+
+**No hay pérdida de datos.** `docs/datos/*.json` no se recorta nunca: el original está entero y la
+corrección se puede aplicar en cualquier momento con fidelidad total. Por eso esto no es urgente
+esta noche, pero sí **antes de enero**.
+
+**Plan, por orden de fecha:**
+
+1. **Finales de noviembre de 2026** — al llegar a 30 entradas maduras se desbloquean solas tres
+   tarjetas más arriba del todo (¿habrías ganado dinero?, ¿mejor que el índice?, ¿sirve la
+   puntuación?). La pestaña vuelve a crecer **sin que nadie lo decida**. Hay que colocarlas dentro
+   del orden actual, no encima.
+2. **Antes del 19 de enero de 2027** — `docs/entradas.json`: registro permanente y solo-añadir de
+   la primera aparición de cada acción (fecha, precio, nota, beta), independiente de la ventana de
+   90 sesiones. Es el arreglo del defecto de arriba. Tamaño estimado: ~25 KB al año.
+3. **Cuando el registro pase de ~60 filas** — la tabla «Lo que llevamos anotado» con «Todas» ya no
+   se lee. Habrá que paginar de verdad o filtrar por estado.
+4. **Permanente** — las simulaciones del stop y de la cartera seguirán cubriendo solo las últimas 90
+   sesiones, porque dependen de la serie diaria de cierres. El aviso de cobertura ya existe; cuando
+   empiece a disparar, habrá que decirlo más claro.
+
+`docs/datos` crece ~14 KB por sesión: unos 3,5 MB al año. No es problema de espacio.
