@@ -1248,3 +1248,43 @@ números de abajo son de la versión con entradas independientes de la variante.
 
 **No se cambia nada.** Sigue en pie el acuerdo del 7 de octubre: las reglas de salida no se tocan
 sin decisión explícita. Esto es evidencia para decidir, no una implementación.
+
+### 2026-10-24 (mismo día, corrección) — desglose por capa: la recomendación anterior queda retirada
+
+Al cerrar la entrada de arriba recomendé *"quitar las capas sobre la EMA 50, que mejora sin aumentar
+la pérdida máxima"*. **Es falso y lo retiro.** Al medir capa por capa, con las mismas 4.913 entradas:
+
+| variante | media/op | p5 | p1 | peor | dif vs panel (IC 95 %) |
+|---|---|---|---|---|---|
+| panel | +0,75 % | −13,6 % | −19,8 % | −54,4 % | referencia |
+| −RSI | +1,04 % | −14,4 % | −20,1 % | −54,4 % | +0,29 [−0,08, +0,76] |
+| −devolución | +0,91 % | −13,6 % | −19,9 % | −54,4 % | +0,16 [−0,06, +0,45] |
+| −RSI −devolución | +1,22 % | −14,5 % | −20,1 % | −54,4 % | +0,47 [+0,07, +0,99] |
+| −breakeven | +0,76 % | −13,6 % | −19,8 % | −54,4 % | +0,01 [−0,01, +0,03] |
+| −suelo 15 % | +0,88 % | −13,0 % | **−24,1 %** | **−55,3 %** | +0,12 [+0,01, +0,24] |
+| todo fuera | +1,43 % | −14,0 % | **−25,0 %** | **−55,3 %** | +0,68 [+0,28, +1,13] |
+
+Tres errores en lo que dije:
+
+1. **Sí aumenta la pérdida.** El p5 agregado apenas se movía (−13,6 → −14,0 %) y me quedé ahí. En
+   el p1 pasa de −19,8 % a −25,0 %: quitar el suelo del 15 % ensancha la cola, que es justo donde
+   importa. El p5 era el percentil equivocado para esta pregunta.
+2. **Ninguna capa individual aguanta sola.** −RSI y −devolución no son significativas por separado;
+   juntas quedan en +0,47 [+0,07, +0,99], pegadas al cero. El +0,68 de "todo fuera" se consigue
+   sobre todo quitando el suelo, que es la capa que no se puede quitar sin cambiar el riesgo.
+3. **En 2026 se invierte.** Panel −0,13 %, −RSI −0,23 %, −RSI −devolución −0,28 %, todo fuera
+   −0,21 % (n = 1.418). Todas las retiradas empeoran en el régimen actual.
+
+**Comparaciones múltiples.** En este estudio se corrieron ~20 contrastes con IC del 95 %: cabe
+esperar uno falso positivo. Los tres marginales (−suelo 15 % con +0,12, −RSI −devolución con +0,47,
+y ADR6 contra trail15 con [+0,05, +2,31]) son exactamente los candidatos a serlo. Solo los efectos
+grandes —trailing del 20-25 % y 8 × ADR, todos de +4 pp arriba— sobreviven a esa corrección, y todos
+exigen ensanchar el stop al 20-25 %, que rompe el límite declarado del 15 % y dobla la cola.
+
+**Decisión: no se cambia nada en las reglas de salida.** El dato que queda en pie de la entrada de
+arriba es descriptivo, no accionable: el stop del panel es estrecho, corta a los 14 días de mediana,
+y en 2023-2025 eso costó rentabilidad frente a un stop ancho. En 2026 no se distingue de nada.
+
+Para contexto, de las 4.913 salidas del panel: 70,4 % por stop (media −2,49 %), 24,6 % por RSI
+(media +6,55 %, mediana +1,15 %) y 2,4 % por devolución (media +26,49 %). La regla de devolución
+dispara poco pero es la única que corta con ganancia grande de verdad.
