@@ -1813,3 +1813,71 @@ vendido» (dos tablas casi iguales) y ahora con esto. Cuando una pantalla enseñ
 mismo sistema, **cada una tiene que decir de qué es y por qué no coincide con la de al lado**.
 
 **344 en verde.** Versión `6182996c`, en línea.
+
+## 2026-10-25 — Auditoría a fondo de toda la aplicación
+
+Alcance: estado del repositorio, las 6 suites de pruebas, sintaxis de todo el código, integridad de
+los datos, los tres caminos de `build.py`, resistencia a datos degenerados, **recálculo independiente
+en Python de las 62 cifras de Resultados** contrastadas contra producción, y las cuatro pestañas en
+vivo en escritorio y móvil.
+
+**Resultado: 2 fallos reales encontrados y corregidos, 1 falsa alarma, 1 comprobación vacía propia.**
+
+### Fallo 1 — las dos carteras comparaban con tramos distintos del S&P 500
+
+De las 62 cifras contrastadas, 61 cuadraban exactamente y una no:
+
+| | etiqueta | valor |
+|---|---|---|
+| bloque «operando el panel» | el S&P 500 en el mismo tramo | **−2,2 %** |
+| bloque «siguiendo el listado» | el S&P 500 en el mismo tramo | **−2,5 %** |
+
+La misma etiqueta con dos números. La cartera del listado arrancaba el primer día de la serie
+(06/10, ya invertida), y la operada el segundo (07/10, su primera compra). Cada una comparaba con el
+S&P de *su* tramo. Corregido: la curva de la operada arranca también el 06/10, valiendo 100 y en
+liquidez. Las dos cubren ahora 06/10 → 23/10 y las dos dicen −2,5 %. **Ninguna rentabilidad cambia.**
+
+### Fallo 2 — el manejador de la gráfica podía reventar
+
+Recorriendo las pestañas por código: `Uncaught TypeError: Cannot read properties of undefined`. Con
+la pestaña oculta el lienzo mide 0 de ancho y el puntero cae en el borde, así que
+`(clientX − left) / width` es `0/0 = NaN`, el índice sale `NaN` y `a[NaN]` es `undefined`. No se
+puede provocar tocando, porque no se ve, pero un manejador no debe poder romperse. Dos guardas:
+ancho cero y fracción no finita. **La segunda hizo falta porque `Math.min` y `Math.max` propagan
+`NaN`**: recortar el índice no servía de nada.
+
+### Falsa alarma — los dos días que faltan en la serie
+
+La primera pasada marcó que `precios.json` no cubre el 05/10 y que tiene un 21/10 que el histórico
+no tiene. **Las dos son deliberadas y están documentadas**: la serie diaria empezó a guardarse el
+06/10, y del 21/10 se recuperaron los cierres pero no se inventó un top que nunca existió. La
+comprobación era ingenua. Convertida en invariante útil: toda sesión con top (menos la primera) debe
+tener su cierre y su EMA 50, y los días sueltos sin top no pueden formar un tramo. Verificada
+borrando un día de `precios.json`.
+
+### Comprobación vacía propia — la tercera en dos días
+
+La primera versión de la prueba del ancho cero **pasaba igual con el código roto**: con `clientX`
+mayor que `left` la división da `Infinity`, que se recorta a 1 y no rompe. Solo falla con
+`clientX == left`. Al afinarla, encontró además el agujero del `NaN` que mi propio arreglo no cubría.
+
+**Norma a partir de ahora: ninguna prueba cuenta hasta haberla visto fallar contra la mutación.**
+Hoy se ha aplicado a las 20 pruebas nuevas.
+
+### Lo verificado que sí estaba bien
+
+- 6 suites: **350 comprobaciones en verde**. Sintaxis correcta en los 11 ficheros de código.
+- Integridad: histórico y `docs/datos` coinciden (14 días), ninguna sesión en fin de semana, sin
+  tickers repetidos, SPY en todos los días, beta en las 140 filas, los 433 cierres son positivos, el
+  precio del top coincide con la serie diaria, la versión es el hash real y `index.html` la apunta.
+- Los tres caminos de `build.py`: `--rehacer` con el socket bloqueado (cero llamadas, `precios.json`
+  intacto), el build completo de un lunes simulado (15 días, beta 150/150, serie y EMA al día) y el
+  de fin de semana.
+- 10 escenarios degenerados × 5 funciones: ninguno rompe.
+- Producción: los 11 ficheros servidos **byte a byte idénticos** al repositorio.
+- Las cuatro pestañas, dos vueltas completas, en escritorio y móvil: **cero errores de JavaScript**,
+  sin desbordamiento horizontal, la leyenda no salta al arrastrar y la lectura día a día responde.
+
+**Fuera de alcance:** que `panel.json` y `precios.json` reflejen bien el mercado, que depende de
+TradingView y del build; y la lógica de Seguimiento, Mis posiciones y Parámetros, que no se ha
+reauditado. El próximo build real es el **lunes 26 a las 21:30 UTC**.
