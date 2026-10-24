@@ -335,5 +335,34 @@ comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia 
   comprueba('con una sola sesión no dibuja eje', ctx.etiquetasFecha(serie(1)).length === 0);
 }
 
+
+/* ---- las dos carteras tienen que cubrir el MISMO tramo ---- */
+{
+  console.log('\nLas dos carteras comparten tramo');
+  /* La pestaña enseña dos curvas y debajo de cada una pone "el S&P 500 en el mismo tramo". Si
+     arrancan en dias distintos, ese rotulo es mentira en una de las dos: pasó, y la auditoria del
+     25/10/2026 lo cazo con -2,2 % en una y -2,5 % en la otra. */
+  const d2 = ['2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04', '2026-12-05'];
+  ctx.HIST = {}; d2.slice(0, 4).forEach((f, i) =>
+    ctx.HIST[f] = { acciones: [{ t: 'A', s: 'A', p: 10, sc: 90 }, { t: 'B', s: 'B', p: 10, sc: 80 }], spy: 100 + i });
+  ctx.FH = d2.slice(0, 4).sort().reverse();
+  ctx.PRECIOS = {}; d2.forEach((f, i) => ctx.PRECIOS[f] = { A: 10 + i, B: 10 });
+  ctx.window.__EMAS__ = {};
+  ctx.window.REGLAS = { R: { perdidaMaxima: 15, gananciaProteger: 20 },
+    stopDe: (datos, c, prev) => Math.max(datos.ema50 || 0, c * 0.85, prev || 0),
+    limiteDevolucion: () => null };
+  const op = ctx.operandoElPanel(2), lis = ctx.carteraDelTop();
+  comprueba('las dos carteras existen con los mismos datos', !!op && !!lis);
+  comprueba('y arrancan el mismo día',
+    op && lis && op.curva[0].f === lis.serie[0].f,
+    op && lis ? `operada ${op.curva[0].f} vs listado ${lis.serie[0].f}` : 'alguna es null');
+  comprueba('y acaban el mismo día',
+    op && lis && op.curva[op.curva.length - 1].f === lis.serie[lis.serie.length - 1].f);
+  comprueba('las dos arrancan valiendo 100',
+    op && lis && op.curva[0].v === 100 && lis.serie[0].v === 100);
+  comprueba('el primer día la cartera operada está en liquidez, sin posiciones',
+    op && op.curva[0].n === 0, op ? 'n = ' + op.curva[0].n : 'null');
+}
+
 console.log(`\n${total - fallos}/${total} comprobaciones`);
 process.exit(fallos ? 1 : 0);

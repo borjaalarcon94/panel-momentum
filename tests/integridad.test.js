@@ -136,6 +136,30 @@ cuantos === 9 ? ok('window.REQUISITOS comprueba 9 cosas')
   ? ok('«Ya no cumple» aclara qué requisitos no cuentan')
   : mal('«Ya no cumple» vuelve a ser ambiguo');
 
+console.log('\nLA SERIE DIARIA NO TIENE HUECOS');
+/* El 21/10/2026 el panel estuvo dos dias sin publicar y la pestaña Resultados se quedo ciega
+   justo donde importaba. La serie de cierres (docs/precios.json) es lo que alimenta los stops
+   simulados: un hueco ahi no se ve a simple vista y falsea las salidas.
+   Dos ausencias son legitimas y conocidas:
+   - la PRIMERA sesion del historico, porque la serie diaria empezo a guardarse un dia despues;
+   - dias que estan en precios.json pero no en el historico: son cierres recuperados de una
+     sesion cuyo top no se pudo reconstruir, y añadir cierres nunca estorba. */
+{
+  const panel = JSON.parse(fs.readFileSync(path.join(dir, 'panel.json'), 'utf8'));
+  const pre = JSON.parse(fs.readFileSync(path.join(dir, 'precios.json'), 'utf8'));
+  const ses = Object.keys(panel.historico).sort();
+  const dias = new Set(Object.keys(pre.dias)), emas = new Set(Object.keys(pre.emas || {}));
+  const faltan = ses.slice(1).filter(f => !dias.has(f));
+  faltan.length ? mal('faltan cierres de sesiones que sí tienen top', faltan.join(', '))
+                : ok('todas las sesiones con top (menos la primera) tienen su cierre guardado');
+  const sinEma = ses.slice(1).filter(f => !emas.has(f));
+  sinEma.length ? mal('faltan EMA 50 de sesiones que sí tienen top', sinEma.join(', '))
+                : ok('y su EMA 50, que es la que mueve el stop');
+  const huecos = [...dias].sort().filter((f, i, a) => i && !ses.includes(f) && !ses.includes(a[i - 1]));
+  huecos.length <= 2 ? ok('los días sueltos de la serie son recuperaciones puntuales, no un corte')
+                     : mal('hay un tramo de la serie sin top: parece un corte de publicación', huecos.join(', '));
+}
+
 console.log('\nTODAS LAS LLAMADAS AL STOP PASAN LOS MISMOS ARGUMENTOS');
 /* Tener las reglas en un solo fichero no basta si quien las llama se deja argumentos. El 24/10/2026
    simula() llamaba a stopDe sin ema50 y sin ganMax, asi que la pestana Resultados enseñaba la misma

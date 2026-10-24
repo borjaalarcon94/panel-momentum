@@ -297,7 +297,11 @@ function operandoElPanel(huecos) {
   const ses = [...FH].sort();
   if (dias.length < 3) return null;
   let caja = 100, abiertas = [], cerradas = [], pico = 100, caida = 0;
-  const curva = [];
+  /* La curva arranca el primer dia de la serie, aunque ese dia aun estes en liquidez: la cartera
+     existe desde ahi. Sin este punto la cartera operada empezaba UN DIA despues que la del listado
+     y las dos comparaban con un tramo distinto del S&P, asi que la pestaña enseñaba "-2,2 %" y
+     "-2,5 %" bajo la MISMA etiqueta "el S&P 500 en el mismo tramo". Lo cazo la auditoria. */
+  const curva = [{ f: dias[0], v: 100, n: 0 }];
   for (let i = 1; i < dias.length; i++) {
     const hoy = dias[i], ayer = dias[i - 1];
     if (!PRECIOS[hoy]) continue;
