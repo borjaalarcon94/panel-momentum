@@ -1394,3 +1394,47 @@ Ahora el bucle sigue con una bandera `cerrada`. Probado con una mutación que re
 umbrales duplicados y ahora se toma de `reglas.js`.
 
 **324 comprobaciones en verde.** Versión `0da3c7ce`, en línea.
+
+### 2026-10-24 — La rentabilidad del listado, ahora sí, como una cartera
+
+Última pieza de la sugerencia externa: *"¿la rentabilidad es conjunta?"*. **No lo era.** El `+0,1 %`
+es la media simple de 28 entradas medidas en plazos distintos —PAYS lleva 13 sesiones y CRON 1, y
+pesan igual—: el promedio de apuestas sueltas, no el resultado de una cartera.
+
+Ahora se encadena. Se compra el top a partes iguales, se reequilibra cada sesión y la rentabilidad
+compone:
+
+| | |
+|---|---|
+| la cartera | **+4,9 %** |
+| el S&P 500 en el mismo tramo | −2,5 % |
+| peor caída de la cartera | −3,8 % |
+
+en 13 sesiones, con curva de las dos líneas (SVG de 15 puntos, sin librería).
+
+**Dos decisiones que cambian el número, ambas explicadas en la propia pestaña:**
+
+1. **Retraso de un día.** El top publicado la noche de *t* se compra al cierre de *t+1*. El precio de
+   la noche en que el panel detecta una acción no es uno al que se pudiera comprar: se ve a la mañana
+   siguiente. Sin el retraso la cartera cobraría gratis el hueco de la noche. Esto cierra el defecto 4
+   de la entrada anterior, que se había señalado pero no corregido.
+2. **Sin supervivencia.** Una acción que se hunde y sale del top deja su caída dentro de la curva
+   hasta el día que sale, que es lo que habría pasado teniéndola comprada. Es lo contrario del filtro
+   que se descartó esta misma mañana.
+
+**Por qué no es un número para copiar, y se dice en la pestaña:** rota el **26 % de la cartera cada
+sesión**. Medido el efecto del coste: +4,86 % bruto → +4,51 % a 0,05 % por lado → **+4,15 % a 0,10 %**
+→ +2,39 % a 0,35 %. Sobrevive, pero la operativa real de Borja es otra (compra unas pocas y las suelta
+con el stop). Sirve para saber si el listado acierta, no para replicarlo. Y 13 sesiones no demuestran
+nada: no se extrapola ni se anualiza en ningún sitio.
+
+**Pruebas:** 7 nuevas, verificadas contra dos mutaciones — quitar el retraso de un día (caza 1) y
+filtrar a las que siguen en el top (caza 2) — más tres guardarraíles en el humo que exigen el bloque,
+el aviso de que no es la operativa real y la mención del retraso. **327 en verde.**
+
+**Dos fallos propios durante el trabajo:** una prueba nueva estaba mal planteada (ponía el salto de
+precio en un tramo que sí se cobra, así que fallaba por el escenario y no por el código: se corrigió
+la prueba, no el código), y un choque de nombres de variable entre dos bloques del mismo fichero de
+pruebas. Ambos del mismo tipo que ya había cometido antes en este proyecto.
+
+Versión `c48ebed1`, en línea.
