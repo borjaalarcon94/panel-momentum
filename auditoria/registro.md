@@ -1625,3 +1625,27 @@ corregido y con prueba de integridad que lo vigila.
 **Alcance de esta auditoría:** las cifras de la pestaña Resultados, contrastadas contra `panel.json`
 y `precios.json`. **No cubre** si esos dos ficheros reflejan bien el mercado (eso depende de
 TradingView y del build), ni las pestañas Seguimiento, Mis posiciones y Parámetros.
+
+### 2026-10-24 — «¿Cuánto si compro lo que más momentum tiene y vendo en los stops?»
+
+La respuesta depende muchísimo de **cuántas posiciones lleves a la vez**, y la pestaña solo enseñaba
+3, 8 y 10: se saltaba precisamente los dos casos más concentrados, que es lo que la pregunta sugiere.
+Medido sobre las 13 sesiones, con el S&P 500 en **−2,2 %**:
+
+| posiciones | rentabilidad | ventas cerradas |
+|---|---|---|
+| 1 (solo la de más momentum) | **−0,2 %** | 0 — compró PAYS el 7/10 y nunca llegó a vender |
+| 2 | **+4,8 %** | 0 |
+| 3 | **−2,7 %** | 1 |
+| 5 (la cifra de cabecera) | **+2,2 %** | 2 |
+| 8 | **+2,9 %** | 2 |
+| 10 (el top entero) | **+2,6 %** | 3 |
+
+**7,5 puntos de abanico por una sola decisión.** Eso es lo que hay que leer, no el +2,2 %. La pestaña
+lo muestra ahora de 1 a 10, marca cuál es la de cabecera y **calcula el abanico sola**, con el texto
+diciendo que con tan pocas ventas cerradas eso es casualidad y no una pista de cuántas llevar.
+
+Verificado contra un recálculo independiente en Python: las seis cifras coinciden exactamente.
+
+Comprobación de humo reescrita: buscaba la frase «Con otro número de huecos», que cambió. Ahora
+exige los dos extremos (1 y 10) y la cifra del abanico. **340 en verde.** Versión `be7451f0`.
