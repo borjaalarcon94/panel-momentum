@@ -970,6 +970,19 @@ for (const f of orden) {
   /[+-−]\d+[,.]\d+\s*% tu cartera/.test(txtRes.replace(/\s+/g, ' '))
     ? ok('y el resultado de cada línea junto a su nombre')
     : mal('la leyenda no lleva el resultado de cada línea');
+  /* El eje de fechas: sin el, la curva no dice CUANDO paso cada cosa. Tiene que aguantar hasta las
+     90 sesiones que publica el panel, asi que etiquetasFecha() se prueba aparte a muchas escalas
+     en tests/resultados.test.js; aqui solo se exige que el eje exista y tenga fechas de verdad. */
+  const ejes = (function buscar(x, acc) {
+    if ((x.className || '').split(' ').includes('eje')) acc.push(x);
+    (x.hijos || []).forEach(h => buscar(h, acc));
+    return acc;
+  })(porId.rres, []);
+  ejes.length ? ok('las gráficas llevan eje de fechas (' + ejes.length + ')')
+              : mal('las gráficas no dicen de qué días son');
+  ejes.length && ejes.every(e => (e.hijos || []).length >= 2 && (e.hijos || []).every(s => /\w/.test(s.textContent)))
+    ? ok('y cada eje trae al menos dos fechas con texto')
+    : mal('algún eje sale vacío o con etiquetas en blanco');
 
   /* Freno al amontonamiento. La pestaña llegó a tener SIETE bloques de golpe y se hizo ilegible.
      Arriba solo puede haber lo que contesta la pregunta; el resto va plegado. */

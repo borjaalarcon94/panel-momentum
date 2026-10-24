@@ -297,5 +297,43 @@ comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia 
     migajas && migajas.abiertas === 1, migajas ? 'abiertas = ' + migajas.abiertas : 'null');
 }
 
+
+/* ---- etiquetasFecha(): el eje de la grafica a cualquier escala ---- */
+{
+  console.log('\nEje de fechas de la grafica');
+  const serie = n2 => {
+    const o = []; let d = new Date('2026-10-05T12:00:00Z');
+    while (o.length < n2) { if (d.getUTCDay() > 0 && d.getUTCDay() < 6) o.push({ f: d.toISOString().slice(0, 10), v: 100 }); d = new Date(d.getTime() + 86400000) }
+    return o;
+  };
+  /* El panel publica hasta 90 sesiones (DIAS en build.py) pero se prueba muy por encima: si algun
+     dia se sube ese tope, el eje no puede amontonarse. */
+  const escalas = [2, 3, 5, 13, 20, 45, 46, 60, 75, 90, 110, 130, 180, 250, 400];
+  let apretadas = 0, muchas = 0, desordenadas = 0;
+  for (const n2 of escalas) {
+    const s = serie(n2), e = ctx.etiquetasFecha(s);
+    if (e.length > 7) muchas++;
+    const sep = e.length > 1 ? Math.min(...e.slice(1).map((x, i) => x.i - e[i].i)) : n2;
+    if (sep <= n2 * 0.07) apretadas++;
+    if (e.some((x, i) => i && x.i <= e[i - 1].i)) desordenadas++;
+  }
+  comprueba('ninguna escala pasa de 7 etiquetas (probadas ' + escalas.length + ', hasta 400 sesiones)', muchas === 0, muchas + ' escalas con demasiadas');
+  comprueba('ninguna escala amontona etiquetas', apretadas === 0, apretadas + ' escalas apretadas');
+  comprueba('las etiquetas van siempre en orden', desordenadas === 0);
+
+  const corta = ctx.etiquetasFecha(serie(13));
+  comprueba('con pocas sesiones pone día y mes', /^\d+ \w+/.test(corta[0].txt), corta[0].txt);
+  comprueba('y empieza en la primera sesión', corta[0].i === 0);
+  comprueba('y acaba en la última', corta[corta.length - 1].i === 12);
+
+  const larga = ctx.etiquetasFecha(serie(90));
+  comprueba('a 90 sesiones cambia a meses', larga.slice(1).every(x => !/\d/.test(x.txt)),
+    larga.map(x => x.txt).join(' | '));
+  comprueba('y no repite el último mes dos veces',
+    new Set(larga.map(x => x.txt)).size === larga.length, larga.map(x => x.txt).join(' | '));
+
+  comprueba('con una sola sesión no dibuja eje', ctx.etiquetasFecha(serie(1)).length === 0);
+}
+
 console.log(`\n${total - fallos}/${total} comprobaciones`);
 process.exit(fallos ? 1 : 0);

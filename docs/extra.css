@@ -321,13 +321,31 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .margen-cero{border-left-color:var(--warn)}
 /* Curva de la cartera contra el indice. Dos lineas y nada mas: la escala no importa, importa
    la forma y el final. Sin ejes ni rejilla, que a 15 puntos solo serian ruido visual. */
-.grafica{margin:10px 0 0;border-radius:8px 8px 0 0;background:var(--card);padding:8px 8px 4px}
+.grafica{margin:10px 0 0;border-radius:8px 8px 0 0;background:var(--card);padding:8px 8px 2px}
+.grafica .lienzo{position:relative;touch-action:pan-y;cursor:crosshair}
 .grafica svg{display:block;width:100%;height:76px}
+/* Marca del dia señalado y sus dos puntos. En HTML y no en el SVG: el SVG se estira y un circulo
+   saldria ovalado. */
+.grafica .marca{position:absolute;top:0;bottom:0;width:1px;background:var(--muted);opacity:.55;pointer-events:none}
+.grafica .punto{position:absolute;width:7px;height:7px;border-radius:50%;margin:-3.5px 0 0 -3.5px;
+  pointer-events:none;box-shadow:0 0 0 2px var(--card)}
+.grafica .punto.pB{background:var(--muted)}
+/* Eje de fechas. Cada etiqueta se coloca en su porcentaje; las de los extremos se pegan al borde
+   para que no se salgan. A 90 sesiones solo quedan los cambios de mes: ver etiquetasFecha(). */
+.grafica .eje{position:relative;height:14px;margin-top:2px;font-size:10px;color:var(--muted)}
+.grafica .eje span{position:absolute;top:0;white-space:nowrap;transform:translateX(-50%)}
 /* Leyenda pegada debajo de la grafica, en la misma caja: una sola linea de 16 px que convierte
    dos trazos en dos cosas con nombre y resultado. Sin ella habia que leer el parrafo de abajo
    para saber cual era cual. */
-.leyenda{display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:var(--card);
+.leyenda{display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:var(--card);
   border-radius:0 0 8px 8px;padding:0 10px 8px;margin:0 0 10px;font-size:12px;color:var(--muted)}
+/* La leyenda no cambia de alto nunca: la fecha del dia señalado va flotando dentro de la grafica.
+   Antes la fecha entraba en la leyenda y en el movil la hacia pasar de 25 a 57 px, con lo que todo
+   lo de abajo saltaba mientras arrastrabas el dedo. */
+.grafica .etiqdia{position:absolute;top:4px;left:6px;font-size:11px;font-weight:600;color:var(--text);
+  background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:1px 6px;
+  pointer-events:none;white-space:nowrap}
+.grafica .etiqdia.dcha{left:auto;right:6px}
 .leyitem{display:inline-flex;align-items:center;gap:6px}
 .leyitem b{font-variant-numeric:tabular-nums}
 .muestra{display:inline-block;width:18px;height:0;border-top-width:2.5px;border-top-style:solid;border-radius:2px}

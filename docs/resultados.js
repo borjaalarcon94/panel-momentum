@@ -374,8 +374,9 @@ function bloqueOperando() {
     stat('ventas cerradas', String(r.cerradas.length), ''));
   d.appendChild(st);
   if (spy.length >= 3) {
-    d.appendChild(grafica(r.curva, spy));
-    d.appendChild(leyenda('tu cartera', r.ret, 'el S&P 500', spyRet != null ? spyRet : 0));
+    const g = grafica(r.curva, spy);
+    d.appendChild(g);
+    d.appendChild(leyenda(g, 'tu cartera', r.ret, 'el S&P 500', spyRet != null ? spyRet : 0));
   }
   d.appendChild(el('div', 'm', 'Con ' + HUECOS + ' huecos de cartera a partes iguales, en ' + r.sesiones + ' sesiones. ' +
     'Cada posición lleva su propio stop, el de la pestaña Parámetros, y cuando salta el dinero vuelve a la caja y se reinvierte en lo siguiente que entra al top. ' +
@@ -503,7 +504,32 @@ function muestraLinea(clase) {
   return s;
 }
 
-function grafica(a, b) {
+/* Etiquetas del eje de fechas, adaptadas a cuantos puntos haya. El panel publica hasta 90 sesiones
+   (DIAS en build.py), asi que esto tiene que aguantar desde 3 puntos hasta 90 sin amontonarse:
+   - hasta 45 sesiones: cinco fechas repartidas, con dia y mes ("7 oct").
+   - de 45 en adelante: la primera sesion de cada mes ("nov"), que es lo unico que cabe y ademas es
+     lo que se quiere leer a esa escala. Si aun asi salieran mas de 7, se dejan una de cada dos.
+   Siempre entran la primera y la ultima, que son las que enmarcan el tramo. */
+function etiquetasFecha(serie) {
+  const n = serie.length, mes = f => new Date(f + 'T12:00:00Z').toLocaleDateString('es-ES', { month: 'short' });
+  const dia = f => new Date(f + 'T12:00:00Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  if (n < 2) return [];
+  if (n <= 45) {
+    const cuantas = Math.min(5, n);
+    const idx = [...new Set(Array.from({ length: cuantas }, (_, i) => Math.round(i * (n - 1) / (cuantas - 1))))];
+    return idx.map(i => ({ i, txt: dia(serie[i].f) }));
+  }
+  let marcas = [{ i: 0, txt: dia(serie[0].f) }];
+  for (let i = 1; i < n; i++) if (serie[i].f.slice(0, 7) !== serie[i - 1].f.slice(0, 7)) marcas.push({ i, txt: mes(serie[i].f) });
+  /* La ultima fecha solo se añade si queda lejos de la marca anterior. Sin esto, a 90 sesiones
+     salia "feb | 5 feb" pegadas, y a 130 "abr | 2 abr": la misma informacion dos veces y encimadas. */
+  if (n - 1 - marcas[marcas.length - 1].i > n * 0.08) marcas.push({ i: n - 1, txt: dia(serie[n - 1].f) });
+  /* El adelgazado va DESPUES de añadir la ultima, no antes: hacerlo antes dejaba 8 etiquetas. */
+  while (marcas.length > 7) marcas = marcas.filter((_, j) => j % 2 === 0 || j === marcas.length - 1);
+  return marcas;
+}
+
+function grafica(a, b, nombreA, nombreB) {
   const W = 320, A = 76, base = a[0].v;
   const todo = [...a.map(x => x.v), ...b.map(x => x.v), base];
   const lo = Math.min(...todo), hi = Math.max(...todo), rango = (hi - lo) || 1;
@@ -517,7 +543,9 @@ function grafica(a, b) {
 
   const env = document.createElement('div');
   env.className = 'grafica';
-  env.innerHTML =
+  const lienzo = document.createElement('div');
+  lienzo.className = 'lienzo';
+  lienzo.innerHTML =
     `<svg viewBox="0 0 ${W} ${A}" preserveAspectRatio="none" role="img" aria-label="Curva de la cartera frente al S&P 500">` +
     `<path d="${area}" fill="${color}" opacity="0.13" stroke="none"/>` +
     /* var(--line) es casi el color de la tarjeta: la referencia quedaba invisible. */
@@ -525,22 +553,88 @@ function grafica(a, b) {
     `<path d="${d(b)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
     `<path d="${d(a)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` +
     '</svg>';
+  /* Marca vertical y puntos del dia señalado. Van en HTML y no en el SVG porque el SVG se estira
+     (preserveAspectRatio="none") y un circulo saldria ovalado. */
+  const marca = el('div', 'marca'); marca.style.display = 'none';
+  /* La fecha del dia señalado va FLOTANDO dentro de la grafica, no en la leyenda. En el movil la
+     leyenda pasaba de 25 a 57 px al aparecer la fecha y todo lo de abajo daba un salto mientras
+     arrastrabas el dedo. Aqui no mueve nada. */
+  const etiq = el('div', 'etiqdia'); etiq.style.display = 'none';
+  const ptA = el('div', 'punto pA'); const ptB = el('div', 'punto pB');
+  ptA.style.display = ptB.style.display = 'none';
+  ptA.style.background = color;
+  lienzo.append(marca, ptA, ptB, etiq);
+  env.appendChild(lienzo);
+
+  const eje = el('div', 'eje');
+  etiquetasFecha(a).forEach(m => {
+    const s = el('span', null, m.txt);
+    s.style.left = (100 * m.i / (a.length - 1)) + '%';
+    /* Las de los extremos se pegan al borde para que no se salgan de la caja. */
+    if (m.i === 0) s.style.transform = 'none';
+    else if (m.i === a.length - 1) s.style.transform = 'translateX(-100%)';
+    eje.appendChild(s);
+  });
+  env.appendChild(eje);
+
+  /* Leer un dia concreto: al pasar el dedo o el raton, la leyenda de abajo cambia y enseña la fecha
+     y lo que valia la cartera y el indice ESE dia. Con 90 sesiones no caben 90 etiquetas, asi que
+     esta es la forma de "saber que rentabilidad ha tenido cada dia" sin llenar la pantalla. */
+  env._leer = null;
+  const mover = ev => {
+    const r = lienzo.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+    const i = Math.round(frac * (a.length - 1));
+    const pos = 100 * i / (a.length - 1);
+    marca.style.display = ''; marca.style.left = pos + '%';
+    ptA.style.display = ''; ptA.style.left = pos + '%'; ptA.style.top = (100 * py(a[i].v) / A) + '%';
+    const j = Math.min(i, b.length - 1);
+    ptB.style.display = ''; ptB.style.left = (100 * j / Math.max(b.length - 1, 1)) + '%';
+    ptB.style.top = (100 * py(b[j].v) / A) + '%';
+    etiq.style.display = ''; etiq.textContent = fFecha(a[i].f);
+    /* Se cambia de lado al pasar de la mitad para que no se salga de la caja. */
+    etiq.classList.toggle('dcha', pos > 55);
+    if (env._leer) env._leer(a[i], b[j]);
+  };
+  const salir = () => {
+    marca.style.display = ptA.style.display = ptB.style.display = etiq.style.display = 'none';
+    if (env._leer) env._leer(null, null);
+  };
+  lienzo.addEventListener('pointermove', mover);
+  lienzo.addEventListener('pointerdown', mover);
+  lienzo.addEventListener('pointerleave', salir);
+  lienzo.addEventListener('pointercancel', salir);
   return env;
 }
 
 /* La leyenda va aparte para poder nombrar cada linea con su resultado: es lo que convierte dos
-   trazos en dos cosas distinguibles de un vistazo. */
-function leyenda(nombreA, retA, nombreB, retB) {
+   trazos en dos cosas distinguibles de un vistazo. Y es tambien donde se lee el dia señalado: al
+   pasar el dedo por la grafica, las cifras finales se sustituyen por las de ESE dia y la fecha.
+   Asi se puede mirar dia a dia sin gastar ni un pixel mas de alto. */
+function leyenda(g, nombreA, retA, nombreB, retB) {
   const l = el('div', 'leyenda');
   const item = (clase, nombre, ret) => {
     const s = el('span', 'leyitem');
     s.appendChild(muestraLinea(clase));
-    s.appendChild(el('b', ret >= 0 ? 'up' : 'down', pc(ret)));
-    s.appendChild(el('span', null, ' ' + nombre));
-    return s;
+    const b = el('b', ret >= 0 ? 'up' : 'down', pc(ret));
+    const nm = el('span', null, ' ' + nombre);
+    s.append(b, nm);
+    return { s, b };
   };
-  l.appendChild(item(retA >= 0 ? 'mA' : 'mA mBaja', nombreA, retA));
-  l.appendChild(item('mB', nombreB, retB));
+  const iA = item(retA >= 0 ? 'mA' : 'mA mBaja', nombreA, retA);
+  const iB = item('mB', nombreB, retB);
+  l.append(iA.s, iB.s);
+  if (g) g._leer = (pa, pb) => {
+    if (!pa) {
+      iA.b.textContent = pc(retA); iA.b.className = retA >= 0 ? 'up' : 'down';
+      iB.b.textContent = pc(retB); iB.b.className = retB >= 0 ? 'up' : 'down';
+      return;
+    }
+    /* Las curvas arrancan en 100, asi que el valor menos 100 es la rentabilidad acumulada ese dia. */
+    const ra = pa.v - 100, rb = pb ? pb.v - 100 : 0;
+    iA.b.textContent = pc(ra); iA.b.className = ra >= 0 ? 'up' : 'down';
+    iB.b.textContent = pc(rb); iB.b.className = rb >= 0 ? 'up' : 'down';
+  };
   return l;
 }
 
@@ -555,8 +649,9 @@ function bloqueCartera() {
     stat('su peor caída', pc(c.caida), 'down'));
   d.appendChild(st);
   if (c.spy.length >= 3) {
-    d.appendChild(grafica(c.serie, c.spy));
-    d.appendChild(leyenda('la cartera del top', c.ret, 'el S&P 500', c.spyRet != null ? c.spyRet : 0));
+    const g = grafica(c.serie, c.spy);
+    d.appendChild(g);
+    d.appendChild(leyenda(g, 'la cartera del top', c.ret, 'el S&P 500', c.spyRet != null ? c.spyRet : 0));
   }
   d.appendChild(el('div', 'm', 'En ' + c.sesiones + ' sesiones. ' +
     'A diferencia de la cifra grande de más arriba, aquí la rentabilidad se encadena en vez de promediarse: ' +
