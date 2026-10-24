@@ -955,6 +955,17 @@ for (const f of orden) {
     ? ok('y enseña cuánto cambia según las posiciones que lleves')
     : mal('esconde la sensibilidad al número de posiciones');
 
+  /* Las graficas tienen que decir cual linea es cual. Antes eran dos trazos sueltos y habia que
+     leer el parrafo de debajo para saberlo. La leyenda va en HTML y no dentro del SVG justo para
+     que se pueda comprobar aqui: el stub descarta innerHTML, asi que el SVG es invisible al test. */
+  /tu cartera/.test(txtRes) && /el S&P 500/.test(txtRes)
+    ? ok('las gráficas llevan leyenda con el nombre de cada línea')
+    : mal('las gráficas no dicen cuál línea es cuál', txtRes.slice(0, 200));
+  /* Y con el resultado de cada una pegado a su muestra, no solo el nombre. */
+  /[+-−]\d+[,.]\d+\s*% tu cartera/.test(txtRes.replace(/\s+/g, ' '))
+    ? ok('y el resultado de cada línea junto a su nombre')
+    : mal('la leyenda no lleva el resultado de cada línea');
+
   /* Freno al amontonamiento. La pestaña llegó a tener SIETE bloques de golpe y se hizo ilegible.
      Arriba solo puede haber lo que contesta la pregunta; el resto va plegado. */
   /* El stub de DOM no tiene querySelector (devuelve null siempre), asi que se recorre a mano. */

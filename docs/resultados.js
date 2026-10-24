@@ -332,7 +332,10 @@ function bloqueOperando() {
     stat('lo peor que llegaste a estar', pc(r.caida), 'down'),
     stat('ventas cerradas', String(r.cerradas.length), ''));
   d.appendChild(st);
-  if (spy.length >= 3) d.appendChild(grafica(r.curva, spy));
+  if (spy.length >= 3) {
+    d.appendChild(grafica(r.curva, spy));
+    d.appendChild(leyenda('tu cartera', r.ret, 'el S&P 500', spyRet != null ? spyRet : 0));
+  }
   d.appendChild(el('div', 'm', 'Con ' + HUECOS + ' huecos de cartera a partes iguales, en ' + r.sesiones + ' sesiones. ' +
     'Cada posición lleva su propio stop, el de la pestaña Parámetros, y cuando salta el dinero vuelve a la caja y se reinvierte en lo siguiente que entra al top. ' +
     'Quedan ' + r.abiertas + ' posiciones abiertas al final, contadas a precio de hoy.'));
@@ -425,20 +428,63 @@ function carteraDelTop() {
 }
 
 /* Dos curvas en un SVG pequeno. Sin libreria: son 15 puntos. */
+/* Dos curvas y una leyenda. Antes eran dos lineas sueltas de 70 px sin nada mas: sabias que habia
+   dos pero no cual era cual sin leer el parrafo de debajo, y no se veia donde estaba el cero.
+
+   Lo que se anade sin crecer apenas (70 -> 76 px de dibujo, mas una linea de leyenda de 16):
+   - Linea de referencia en el punto de partida: arriba de ella ganas, abajo pierdes.
+   - La cartera va rellena y solida; el indice, discontinuo y gris. Se distinguen tambien en blanco
+     y negro y para quien no separa bien el rojo del verde, que con dos lineas de color no pasaba.
+   - Leyenda con el resultado final de cada una pegado a su muestra de linea, en HTML y no dentro
+     del SVG: el SVG se estira para llenar el ancho (preserveAspectRatio="none") y cualquier texto
+     dentro saldria deformado.
+   - vector-effect="non-scaling-stroke" para que ese estirado no engorde los trazos ni deforme los
+     guiones del indice. */
+function muestraLinea(clase) {
+  const s = document.createElement('span');
+  s.className = 'muestra ' + clase;
+  return s;
+}
+
 function grafica(a, b) {
-  const W = 320, A = 70, todo = [...a.map(x => x.v), ...b.map(x => x.v)];
+  const W = 320, A = 76, base = a[0].v;
+  const todo = [...a.map(x => x.v), ...b.map(x => x.v), base];
   const lo = Math.min(...todo), hi = Math.max(...todo), rango = (hi - lo) || 1;
   const px = (xs, i) => 1 + i * (W - 2) / Math.max(xs.length - 1, 1);
-  const py = v => A - 4 - (v - lo) / rango * (A - 8);
-  const linea = (xs, color, ancho) => {
-    const d = xs.map((p, i) => (i ? 'L' : 'M') + px(xs, i).toFixed(1) + ' ' + py(p.v).toFixed(1)).join(' ');
-    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${ancho}" stroke-linejoin="round"/>`;
+  const py = v => A - 5 - (v - lo) / rango * (A - 10);
+  const d = xs => xs.map((p, i) => (i ? 'L' : 'M') + px(xs, i).toFixed(1) + ' ' + py(p.v).toFixed(1)).join(' ');
+  const gana = a[a.length - 1].v >= base;
+  const color = gana ? 'var(--up)' : 'var(--down)';
+  const yBase = py(base).toFixed(1);
+  const area = d(a) + ` L ${px(a, a.length - 1).toFixed(1)} ${yBase} L ${px(a, 0).toFixed(1)} ${yBase} Z`;
+
+  const env = document.createElement('div');
+  env.className = 'grafica';
+  env.innerHTML =
+    `<svg viewBox="0 0 ${W} ${A}" preserveAspectRatio="none" role="img" aria-label="Curva de la cartera frente al S&P 500">` +
+    `<path d="${area}" fill="${color}" opacity="0.13" stroke="none"/>` +
+    /* var(--line) es casi el color de la tarjeta: la referencia quedaba invisible. */
+    `<line x1="1" y1="${yBase}" x2="${W - 1}" y2="${yBase}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="1 4" opacity="0.5" vector-effect="non-scaling-stroke"/>` +
+    `<path d="${d(b)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
+    `<path d="${d(a)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` +
+    '</svg>';
+  return env;
+}
+
+/* La leyenda va aparte para poder nombrar cada linea con su resultado: es lo que convierte dos
+   trazos en dos cosas distinguibles de un vistazo. */
+function leyenda(nombreA, retA, nombreB, retB) {
+  const l = el('div', 'leyenda');
+  const item = (clase, nombre, ret) => {
+    const s = el('span', 'leyitem');
+    s.appendChild(muestraLinea(clase));
+    s.appendChild(el('b', ret >= 0 ? 'up' : 'down', pc(ret)));
+    s.appendChild(el('span', null, ' ' + nombre));
+    return s;
   };
-  const s = document.createElement('div');
-  s.className = 'grafica';
-  s.innerHTML = `<svg viewBox="0 0 ${W} ${A}" preserveAspectRatio="none" role="img" aria-label="Curva de la cartera frente al S&P 500">` +
-    linea(b, 'var(--muted)', 1.5) + linea(a, a[a.length - 1].v >= 100 ? 'var(--up)' : 'var(--down)', 2) + '</svg>';
-  return s;
+  l.appendChild(item(retA >= 0 ? 'mA' : 'mA mBaja', nombreA, retA));
+  l.appendChild(item('mB', nombreB, retB));
+  return l;
 }
 
 function bloqueCartera() {
@@ -451,8 +497,11 @@ function bloqueCartera() {
     stat('el S&P 500 en el mismo tramo', c.spyRet != null ? pc(c.spyRet) : '—', signo(c.spyRet || 0)),
     stat('su peor caída', pc(c.caida), 'down'));
   d.appendChild(st);
-  if (c.spy.length >= 3) d.appendChild(grafica(c.serie, c.spy));
-  d.appendChild(el('div', 'm', 'En ' + c.sesiones + ' sesiones. La línea gruesa es la cartera; la gris, el índice. ' +
+  if (c.spy.length >= 3) {
+    d.appendChild(grafica(c.serie, c.spy));
+    d.appendChild(leyenda('la cartera del top', c.ret, 'el S&P 500', c.spyRet != null ? c.spyRet : 0));
+  }
+  d.appendChild(el('div', 'm', 'En ' + c.sesiones + ' sesiones. ' +
     'A diferencia de la cifra grande de más arriba, aquí la rentabilidad se encadena en vez de promediarse: ' +
     'es el resultado del listado como un todo, no la media de cada entrada por su lado.'));
   const av = el('div', 'margen margen-cero');

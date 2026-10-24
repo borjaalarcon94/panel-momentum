@@ -321,8 +321,19 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .margen-cero{border-left-color:var(--warn)}
 /* Curva de la cartera contra el indice. Dos lineas y nada mas: la escala no importa, importa
    la forma y el final. Sin ejes ni rejilla, que a 15 puntos solo serian ruido visual. */
-.grafica{margin:10px 0;border-radius:8px;background:var(--card);padding:6px 8px}
-.grafica svg{display:block;width:100%;height:70px}
+.grafica{margin:10px 0 0;border-radius:8px 8px 0 0;background:var(--card);padding:8px 8px 4px}
+.grafica svg{display:block;width:100%;height:76px}
+/* Leyenda pegada debajo de la grafica, en la misma caja: una sola linea de 16 px que convierte
+   dos trazos en dos cosas con nombre y resultado. Sin ella habia que leer el parrafo de abajo
+   para saber cual era cual. */
+.leyenda{display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:var(--card);
+  border-radius:0 0 8px 8px;padding:0 10px 8px;margin:0 0 10px;font-size:12px;color:var(--muted)}
+.leyitem{display:inline-flex;align-items:center;gap:6px}
+.leyitem b{font-variant-numeric:tabular-nums}
+.muestra{display:inline-block;width:18px;height:0;border-top-width:2.5px;border-top-style:solid;border-radius:2px}
+.muestra.mA{border-top-color:var(--up)}
+.muestra.mA.mBaja{border-top-color:var(--down)}
+.muestra.mB{border-top-width:2px;border-top-style:dashed;border-top-color:var(--muted)}
 /* Plegable de "otras formas de medirlo". Cerrado por defecto: lo que responde la pregunta va
    arriba y esto es segunda lectura. */
 .plegable{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
