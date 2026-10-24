@@ -1515,3 +1515,31 @@ supervivencia: la decisión queda escrita en una prueba, no solo en el registro.
 **Lección para el método:** cuando se añaden varias cosas seguidas a una misma pantalla, hay que
 mirar la pantalla entera antes de dar por bueno el conjunto. Hoy se publicó cuatro veces sobre la
 misma pestaña sin hacerlo ni una sola vez.
+
+### 2026-10-24 — Las gráficas no decían cuál línea era cuál
+
+Eran dos trazos de 70 px sin leyenda, sin línea de referencia y sin nombres: se veía que había dos
+líneas, pero para saber cuál era la cartera y cuál el índice había que leer el párrafo de debajo.
+
+**Cambios, por 21 px más de alto (92 → 113 px de huella):**
+
+- **Leyenda** de una línea con la muestra de cada trazo y su resultado al lado:
+  «— +2,2 % tu cartera · ---- −2,2 % el S&P 500». Va en **HTML y no dentro del SVG** por dos razones:
+  el SVG se estira con `preserveAspectRatio="none"` y cualquier texto dentro saldría deformado; y
+  además así la prueba de humo puede comprobarla, porque el stub de DOM descarta `innerHTML` y todo
+  lo que vaya dentro del SVG le resulta invisible.
+- **Línea de referencia en el punto de partida**: por encima se gana, por debajo se pierde. No
+  existía. Primero la puse con `var(--line)`, que es casi el color de la tarjeta y no se veía nada;
+  corregida a `var(--muted)` al 50 % tras mirarla ampliada.
+- **La cartera sólida y rellena; el índice discontinuo y gris.** Se distinguen también en blanco y
+  negro y sin depender de separar el rojo del verde, cosa que con dos líneas de color no pasaba.
+- `vector-effect="non-scaling-stroke"` para que el estirado horizontal no engorde los trazos ni
+  deforme los guiones del índice.
+
+Se quita la frase «la línea gruesa es la cartera; la gris, el índice»: con la leyenda sobra.
+
+Comprobado en **móvil (375 px, sin desbordamiento horizontal)** y en **tema claro** (tarjeta blanca,
+verde oscuro, discontinua gris, referencia visible).
+
+2 pruebas nuevas en el humo, verificadas con una mutación que quita la leyenda. **336 en verde.**
+Versión `f58eab6f`, en línea.
