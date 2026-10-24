@@ -975,8 +975,13 @@ for (const f of orden) {
     return n2;
   };
   const plegado = (porId.rres.hijos || []).find(x => x.tagName === 'DETAILS');
-  plegado ? ok('las formas secundarias de medir van plegadas')
-          : mal('no hay plegable: todo se muestra de golpe');
+  plegado ? ok('las formas secundarias van en su propia sección, separadas de la respuesta')
+          : mal('no hay sección aparte: todo se muestra de golpe');
+  /* Arranca ABIERTA: Borja la quiere a la vista. Lo que ordenó la pestaña fue el orden, no
+     esconderlas, y llegar a ellas costaba un clic que no siempre se da. */
+  !plegado || plegado.open
+    ? ok(plegado ? 'y se ven desplegadas al abrir la pestaña' : '—')
+    : mal('la sección arranca cerrada y debería verse desplegada');
   if (plegado) {
     const arriba = (porId.rres.hijos || []).filter(x => x !== plegado).reduce((s, x) => s + titulos(x), 0);
     arriba <= 2 ? ok('arriba quedan ' + arriba + ' bloques con título, no una pila de tablas')

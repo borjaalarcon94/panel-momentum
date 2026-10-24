@@ -690,16 +690,18 @@ function intervalo(filas) {
   return { lo: muestras[Math.floor(4000 * 0.025)], hi: muestras[Math.floor(4000 * 0.975)], dias: dias.length };
 }
 
-/* Un plegable. Hoy la pestana tenia SIETE bloques para contestar una sola pregunta, y el usuario
-   dijo lo obvio: que se hace lioso. Arriba se queda lo que responde —si te puedes fiar, que habria
-   pasado operando el panel y el registro en bruto— y todo lo demas, que son otras maneras de medir
-   lo mismo, baja aqui. No se borra nada: cada una existe por una razon, pero son respuesta de
-   segunda lectura, no lo primero que tienes que ver al abrir. */
+/* Un plegable, ABIERTO de entrada. La pestana tenia siete bloques para contestar una sola pregunta
+   y se hacia lioso, asi que lo que responde quedo arriba —si te puedes fiar, que habria pasado
+   operando el panel y el registro en bruto— y las otras maneras de medir lo mismo bajaron aqui.
+   Lo que resolvio el lio fue el ORDEN, no esconderlas: Borja pidio verlas desplegadas y tiene
+   sentido, porque llegar a ellas costaba un clic que no siempre se da. Sigue siendo una seccion
+   aparte y se puede cerrar; simplemente no arranca cerrada. */
 function plegable(titulo, nodos) {
   const hijos = nodos.filter(Boolean);
   if (!hijos.length) return null;
   const d = document.createElement('details');
   d.className = 'plegable';
+  d.open = true;
   const s = document.createElement('summary');
   s.textContent = titulo;
   d.appendChild(s);
