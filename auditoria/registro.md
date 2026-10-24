@@ -1776,3 +1776,40 @@ Marca, puntos y fecha van en HTML y no dentro del SVG, porque el SVG se estira c
 
 9 pruebas nuevas de `etiquetasFecha` a 15 escalas, más 2 de humo verificadas con una mutación que
 quita el eje. Comprobado en móvil con `pointerdown` táctil. **342 en verde.** Versión `78dd3cb0`.
+
+### 2026-10-24 — El bloque del listado decía justo lo contrario de lo que hacía
+
+Borja, leyendo los dos bloques juntos: *«¿pero cómo que el listado entero? ¿Que si no hubiera
+vendido nada? Pero si hay acciones que han salido de ese listado. No entiendo nada de esto.»*
+
+**Tenía razón: el título mentía.** «Si hubieras comprado el listado entero, como una sola cartera»
+se lee como comprar y no vender nunca. Es **lo contrario**: esa cartera vende, y vende mucho. Vende
+el día que una acción se cae del top, compra la que entra, cada sesión, **moviendo el 26 % de la
+cartera cada día**. Y lo que **no** usa es el stop.
+
+Nada de eso estaba escrito, así que el +4,9 % chocaba de frente con el +2,4 % de arriba sin ninguna
+forma de entender la diferencia. Dos cifras contradictorias en la misma pantalla es peor que no
+enseñar ninguna.
+
+**Cambios:**
+- Título: «**Si siguieras el listado a rajatabla: fuera lo que sale, dentro lo que entra**».
+- Debajo, en una línea: cada sesión te quedas con las 10 del top, vendes la que se cae y compras la
+  que entra. **Aquí no hay stop**: la única señal de venta es salirse del top.
+- Puente con la cifra de arriba, igual que el que ya existe en la tabla por entrada:
+  *«¿Por qué +4,9 % aquí y +2,4 % más arriba?»* → arriba vendes con el stop aunque siga en el top;
+  aquí vendes al caerse del top aunque el stop no haya saltado; arriba 5 posiciones, aquí 10.
+  **Son dos formas distintas de salir, no dos cuentas del mismo sistema.**
+- El aviso de «no es para copiarlo» añade lo importante: ahí te quedarías **sin stop**, y una acción
+  puede desplomarse sin salir del top.
+- La etiqueta de la cifra pasa de «la cartera» a «siguiendo el listado».
+
+Dos comprobaciones de humo apuntaban a los rótulos viejos y se rompieron. Reapuntadas a la
+sustancia: que diga **cuándo** vende, que diga que **no hay stop**, que reconcilie con la cifra de
+arriba y que avise de que no es la operativa real.
+
+**Patrón que se repite hoy por tercera vez:** el cálculo estaba bien y el rótulo estaba mal. Pasó
+con «Las mismas entradas, tres formas de operarlas» (parecía una cartera), con «Lo que el stop habría
+vendido» (dos tablas casi iguales) y ahora con esto. Cuando una pantalla enseña varias cifras del
+mismo sistema, **cada una tiene que decir de qué es y por qué no coincide con la de al lado**.
+
+**344 en verde.** Versión `6182996c`, en línea.
