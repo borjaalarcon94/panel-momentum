@@ -1742,3 +1742,37 @@ esta noche, pero sí **antes de enero**.
    empiece a disparar, habrá que decirlo más claro.
 
 `docs/datos` crece ~14 KB por sesión: unos 3,5 MB al año. No es problema de espacio.
+
+### 2026-10-24 — Eje de fechas y lectura día a día en las gráficas
+
+Petición: ver la gráfica más completa, con los días apuntados, para saber qué llevaba la cartera cada
+día. Y que **no se vuelva loca** cuando haya meses de histórico.
+
+**Eje de fechas adaptado a la escala.** `etiquetasFecha()` cambia de modo según cuántos puntos haya:
+- hasta 45 sesiones: cinco fechas repartidas con día y mes («12 oct»)
+- de 46 en adelante: la primera sesión de cada mes («nov», «dic»), que es lo único que cabe y además
+  lo que se quiere leer a esa escala
+- si aun así pasaran de 7, se adelgaza dejando una de cada dos
+
+Probado de **2 a 400 sesiones**: nunca pasa de 7 etiquetas ni las amontona. (El tope real es 90, pero
+si algún día se sube `DIAS` el eje ya aguanta.)
+
+Dos defectos corregidos al probarlo, ninguno visible todavía con 13 puntos:
+- A 90 sesiones salía «feb | 5 feb» pegadas. La última fecha ya no se añade si queda a menos del 8 %
+  del final.
+- A 130 salían 8 etiquetas pese al límite de 7: el adelgazado iba **antes** de añadir la última.
+
+**Lectura día a día.** Con 90 puntos no caben 90 etiquetas, así que al pasar el dedo o el ratón por
+la curva aparece una marca vertical, un punto sobre cada línea, la fecha flotando dentro de la
+gráfica, y **la leyenda cambia a las cifras de ese día**. Al soltar vuelve a los totales. No ocupa ni
+un píxel más de alto.
+
+La fecha va **dentro** de la gráfica y no en la leyenda a propósito: metida en la leyenda, en el
+móvil la hacía pasar de 25 a 57 px y todo lo de abajo saltaba mientras arrastrabas el dedo.
+Comprobado: 25 px en reposo y 25 al tocar.
+
+Marca, puntos y fecha van en HTML y no dentro del SVG, porque el SVG se estira con
+`preserveAspectRatio="none"` y un círculo saldría ovalado.
+
+9 pruebas nuevas de `etiquetasFecha` a 15 escalas, más 2 de humo verificadas con una mutación que
+quita el eje. Comprobado en móvil con `pointerdown` táctil. **342 en verde.** Versión `78dd3cb0`.
