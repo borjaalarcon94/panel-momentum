@@ -1588,3 +1588,40 @@ incompletas pasaban por debajo. Y un comentario que describe una limitación («
 envejece: cuando la limitación desaparece, el comentario sigue ahí justificando el código viejo.
 
 **338 comprobaciones en verde.** Versión `20e3f47d`, en línea.
+
+### 2026-10-24 — Auditoría completa de todas las cifras de la pestaña Resultados
+
+Tras el fallo del stop, pregunta razonable: *"¿has comprobado el resto de tablas y rentabilidades?"*.
+No lo había hecho. Se hace ahora, **recalculando todo en Python por un camino de código distinto** y
+comparando contra lo que pinta la web en producción.
+
+**Todo cuadra. 0 fallos nuevos.**
+
+| bloque | web | recálculo independiente |
+|---|---|---|
+| contador de estado | 14 sesiones · 29 anotadas · 0 maduras · vie 20 nov | 14 · 29 · 0 · 2026-11-20 ✓ |
+| cartera operada (5 huecos) | +2,2 % · −2,2 % S&P · −3,2 % · 2 ventas | +2,24 · −2,22 · −3,23 · 2 ✓ |
+| sensibilidad | 3 → −2,7 · 8 → +2,9 · 10 → +2,6 | −2,71 · +2,89 · +2,56 ✓ |
+| ventas de la cartera | COHU −17,7 · FEIM −5,6 | −17,72 · −5,60 ✓ |
+| grupos | 9 / 19 / 28 · +12,1 / −5,6 / +0,1 | idéntico ✓ |
+| tres formas | +0,1 / +4,2 / +1,2 y sus medianas, % positivos, peores | idéntico ✓ |
+| stop por entrada | COHU −21,0 · XMTR −14,0 · FEIM −12,6 · OSCR −6,4 | idéntico ✓ |
+| comparado con el S&P | +0,1 / −1,7 / +1,8 pt | idéntico ✓ |
+| beta | 1,63 → exceso +2,8 pt | idéntico ✓ |
+| margen de error | [−1,7, +7,4] pt | [−1,87, +7,14] con otra semilla ✓ |
+| **registro, 28 filas × 6 campos** | nota, precio de entrada, precio de hoy, cambio, S&P de su ventana, sesiones | **168 celdas, todas correctas** ✓ |
+
+**Dos discrepancias aparecieron y las dos eran de mi verificador, no de la app:**
+1. Contaba 29 entradas donde la web cuenta 28. La web excluye con razón **RBRK** (debutó en la
+   última sesión, cero recorrido) y **BLFS** (deslistada, sin precio de hoy). A mi script le faltaban
+   esos dos filtros.
+2. Cuatro notas diferían en 1 punto (ELF, CAI, SLDE, GCT). Las cuatro valen exactamente `x,5` y
+   Python redondea al par con `round()`, mientras la web redondea hacia arriba. Convención distinta,
+   no error.
+
+El único fallo real del día en esta pestaña sigue siendo el del stop con argumentos de menos, ya
+corregido y con prueba de integridad que lo vigila.
+
+**Alcance de esta auditoría:** las cifras de la pestaña Resultados, contrastadas contra `panel.json`
+y `precios.json`. **No cubre** si esos dos ficheros reflejan bien el mercado (eso depende de
+TradingView y del build), ni las pestañas Seguimiento, Mis posiciones y Parámetros.
