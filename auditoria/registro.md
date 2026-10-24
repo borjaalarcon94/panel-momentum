@@ -1482,3 +1482,36 @@ reinvertir el dinero de las ventas (caza 2)— más 4 guardarraíles en el humo.
 (`cae`, `tres`). Con el bloque, ese error deja de ser posible.
 
 Versión `d7570450`, en línea.
+
+### 2026-10-24 — La pestaña Resultados se había vuelto ilegible
+
+Al terminar la jornada la pestaña tenía **siete bloques** para contestar una sola pregunta. El propio
+usuario lo dijo: *"ahora hay muchas tablas y datos, es un poco lioso"*. Tenía razón, y la causa es
+clara: hoy se fueron añadiendo bloques de uno en uno sin mirar nunca el resultado completo. Cada
+añadido estaba justificado por separado; el conjunto, no.
+
+**Arriba queda solo lo que responde:**
+1. ¿Me puedo fiar ya de estos números? → el contador de madurez
+2. Si hubieras operado el panel → **la respuesta**
+3. Lo que llevamos anotado → el registro en bruto
+
+**Y en un plegable «Otras formas de medirlo», cerrado por defecto:** el listado entero como una sola
+cartera, el desglose dentro/fuera del top, las tres formas de operarlas con lo que habría vendido el
+stop, y la comparación con el S&P 500 con su margen de error y la beta.
+
+No se borra nada. Cada uno de esos bloques existe por una razón medida esta misma mañana, pero son
+**segunda lectura**, no lo primero que hay que ver al abrir.
+
+Cambio de estructura necesario: la comparación con el índice estaba **dentro** de la función del
+registro en bruto, lo que obligaba a enseñar los dos juntos. Extraída a `comparaIndice()`.
+
+**Freno para que no se repita:** prueba de humo que exige que exista el plegable, que arriba queden
+como mucho 2 bloques con título y que dentro haya 3 o más. Verificada con una mutación que vuelve a
+mostrarlo todo de golpe. Es la misma clase de guardarraíl que ya se puso contra el sesgo de
+supervivencia: la decisión queda escrita en una prueba, no solo en el registro.
+
+**334 comprobaciones en verde.** Versión `e91dd4b5`, en línea.
+
+**Lección para el método:** cuando se añaden varias cosas seguidas a una misma pantalla, hay que
+mirar la pantalla entera antes de dar por bueno el conjunto. Hoy se publicó cuatro veces sobre la
+misma pestaña sin hacerlo ni una sola vez.
