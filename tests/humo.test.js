@@ -1022,6 +1022,16 @@ for (const f of orden) {
   /Las \d+ que tendrías ahora mismo/.test(txtRes)
     ? ok('y se listan por nombre las que quedarían abiertas')
     : mal('no se ve qué acciones son', txtRes.slice(0, 200));
+  /* La fecha de compra de la cartera no es la de entrada al top, y la misma accion sale en las dos
+     tablas con fechas y rentabilidades distintas. Hay que decirlo o parece una contradiccion. */
+  /La fecha es la del día en que hubo hueco/.test(txtRes)
+    ? ok('y se avisa de que esa fecha no es la de entrada al top')
+    : mal('la misma acción sale con dos fechas sin explicar por qué');
+  /* Y las que la cartera tiene compradas no pueden quedar ocultas bajo el corte del registro:
+     "¿por qué SLDE no sale en Resultados?" cuando estaba arriba, en la cartera. */
+  /en la cartera simulada/.test(txtRes)
+    ? ok('y las que tiene la cartera se marcan en el registro')
+    : mal('las de la cartera no se distinguen en el registro');
   /ventas cerradas/.test(txtRes)
     ? ok('y cuántas ventas se han cerrado de verdad')
     : mal('no dice cuántas operaciones están cerradas');

@@ -400,7 +400,19 @@ function bloqueOperando() {
       tv.appendChild(tr);
     });
     const w = el('div', 'tw'); w.appendChild(tv); s.appendChild(w);
-    s.appendChild(el('div', 'm', 'Valoradas a precio de hoy: ninguna está cerrada, así que esto puede cambiar mañana.'));
+    /* La fecha de compra NO es la de entrada al top, y verlas distintas en la misma pestaña
+       despista: SLDE entro al top el 7 pero no se pudo comprar hasta el 14, cuando se vendio COHU
+       y quedo hueco. En el registro de mas abajo sale con su fecha de entrada al top y otra
+       rentabilidad, y las dos son correctas: miden cosas distintas. */
+    d._cartera = r.cartera.map(x => x.ticker);
+    /* La fecha de compra NO es la de entrada al top, y verlas distintas en la misma pestaña
+       despista: SLDE entro al top el 7 pero no se pudo comprar hasta el 14, cuando se vendio COHU
+       y quedo hueco. Se dice la regla y no se nombran los casos, porque le pasa practicamente a
+       todas y la lista era puro ruido. */
+    s.appendChild(el('div', 'm', 'La fecha es la del día en que hubo hueco para comprarla, no la de su entrada al top: ' +
+      'solo se compra cuando una venta libera sitio. Por eso en el registro de más abajo estas mismas acciones ' +
+      'aparecen con otra fecha y otra rentabilidad, medida desde que entraron al top. Las dos son correctas. ' +
+      'Valoradas a precio de hoy: ninguna está cerrada, así que esto puede cambiar mañana.'));
     d.appendChild(s);
   }
 
@@ -731,7 +743,7 @@ const ORDENES = {
   indice:   { t: 'por lo que le sacan al S&P 500 en sus mismos días', f: (a, b) => ((b.ret - b.sp) || -1e9) - ((a.ret - a.sp) || -1e9) },
 };
 
-function registro(xs) {
+function registro(xs, enCartera) {
   const sel = $('resorden'), clave = (sel && sel.value) || 'momentum';
   const modo = ORDENES[clave] || ORDENES.momentum;
   const verSel = $('resver');
@@ -746,9 +758,17 @@ function registro(xs) {
   const t = el('table', 'tabla'), h = el('tr');
   ['Acción', 'Entró', 'Nota al entrar', 'Precio al entrar', 'Precio ahora', 'Cambio', 'S&P 500', 'Sesiones'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
-  orden.slice(0, VER).forEach(a => {
+  /* Las que la cartera simulada tiene compradas no se esconden nunca, aunque su nota las deje por
+     debajo del corte. SLDE entro con nota 77 y quedaba en el puesto 21: la pestaña la enseñaba
+     arriba, en la cartera, y abajo parecia que no estaba ("por que SLDE no sale en Resultados?").
+     Es la misma regla que ya usa Seguimiento con las que tienes de verdad. */
+  const tiene = new Set(enCartera || []);
+  const visibles = orden.filter((a, i) => i < VER || tiene.has(a.ticker));
+  const coladas = visibles.length - Math.min(VER, orden.length);
+  visibles.forEach(a => {
     const tr = el('tr');
     const td = el('td'); td.appendChild(el('b', null, a.ticker));
+    if (tiene.has(a.ticker)) td.appendChild(el('div', 'name', 'en la cartera simulada'));
     /* Una que ha dejado de cotizar no tiene resultado, y la fila tiene que leerse asi: no como una
        fila a medio rellenar. Se queda por el sesgo de supervivencia, pero se explica sola. */
     if (a.ret == null) td.appendChild(el('div', 'name', 'dejó de cotizar el ' + fFecha(a.ultimo)));
@@ -771,7 +791,9 @@ function registro(xs) {
     t.appendChild(tr);
   });
   const w = el('div', 'tw'); w.appendChild(t); d.appendChild(w);
-  if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + VER + ' primeras de ' + orden.length + '. Cambia el desplegable de arriba a «Todas» para verlas todas.'));
+  if (orden.length > VER) d.appendChild(el('div', 'm', 'Se muestran las ' + Math.min(VER, orden.length) + ' primeras de ' + orden.length +
+    (coladas > 0 ? ', más ' + coladas + ' que están en la cartera simulada de arriba y por eso no se ocultan' : '') +
+    '. Cambia el desplegable de arriba a «Todas» para verlas todas.'));
   return d;
 }
 
@@ -929,8 +951,9 @@ window.resultados = async function () {
      El resto son otras formas de medir lo mismo y van plegadas: ver el comentario de plegable(). */
   const operando = bloqueOperando();
   if (operando) R.appendChild(operando);
+  /* El registro necesita saber cuales tiene la cartera para no esconderlas. */
 
-  R.appendChild(registro(xs));
+  R.appendChild(registro(xs, (operando && operando._cartera) || []));
 
   const otras = plegable('Otras formas de medirlo', [
     bloqueCartera(),
