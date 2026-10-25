@@ -1881,3 +1881,64 @@ Hoy se ha aplicado a las 20 pruebas nuevas.
 **Fuera de alcance:** que `panel.json` y `precios.json` reflejen bien el mercado, que depende de
 TradingView y del build; y la lógica de Seguimiento, Mis posiciones y Parámetros, que no se ha
 reauditado. El próximo build real es el **lunes 26 a las 21:30 UTC**.
+
+### 2026-10-25 — Seguimiento medía con «no vender nunca»
+
+Borja, mirando la pestaña Seguimiento: *«¿seguro que esto está bien? ¿solo un 0,1 %? Si es que si
+saltan los stop se venden, no se mantienen.»* Tenía razón. **Es el mismo fallo que se corrigió ayer
+en Resultados**, en una pestaña que yo mismo había declarado fuera del alcance de la auditoría.
+
+La casilla de cabecera y el banner del índice usaban `a.ret`, que es «comprar y no vender nunca».
+COHU entraba en esa media con **−35 %** cuando el stop la habría sacado en **−21 %**.
+
+| | |
+|---|---|
+| lo que enseñaba | +0,1 % |
+| la media del sistema, con los stops | **+1,2 %** |
+
+### El arreglo es de fondo, no un parche
+
+El bucle que recorre una entrada aplicando las reglas estaba **duplicado**: una copia en
+`resultados.js` y ninguna en `seguimiento.js`. Ahora hay una sola:
+
+```
+reglas.js   REGLAS.recorrido(compra, sesiones, precioDe, emaDe)   ← la lógica, pura y testeable
+app.js      recorridoConReglas(clave, entrada, compra)            ← le conecta los datos
+            resultados.js y seguimiento.js lo usan
+```
+
+Esto cierra el patrón que ha costado dos fallos en dos días: ayer la misma acción salía a −15,7 % en
+una tabla y a −5,6 % en otra porque había dos copias del bucle y una llamaba a `stopDe` con dos
+argumentos de menos.
+
+**Seguimiento pasa a ser asíncrono** para cargar la serie diaria antes de pintar. Sin ella `PRECIOS`
+vale `null`, `cierre()` cae al precio del top y el recorrido solo ve los días en que la acción
+estaba **dentro** del top: con COHU veía 3 sesiones y no le saltaba el stop.
+
+### Otro fallo encontrado de camino, en `posiciones.js`
+
+El previsualizador de «si añades a esta posición, tu stop queda en…» llamaba a `stopDe` **sin
+`ganMax`**. Comprada a 100, máximo 125, hoy a 110: la tarjeta decía stop **100** y esa vista, **85**.
+Misma familia. Corregido.
+
+### Pruebas
+
+- **11 nuevas** en `reglas.test.js` para `REGLAS.recorrido`, puras y sin navegador.
+- Las de `simula()` pasan a comprobar que **delega** bien, no a reimplementar el bucle.
+- Integridad: nadie más puede mantener su propio trinquete, y **toda** llamada a `stopDe` de una
+  posición existente tiene que pasar los cuatro argumentos. Con un escáner que equilibra paréntesis,
+  porque la expresión regular cortaba dentro de `num(emaDe(f))`.
+- 5 de humo para Seguimiento, verificadas con dos mutaciones.
+
+### Dos fallos propios en las pruebas
+
+1. **`[+-−]` en 10 sitios**: no son tres símbolos, es un **rango** de `+` a `−`, o sea casi todo el
+   ASCII. Casaba con letras («o45 %») y hacía esas comprobaciones mucho más laxas de lo que
+   parecían. Escapado a `[+\-−]`.
+2. Metí las 11 pruebas nuevas **dentro del `if (fallos)`** del final del fichero: solo se habrían
+   ejecutado si algo fallaba. Es la segunda vez que cometo ese error exacto en este proyecto. Se vio
+   porque el total seguía en 95.
+
+**351 comprobaciones en verde.** Versión `6daadd8a`, verificada en producción: casilla +1,2 % «media
+con los stops», aclaración con el +0,1 % de aguantar al lado, banner coherente (+2,9 pt), cero
+errores de JavaScript.
