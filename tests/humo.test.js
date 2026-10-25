@@ -1002,6 +1002,15 @@ for (const f of orden) {
   /comprar cuando lo dice, vender con el stop/.test(txtRes)
     ? ok('se ve qué habría pasado operando el panel de verdad')
     : mal('no hay simulación de la operativa real');
+  /* Con CUANTAS posiciones, y antes de las cifras. Estaba solo en el parrafo de debajo de la
+     grafica: un +2,4 % sin saber sobre cuantas posiciones no se puede interpretar, y mas cuando
+     cambiar ese numero mueve el resultado 5 puntos. */
+  /operado el panel con \d+ posiciones/.test(txtRes)
+    ? ok('y con cuántas posiciones, en el propio título')
+    : mal('no dice sobre cuántas posiciones está calculado', txtRes.slice(0, 200));
+  /Llevas como mucho \d+ acciones a la vez/.test(txtRes)
+    ? ok('explicado antes de enseñar las cifras')
+    : mal('la explicación de la cartera no precede a las cifras');
   /ventas cerradas/.test(txtRes)
     ? ok('y cuántas ventas se han cerrado de verdad')
     : mal('no dice cuántas operaciones están cerradas');

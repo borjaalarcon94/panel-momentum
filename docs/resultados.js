@@ -345,7 +345,14 @@ function bloqueOperando() {
   const spyRet = spy.length ? spy[spy.length - 1].v - 100 : null;
 
   const d = el('div', 'blk');
-  d.appendChild(el('div', 'blt', 'Si hubieras operado el panel: comprar cuando lo dice, vender con el stop'));
+  /* Cuantas posiciones lleva la cartera va ANTES de las cifras. Estaba solo en el parrafo de debajo
+     de la grafica, que es donde no se mira: "pero operando el panel cogiendo hasta donde? las 10
+     primeras, las 5 primeras? no lo pone". Un +2,4 % sin saber sobre cuantas posiciones no se puede
+     interpretar, y mas cuando cambiar ese numero mueve el resultado 5 puntos. */
+  d.appendChild(el('div', 'blt', 'Si hubieras operado el panel con ' + HUECOS + ' posiciones: comprar cuando lo dice, vender con el stop'));
+  d.appendChild(el('div', 'm', 'Llevas como mucho ' + HUECOS + ' acciones a la vez, a partes iguales. Se compran las ' +
+    'mejor puntuadas del top según van apareciendo y, cuando a una le salta el stop, el dinero vuelve a la caja y entra ' +
+    'en la siguiente. Más abajo tienes lo que habría salido con otro número de posiciones.'));
   /* La tercera casilla enseña la DIFERENCIA con el indice, no el peor momento: es la pregunta
      ("¿le gano al S&P o no?") y hace falta restar dos numeros a mano para saberla. El peor momento
      no se pierde, baja a la linea de texto. */
@@ -361,9 +368,8 @@ function bloqueOperando() {
     d.appendChild(g);
     d.appendChild(leyenda(g, 'tu cartera', r.ret, 'el S&P 500', spyRet != null ? spyRet : 0));
   }
-  d.appendChild(el('div', 'm', 'Con ' + HUECOS + ' huecos de cartera a partes iguales, en ' + r.sesiones + ' sesiones. ' +
-    'Por el camino llegó a estar en ' + pc(r.caida) + ', que es lo que habrías tenido que aguantar. ' +
-    'Cada posición lleva su propio stop, el de la pestaña Parámetros, y cuando salta el dinero vuelve a la caja y se reinvierte en lo siguiente que entra al top. ' +
+  d.appendChild(el('div', 'm', 'En ' + r.sesiones + ' sesiones. Por el camino llegó a estar en ' + pc(r.caida) +
+    ', que es lo que habrías tenido que aguantar. Cada posición lleva su propio stop, el de la pestaña Parámetros. ' +
     'Quedan ' + r.abiertas + ' posiciones abiertas al final, contadas a precio de hoy.'));
 
   /* Sensibilidad al numero de huecos. Se incluyen 1 y 2 porque "comprar lo que mas momentum tiene"
