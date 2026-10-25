@@ -566,11 +566,11 @@ for (const f of orden) {
     const lee = () => (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card'))
       .map(c => (c.textContent.match(/^#(\d+)([A-Z]+)/) || []).slice(1))
       .filter(x => x.length).map(([n, t]) => t + ':' + n);
-    ventana.seguimiento();
+    await ventana.seguimiento();
     const corta = lee();
     const ver = (porId.rseg.hijos || []).flatMap(function f(x) { return [x, ...(x.hijos || []).flatMap(f)] })
       .find(b => /Ver las/.test(b.textContent || ''));
-    if (ver && ver.onclick) ver.onclick();
+    if (ver && ver.onclick) await ver.onclick();   // seguimiento() es asincrona: hay que esperar al repintado
     const larga = lee();
     corta.length && larga.length ? ok('hay tarjetas en las dos vistas (' + corta.length + ' y ' + larga.length + ')')
       : mal('no se han pintado tarjetas', corta.length + ' / ' + larga.length);
@@ -590,11 +590,42 @@ for (const f of orden) {
        sobrevive a esta prueba, y la de orden de mas abajo daba por bueno un listado desplegado. */
     const volver = (porId.rseg.hijos || []).flatMap(function f(x) { return [x, ...(x.hijos || []).flatMap(f)] })
       .find(b => /Ver solo las/.test(b.textContent || ''));
-    if (volver && volver.onclick) volver.onclick();
+    if (volver && volver.onclick) await volver.onclick();
     const plegada = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card')).length;
     const visAqui = Number((src.match(/const VISIBLES = (\d+)/) || [])[1] || 5);
     plegada <= visAqui + 4 ? ok('y la lista vuelve a plegarse, sin dejar estado colgando (' + plegada + ' tarjetas)')
       : mal('la lista se queda desplegada y contamina las pruebas siguientes', String(plegada));
+  }
+
+  /* 25/10/2026: la casilla de cabecera de Seguimiento enseñaba la media de AGUANTAR SIN VENDER
+     NUNCA (+0,1 %), no la del sistema, que vende cuando salta el stop (+1,2 %). COHU entraba en esa
+     media con -35 % cuando el stop la habria sacado en -21 %. Lo vio Borja: "si es que si saltan los
+     stop se venden, no se mantienen". */
+  console.log('\nSEGUIMIENTO MIDE CON LOS STOPS PUESTOS');
+  {
+    await ventana.seguimiento();
+    const txtSeg = porId.rseg.textContent.replace(/\s+/g, ' ');
+    /media con los stops/.test(txtSeg)
+      ? ok('la casilla dice que la media aplica las reglas de salida')
+      : mal('la media de cabecera no dice si vende o aguanta', txtSeg.slice(0, 200));
+    /Aguantando sin vender nunca saldría [+\-−][\d,]+ %/.test(txtSeg)
+      ? ok('y enseña al lado lo que saldría aguantando, para poder comparar')
+      : mal('no se puede comparar con la de aguantar');
+    /* El banner del indice tiene que usar la MISMA media que la casilla, o la pestaña se
+       contradice a si misma a dos centimetros de distancia. */
+    const casilla = (txtSeg.match(/([+\-−][\d,]+ %)media con los stops|media con los stops([+\-−][\d,]+ %)/) || []).filter(Boolean)[1];
+    const banner = (txtSeg.match(/de media ([+\-−][\d,]+ %) frente a/) || [])[1];
+    casilla && banner && casilla === banner
+      ? ok('y el banner del índice usa esa misma media (' + banner + ')')
+      : mal('la casilla y el banner no dicen lo mismo', 'casilla ' + casilla + ' / banner ' + banner);
+    /* El recorrido tiene que venir de la fuente unica, no de una copia local. */
+    const srcSeg = fs.readFileSync(path.join(dir, 'seguimiento.js'), 'utf8');
+    /recorridoConReglas/.test(srcSeg)
+      ? ok('y usa el mismo recorrido que Resultados, no una copia')
+      : mal('Seguimiento se ha hecho su propio cálculo de salidas');
+    /await cargaPrecios\(\)/.test(srcSeg)
+      ? ok('cargando antes la serie diaria, sin la que el stop no puede saltar')
+      : mal('no carga la serie: el recorrido solo vería los días dentro del top');
   }
 
   /* El corte no es un numero elegido a ojo: se midio que la puntuacion se mueve 2 puntos de mediana
@@ -656,7 +687,7 @@ for (const f of orden) {
   coh.etiquetas === coh.n ? ok('toda fila de seguimiento lleva su veredicto calculado una sola vez')
     : mal('hay filas sin veredicto', coh.etiquetas + ' de ' + coh.n);
   // Se lee el orden REAL que pinta la pestaña, no uno reordenado aqui: si no, la prueba no prueba nada.
-  ventana.seguimiento();
+  await ventana.seguimiento();
   const leer = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leer).join(' ');
   const pintadas = (porId.rseg.hijos || []).filter(c => String(c.clase || c.className || '').includes('card'))
     .map(c => Object.keys(coh.prio).find(t => new RegExp('(^|\\s)' + t + '(\\s|$)').test(leer(c))))
@@ -689,7 +720,7 @@ for (const f of orden) {
      decidir la compra de hoy, que es lo que hace la pestaña Hoy. */
   console.log('\nSEGUIMIENTO ORDENA POR MOMENTUM, SIN EXCEPCIONES');
   porId.segorden.value = 'score'; porId.segest.value = 'vivas'; porId.per.value = 90;
-  ventana.seguimiento();
+  await ventana.seguimiento();
   const porNota = vm.runInContext(`(() => {
     const filas = historial(90).filter(a => ['viable','extendida','flojea'].includes(a.estado));
     return filas.map(a => a.ticker + ':' + a.score).sort((x, y) => y.split(':')[1] - x.split(':')[1]);
@@ -730,7 +761,7 @@ for (const f of orden) {
   /* Se pintaba "#1" por la posicion en pantalla y "TOP #2" por la nota en la misma tarjeta: dos
      numeraciones distintas peleandose. En una tarjeta solo puede haber un numero de puesto. */
   console.log('\nUNA SOLA NUMERACIÓN POR TARJETA');
-  ventana.seguimiento();
+  await ventana.seguimiento();
   const tarjetas = (porId.rseg.hijos || []).filter(c => String(c.className || '').includes('card'));
   const conDosNumeros = tarjetas.filter(c => (c.textContent.match(/#\d+/g) || []).length > 1)
     .map(c => (c.textContent.match(/#\d+/g) || []).join(' y '));
@@ -965,10 +996,10 @@ for (const f of orden) {
   /* (Y ojo con quitar los espacios antes de buscar un texto que los lleva: la primera version de
      esta comprobacion hacia replace(/\s+/g,'') y luego buscaba "de diferencia". Nunca encajaba.) */
   const uno = txtRes.replace(/\s+/g, ' ');
-  /de diferencia ?[+-−][\d,]+ pt|[+-−][\d,]+ pt ?de diferencia/.test(uno)
+  /de diferencia ?[+\-−][\d,]+ pt|[+\-−][\d,]+ pt ?de diferencia/.test(uno)
     ? ok('y la diferencia con el índice ya restada')
     : mal('obliga a restar a mano la cartera y el índice', uno.slice(0, 220));
-  /llegó a estar en [+-−][\d,]+ %/.test(txtRes)
+  /llegó a estar en [+\-−][\d,]+ %/.test(txtRes)
     ? ok('sin perder lo que llegó a estar en rojo por el camino')
     : mal('se ha perdido el peor momento de la cartera');
   /todavía no es una rentabilidad media|Sin comisiones ni diferencial/.test(txtRes)
@@ -976,7 +1007,7 @@ for (const f of orden) {
     : mal('da una rentabilidad media sin avisar de la muestra');
   /* Buscaba la frase "Con otro número de huecos", que cambió. Ahora mira la sustancia: que estén
      los dos extremos —1 posición (solo la de más momentum) y 10 (el top entero)— y el abanico. */
-  /1 posición [+-−]/.test(txtRes) && /10 posiciones [+-−]/.test(txtRes)
+  /1 posición [+\-−]/.test(txtRes) && /10 posiciones [+\-−]/.test(txtRes)
     ? ok('enseña desde 1 posición hasta 10, no solo la cifra elegida')
     : mal('esconde la sensibilidad al número de posiciones', txtRes.slice(0, 200));
   /el resultado se mueve [\d,.]+ puntos/.test(txtRes)
@@ -990,7 +1021,7 @@ for (const f of orden) {
     ? ok('las gráficas llevan leyenda con el nombre de cada línea')
     : mal('las gráficas no dicen cuál línea es cuál', txtRes.slice(0, 200));
   /* Y con el resultado de cada una pegado a su muestra, no solo el nombre. */
-  /[+-−]\d+[,.]\d+\s*% tu cartera/.test(txtRes.replace(/\s+/g, ' '))
+  /[+\-−]\d+[,.]\d+\s*% tu cartera/.test(txtRes.replace(/\s+/g, ' '))
     ? ok('y el resultado de cada línea junto a su nombre')
     : mal('la leyenda no lleva el resultado de cada línea');
   /* El eje de fechas: sin el, la curva no dice CUANDO paso cada cosa. Tiene que aguantar hasta las

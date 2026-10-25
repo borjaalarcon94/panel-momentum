@@ -75,7 +75,12 @@ const ETIQUETA = {
   nocumple: ['Ya no cumple', 'ebad'], sindatos: ['Sin datos de hoy', 'eoff'],
 };
 
-window.seguimiento = function () {
+/* Asincrona, como Resultados y Mis posiciones: hace falta la serie diaria de cierres para poder
+   aplicar las reglas de salida. Sin ella, PRECIOS vale null, cierre() cae al precio del top y el
+   recorrido solo ve los dias en que la accion estaba DENTRO del top: con COHU veia 3 sesiones y no
+   le saltaba el stop, asi que la media volvia a ser la de aguantar sin vender. */
+window.seguimiento = async function () {
+  try { await cargaPrecios() } catch (e) {}
   const lim = +$('per').value, orden = $('segorden').value || 'score', filtro = $('segest').value;
   const todo = historial(lim);
   const viva = a => a.estado === 'viable' || a.estado === 'extendida' || a.estado === 'flojea';
@@ -113,14 +118,34 @@ window.seguimiento = function () {
     return;
   }
 
-  // Las dos primeras hablan de la lista viva; las dos ultimas miden como ha ido la estrategia con todas.
-  const med = todo.reduce((s, a) => s + a.ret, 0) / todo.length, pos = todo.filter(a => a.ret > 0).length;
+  /* Las dos primeras hablan de la lista viva; las dos ultimas miden como ha ido la estrategia.
+     a.ret es "comprar y no vender NUNCA", que no es lo que hace el sistema: el sistema vende cuando
+     salta el stop. Con el registro del 25/10/2026, COHU entraba en esa media con -35 % cuando el
+     stop la habria sacado en -21 %, y la media pasaba de +1,2 % a +0,1 %. Se enseña la de las
+     reglas, que es la del sistema, y la de aguantar queda al lado como referencia.
+     El recorrido lo hace REGLAS.recorrido a traves de recorridoConReglas: el mismo que usa
+     Resultados, para que las dos pestañas no puedan decir cosas distintas. */
+  const conReglas = todo.map(a => {
+    const r = window.recorridoConReglas ? window.recorridoConReglas(a.clave, a.entrada, a.precioEntrada) : null;
+    return r && r.ret != null ? r.ret : a.ret;
+  });
+  const med = conReglas.reduce((s, v) => s + v, 0) / conReglas.length;
+  const medAguanta = todo.reduce((s, a) => s + a.ret, 0) / todo.length;
+  const pos = conReglas.filter(v => v > 0).length;
   const st = el('div', 'stats');
   st.append(stat('siguen siendo oportunidad', todo.filter(viva).length), stat('descartadas', descartadas.length),
-    stat('en positivo', Math.round(pos / todo.length * 100) + ' %'), stat('media de todas', pc(med), signo(med)));
+    stat('en positivo', Math.round(pos / todo.length * 100) + ' %'),
+    stat('media con los stops', pc(med), signo(med)));
   R.appendChild(st);
+  R.appendChild(el('div', 'm', 'La media aplica las reglas de salida: lo que saltó el stop se vende ahí y no se arrastra. ' +
+    'Aguantando sin vender nunca saldría ' + pc(medAguanta) + ', que no es lo que hace el sistema. ' +
+    'El desglose completo está en la pestaña Resultados.'));
 
-  const cs = todo.filter(a => a.sp != null), spMed = cs.length ? cs.reduce((s, a) => s + a.sp, 0) / cs.length : null, gana = cs.filter(a => a.ret > a.sp).length;
+  /* El banner compara con el indice usando la MISMA media que la casilla: con a.ret decia una cosa
+     arriba y otra abajo. */
+  const retReglas = new Map(todo.map((a, i) => [a, conReglas[i]]));
+  const cs = todo.filter(a => a.sp != null), spMed = cs.length ? cs.reduce((s, a) => s + a.sp, 0) / cs.length : null,
+    gana = cs.filter(a => retReglas.get(a) > a.sp).length;
   if (spMed != null) { const d = med - spMed, B = el('div', 'banner ' + (d >= 0 ? 'okb' : 'warnb'));
     B.appendChild(el('div', 'bt', (d >= 0 ? 'El top va mejor que el mercado: ' : 'El top va peor que el mercado: ') + 'de media ' + pc(med) + ' frente a ' + pc(spMed) + ' del S&P 500 en los mismos días (' + (d >= 0 ? '+' : '') + n(d, 1) + ' puntos). ' + gana + ' de ' + cs.length + ' lo hacen mejor que el índice.'));
     R.appendChild(B) }
@@ -256,7 +281,9 @@ window.seguimiento = function () {
   if (ocultas > 0 || VER_TODAS) {
     const b = el('button', 'chip', VER_TODAS ? 'Ver solo las ' + VISIBLES + ' mejores' : 'Ver las ' + completa.length + ' que siguen vivas');
     b.style.margin = '6px 0';
-    b.onclick = () => { VER_TODAS = !VER_TODAS; window.seguimiento() };
+    /* Devuelve la promesa: seguimiento() es asincrona y sin esto quien pulse (o una prueba) no
+       puede esperar al repintado. */
+    b.onclick = () => { VER_TODAS = !VER_TODAS; return window.seguimiento() };
     R.appendChild(b);
   }
   

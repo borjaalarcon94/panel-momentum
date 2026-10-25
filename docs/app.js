@@ -84,6 +84,18 @@ async function dia(f) {
   if (!CACHE[f]) CACHE[f] = await (await fetch('datos/' + f + '.json', { cache: 'no-cache' })).json();
   return CACHE[f];
 }
+/* Envoltorio fino sobre REGLAS.recorrido(): le pasa de donde salen los cierres y las EMA 50.
+   La logica vive en reglas.js, que es puro y se puede probar sin navegador; aqui solo se conectan
+   los datos. Lo usan Resultados y Seguimiento, para que no puedan contar historias distintas del
+   mismo dia: hasta el 25/10/2026 cada una tenia su copia del bucle y daban stops diferentes. */
+function recorridoConReglas(clave, entrada, compra) {
+  return window.REGLAS.recorrido(compra,
+    FH.filter(f => f > entrada && esSesion(f)).sort(),
+    f => cierre(f, clave),
+    f => ((window.__EMAS__ || {})[f] || {})[clave]);
+}
+window.recorridoConReglas = recorridoConReglas;
+
 function racha(t, f) { let r = 0; for (let i = FH.indexOf(f); i < FH.length; i++) { if (((HIST[FH[i]] || {}).acciones || []).some(x => x.t === t)) r++; else break } return r }
 
 /* Requisitos obligatorios comprobados sobre los datos de hoy: dicen si la compra sigue siendo viable. */

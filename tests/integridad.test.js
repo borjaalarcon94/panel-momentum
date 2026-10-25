@@ -160,29 +160,52 @@ console.log('\nLA SERIE DIARIA NO TIENE HUECOS');
                      : mal('hay un tramo de la serie sin top: parece un corte de publicación', huecos.join(', '));
 }
 
-console.log('\nTODAS LAS LLAMADAS AL STOP PASAN LOS MISMOS ARGUMENTOS');
-/* Tener las reglas en un solo fichero no basta si quien las llama se deja argumentos. El 24/10/2026
-   simula() llamaba a stopDe sin ema50 y sin ganMax, asi que la pestana Resultados enseñaba la misma
-   accion salida a -15,7 % en una tabla y a -5,6 % en otra. stopDe(datos, compra, stopPrevio, ganMax):
-   una simulacion que omita ema50 usa un stop mas flojo, y una que omita ganMax reintroduce el fallo
-   de mirar la ganancia de hoy en vez de la maxima, corregido en reglas.js este mismo mes. */
+console.log('\nEL RECORRIDO VIVE EN UN SITIO Y TODO STOP MIRA EL MÁXIMO');
+/* Dos fallos seguidos nacieron de tener el recorrido duplicado: el 24/10/2026 la misma accion salia
+   a -15,7 % en una tabla y a -5,6 % en otra (una copia llamaba a stopDe sin ema50 y sin ganMax), y
+   el 25/10 Seguimiento enseñaba de titular la media "sin vender nunca" en vez de la media con los
+   stops. El bucle esta ahora en reglas.js (REGLAS.recorrido) y las pestañas lo usan a traves de
+   recorridoConReglas(). */
 {
-  const res = fuente['resultados.js'];
-  const llamadas = [...res.matchAll(/stopDe\(([\s\S]{0,200}?)\)\s*\|\|/g)].map(m => m[1]);
-  llamadas.length >= 2
-    ? ok('hay ' + llamadas.length + ' simulaciones del stop en resultados.js')
-    : mal('se esperaban al menos 2 llamadas a stopDe', llamadas.length + ' encontradas');
-  const sinEma = llamadas.filter(c => !/ema50/.test(c));
-  sinEma.length ? mal('una llamada a stopDe no pasa la EMA 50: usaría un stop más flojo', sinEma[0].replace(/\s+/g, ' ').slice(0, 90))
-                : ok('todas pasan la EMA 50');
-  /* El cuarto argumento es ganMax: se cuentan las comas de primer nivel. */
-  const sinGanMax = llamadas.filter(c => {
-    let prof = 0, comas = 0;
-    for (const ch of c) { if ('({['.includes(ch)) prof++; else if (')}]'.includes(ch)) prof--; else if (ch === ',' && prof === 0) comas++ }
-    return comas < 3;
-  });
-  sinGanMax.length ? mal('una llamada a stopDe omite ganMax: volvería a mirar la ganancia de hoy', sinGanMax[0].replace(/\s+/g, ' ').slice(0, 90))
-                   : ok('todas pasan la ganancia máxima, no la de hoy');
+  /recorridoConReglas/.test(fuente['app.js']) && /function recorrido\(/.test(fuente['reglas.js'])
+    ? ok('el recorrido vive en reglas.js y app.js solo lo conecta con los datos')
+    : mal('no se encuentra el recorrido en su sitio');
+  const copias = ficheros.filter(f => !['reglas.js', 'app.js'].includes(f) && /stopPrevio\s*=/.test(fuente[f]));
+  copias.length ? mal('alguien ha vuelto a copiar el bucle del recorrido', copias.join(', '))
+                : ok('nadie más mantiene su propio trinquete de stop');
+
+  /* Todo stopDe que hable de una posicion EXISTENTE tiene que pasar ganMax, el cuarto argumento:
+     sin el mira la ganancia de hoy y no la maxima, y una posicion que subio y retrocedio pierde la
+     proteccion del coste. La unica excepcion es stopDeEntrada, que calcula el stop de una compra
+     que aun no existe y donde la ganancia es cero por definicion. */
+  /* Se equilibran los parentesis a mano. Una expresion regular no vale: en
+     stopDe({ precio: p, ema50: num(emaDe(f)) }, c, stopPrevio, ganMax) cortaba dentro de num(...)
+     y contaba mal los argumentos, dando por mala una llamada correcta. */
+  const argumentosDe = src => {
+    const fuera = [];
+    for (let i = src.indexOf('stopDe('); i >= 0; i = src.indexOf('stopDe(', i + 1)) {
+      if (/[\w$]/.test(src[i - 1] || '')) continue;          // 'function stopDe(' y similares
+      let prof = 0, comas = 0, j = i + 'stopDe'.length;
+      for (; j < src.length; j++) {
+        const ch = src[j];
+        if ('({['.includes(ch)) prof++;
+        else if (')}]'.includes(ch)) { prof--; if (!prof) break }
+        else if (ch === ',' && prof === 1) comas++;
+      }
+      fuera.push({ args: src.slice(i, j + 1), n: comas + 1 });
+    }
+    return fuera;
+  };
+  const malas = [];
+  for (const f of ficheros) {
+    for (const ll of argumentosDe(fuente[f])) {
+      if (/^stopDe\(\s*datos,\s*precio,\s*null\s*\)$/.test(ll.args)) continue;   // stopDeEntrada: aun no hay posicion
+      if (/^function /.test(ll.args)) continue;
+      if (ll.n < 4) malas.push(f + ': ' + ll.args.replace(/\s+/g, ' ').slice(0, 70));
+    }
+  }
+  malas.length ? mal('hay llamadas a stopDe sin la ganancia máxima', malas.join(' | '))
+               : ok('todas las llamadas a stopDe de una posición pasan la ganancia máxima');
 }
 
 console.log('\nLAS REGLAS NO ESTÁN DUPLICADAS');

@@ -314,6 +314,53 @@ const pcEv = REGLAS.evaluaPosicion({ datos: { precio: 110, ema50: 95, ema21: 108
   compra: 100, maxRegistrado: 130, dias: 30, requisitos: req(), maxSerie: 130 });
 comprueba('evaluaPosicion le pasa el máximo: el stop sale en la compra', pcEv.stop, 100);
 
+/* ---- REGLAS.recorrido(): el recorrido de una entrada con las reglas de salida ---- */
+console.log('\nRECORRIDO DE UNA ENTRADA');
+{
+  const corre = (compra, precios, emas) => {
+    const f = Object.keys(precios);
+    return REGLAS.recorrido(compra, f, d => precios[d], d => (emas || {})[d]);
+  };
+  const r1 = corre(100, { a: 95, b: 90, c: 80, d: 70 });
+  comprueba('el stop corta al perder el suelo de pérdida máxima',
+    [r1.motivo, r1.fecha, Math.round(r1.ret)], ['stop', 'c', -20]);
+  comprueba('tras cortar, el peor momento con reglas se congela y el de aguantar sigue',
+    [Math.round(r1.peorCerrada), Math.round(r1.peor)], [-20, -30]);
+
+  const r2 = corre(100, { a: 105, b: 110, c: 120 });
+  comprueba('si nunca salta, no hay salida', [r2.ret, r2.fecha, r2.motivo], [null, null, null]);
+  comprueba('y el peor momento es 0 si nunca bajó de la compra', Math.round(r2.peor), 0);
+
+  /* La EMA 50 manda cuando queda por encima del suelo: sin pasarla, el stop seria mas flojo. */
+  const r3 = corre(100, { a: 96, b: 96 }, { a: 98, b: 98 });
+  comprueba('vende por la EMA 50 aunque no se haya perdido el 15 %',
+    [r3.motivo, Math.round(r3.ret)], ['stop', -4]);
+  const r4 = corre(100, { a: 96, b: 96 });
+  comprueba('y sin EMA 50 esa misma entrada aguanta', r4.motivo, null);
+
+  /* ganMax: superado el umbral de proteccion, el stop sube al coste y ya no baja. */
+  const R2 = REGLAS.R;
+  const sube = {}, pico = Math.round(100 * (1 + (R2.gananciaProteger + 5) / 100));
+  sube.a = pico; sube.b = 99;
+  const r5 = corre(100, sube);
+  comprueba('superada la ganancia de protección, el stop sube al precio de compra',
+    [r5.motivo, Math.round(r5.ret)], ['stop', -1]);
+
+  /* La devolucion maxima corta con ganancia, no con perdida. */
+  const alto = Math.round(100 * (1 + 60 / 100));
+  const r6 = corre(100, { a: alto, b: 110 });
+  comprueba('la devolución máxima corta cuando se devuelve demasiado de lo ganado',
+    [r6.motivo, Math.round(r6.ret)], ['devolución', 10]);
+
+  const r7 = corre(100, { a: null, b: null });
+  comprueba('los días sin cierre no cuentan ni rompen', [r7.vistos, r7.ret], [0, null]);
+  const r8 = corre(0, { a: 50 });
+  comprueba('un precio de compra inválido no revienta', [r8.ret, r8.vistos], [null, 0]);
+  const r9 = REGLAS.recorrido(100, null, () => 50, () => null);
+  comprueba('sin sesiones tampoco', [r9.ret, r9.vistos], [null, 0]);
+}
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
-if (fallos) { console.log(`${fallos} FALLOS`); process.exit(1); }
+if (fallos) {
+console.log(`${fallos} FALLOS`); process.exit(1); }
 

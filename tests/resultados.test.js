@@ -73,59 +73,36 @@ comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia 
    secciones de este mismo fichero (cae, tres). Con el bloque, el error es imposible. */
 
 {
-  /* ---- simula(): salida por stop, fecha de salida y peor momento (drawdown) ---- */
+  /* ---- simula(): delega en REGLAS.recorrido(), que se prueba en reglas.test.js ---- */
+{
   console.log('\nSimulacion de salidas y drawdown');
+  /* El bucle en si vive en docs/reglas.js (REGLAS.recorrido) y se prueba alli, puro. Aqui solo se
+     comprueba que simula() lo usa y traslada bien sus campos, que es donde estuvo el fallo: habia
+     una copia del bucle y llamaba a stopDe con dos argumentos de menos. */
+  let visto = null;
+  ctx.window.recorridoConReglas = (clave, entrada, compra) => {
+    visto = { clave, entrada, compra };
+    return { ret: -12.5, fecha: '2026-11-09', motivo: 'stop', peor: -20, peorCerrada: -12.5, vistos: 7 };
+  };
+  const r = ctx.simula([{ clave: 'NASDAQ:X', ticker: 'X', entrada: '2026-11-02', precio: 100,
+                          sesiones: 10, ret: -30, retAlSalir: -8 }])[0];
+  comprueba('simula pasa símbolo, fecha de entrada y precio de compra al recorrido',
+    visto && visto.clave === 'NASDAQ:X' && visto.entrada === '2026-11-02' && visto.compra === 100,
+    JSON.stringify(visto));
+  comprueba('y usa la rentabilidad del recorrido, no la de hoy', r.conReglas === -12.5, 'conReglas = ' + r.conReglas);
+  comprueba('traslada el motivo y la fecha de salida', r.motivo === 'stop' && r.fSalida === '2026-11-09');
+  comprueba('traslada los dos peores momentos', r.peor === -20 && r.peorConReglas === -12.5);
+  comprueba('la cobertura es sesiones con cierre entre sesiones transcurridas',
+    Math.abs(r.cobertura - 0.7) < 1e-9, 'cobertura = ' + r.cobertura);
 
-  /* Entorno minimo: la funcion usa FH (sesiones), esSesion, cierre() y window.REGLAS. */
-  function conSerie(serie, compra) {
-    const fechas = serie.map((_, i) => '2026-11-' + String(i + 2).padStart(2, '0'));
-    ctx.FH = ['2026-11-01', ...fechas];
-    ctx.esSesion = () => true;
-    ctx.cierre = (f) => { const i = fechas.indexOf(f); return i < 0 ? null : serie[i] };
-    ctx.window.REGLAS = {
-      /* Mismo contrato que docs/reglas.js: suelo al -15 %, sube al coste superado el +20 %, nunca baja. */
-      stopDe: (datos, c, prev) => Math.max(c * 0.85, prev || 0),
-      limiteDevolucion: () => null,
-    };
-    return ctx.simula([{ clave: 'X', ticker: 'X', entrada: '2026-11-01', precio: compra,
-                         sesiones: serie.length, ret: (serie[serie.length - 1] / compra - 1) * 100,
-                         retAlSalir: null }])[0];
-  }
-
-  const sube = conSerie([105, 110, 120], 100);
-  comprueba('sin tocar el stop no hay salida', sube.fSalida === null && sube.motivo === null,
-    JSON.stringify({ f: sube.fSalida, m: sube.motivo }));
-  comprueba('si nunca baja del precio de compra, el peor momento es 0',
-    Math.abs(sube.peor) < 1e-9, 'peor = ' + sube.peor);
-
-  const cae = conSerie([95, 90, 80, 70], 100);
-  comprueba('el stop corta cuando el cierre pierde el suelo del 15 %',
-    cae.motivo === 'stop' && cae.fSalida === '2026-11-04', JSON.stringify({ m: cae.motivo, f: cae.fSalida }));
-  comprueba('la rentabilidad con reglas es la del dia en que cortó, no la de hoy',
-    Math.abs(cae.conReglas - (-20)) < 1e-9 && Math.abs(cae.ret - (-30)) < 1e-9,
-    `conReglas=${cae.conReglas} ret=${cae.ret}`);
-
-  /* El punto fino: tras cortar, "peor momento con reglas" se CONGELA, pero el de aguantar sigue.
-     Si se usara un break, los dos se quedarian congelados y el drawdown de aguantar saldria falso. */
-  comprueba('tras la salida, el peor momento con reglas se congela',
-    Math.abs(cae.peorConReglas - (-20)) < 1e-9, 'peorConReglas = ' + cae.peorConReglas);
-  comprueba('pero el peor momento aguantando sigue bajando despues de la salida',
-    Math.abs(cae.peor - (-30)) < 1e-9, 'peor = ' + cae.peor);
-
-  /* Recuperacion: acaba en verde pero paso por rojo. El drawdown tiene que recordarlo. */
-  const vuelve = conSerie([88, 92, 103], 100);
-  comprueba('una entrada que acaba en verde recuerda lo que llegó a estar en rojo',
-    Math.abs(vuelve.peor - (-12)) < 1e-9 && vuelve.ret > 0, `peor=${vuelve.peor} ret=${vuelve.ret}`);
-  comprueba('el peor momento nunca es mejor que el resultado final',
-    vuelve.peor <= vuelve.ret + 1e-9 && cae.peor <= cae.ret + 1e-9);
-
-  const sinCierres = conSerie([], 100);
-  comprueba('sin cierres guardados no se inventa una salida',
-    sinCierres.fSalida === null && sinCierres.vistos === 0);
+  /* Si el recorrido no encuentra salida, la operacion sigue abierta y vale lo de hoy. */
+  ctx.window.recorridoConReglas = () => ({ ret: null, fecha: null, motivo: null, peor: -4, peorCerrada: -4, vistos: 3 });
+  const abierta = ctx.simula([{ clave: 'A', ticker: 'A', entrada: 'x', precio: 10, sesiones: 3, ret: 6.5, retAlSalir: null }])[0];
+  comprueba('sin salida, se queda con la rentabilidad de hoy', abierta.conReglas === 6.5);
+  comprueba('y sin fecha ni motivo de venta', abierta.fSalida === null && abierta.motivo === null);
 }
 
-{
-  /* ---- carteraDelTop(): la rentabilidad del listado como UNA cartera ---- */
+/* ---- carteraDelTop(): la rentabilidad del listado como UNA cartera ---- */
   console.log('\nLa cartera del top');
 
   /* Monta un escenario: tops por sesion y cierres por dia. */

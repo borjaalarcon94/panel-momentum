@@ -721,9 +721,18 @@ function formularioAnadir(r, alCerrar) {
       const ganN = (r.ahora / np.precio - 1) * 100;
       fila('Ganancia', pc(r.gan) + ' → ' + pc(ganN), ganN >= 0 ? 'up' : 'down');
     }
-    /* El dato que de verdad hay que ver: como queda el stop. Se recalcula con las MISMAS reglas. */
-    const antes = window.REGLAS.stopDe(r.a || { precio: r.ahora }, r.p.precio, r.p.stopMax);
-    const desp = window.REGLAS.stopDe(r.a || { precio: r.ahora }, np.precio, r.p.stopMax);
+    /* El dato que de verdad hay que ver: como queda el stop. Se recalcula con las MISMAS reglas.
+       Incluido el CUARTO argumento, la ganancia maxima: sin el, stopDe mira la ganancia de hoy y no
+       la que llegaste a tener, asi que una posicion que subio por encima del umbral de proteccion y
+       luego retrocedio salia aqui con el suelo de perdida maxima en vez de con el precio de compra.
+       Comprada a 100, maximo 125, hoy a 110: la tarjeta decia stop 100 y esta vista, 85.
+       La ganancia maxima de DESPUES se mide contra el precio medio nuevo, igual que la devolucion
+       de mas abajo: si el medio sube, lo que llegaste a ganar se encoge. */
+    const mvStop = Number(r.p.maxVisto) || Number(r.maxVisto) || null;
+    const gmAntes = mvStop ? (mvStop / r.p.precio - 1) * 100 : null;
+    const gmDesp = mvStop ? (mvStop / np.precio - 1) * 100 : null;
+    const antes = window.REGLAS.stopDe(r.a || { precio: r.ahora }, r.p.precio, r.p.stopMax, gmAntes);
+    const desp = window.REGLAS.stopDe(r.a || { precio: r.ahora }, np.precio, r.p.stopMax, gmDesp);
     if (antes != null && desp != null) {
       fila('Tu stop', n(antes) + ' $ → ' + n(desp) + ' $' + (Math.abs(desp - antes) < 0.005 ? ' (igual)' : desp > antes ? ' (sube)' : ' (baja)'),
         Math.abs(desp - antes) < 0.005 ? null : desp > antes ? 'down' : null);

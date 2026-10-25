@@ -95,46 +95,16 @@ function discrimina(maduras) {
 /* Simula las reglas completas: comprar el dia que entra y vender cuando el protocolo lo dice. */
 function simula(xs) {
   return xs.map(x => {
-    let maxVisto = x.precio, peor = x.precio, peorConReglas = x.precio;
-    let salida = null, fSalida = null, motivo = null, stopPrevio = 0, vistos = 0, cerrada = false;
-    for (const f of FH.filter(f => f > x.entrada && esSesion(f)).sort()) {
-      const p = cierre(f, x.clave);
-      if (p == null) continue;                  // no tenemos su cierre ese dia
-      vistos++;
-      maxVisto = Math.max(maxVisto, p);
-      peor = Math.min(peor, p);                 // peor momento aguantando hasta hoy
-      if (!cerrada) peorConReglas = Math.min(peorConReglas, p);
-      const gan = (p / x.precio - 1) * 100, ganMax = (maxVisto / x.precio - 1) * 100;
-      /* Mismas reglas que las posiciones reales (docs/reglas.js) y, sobre todo, las MISMAS QUE
-         operandoElPanel(): esta llamada se quedo con dos argumentos de menos y daba otro stop.
-         - Faltaba ema50. El comentario decia "sin EMA 50 historica", y era cierto cuando se
-           escribio, pero la EMA 50 diaria se guarda en docs/precios.json desde el 07/10/2026.
-           Sin ella el stop era solo el suelo del -15 %, mas flojo que el de verdad: FEIM salia
-           aqui a -15,7 % y en la cartera a -5,6 %, la misma accion con dos stops distintos.
-         - Faltaba ganMax, que es el cuarto argumento. Sin el, stopDe mira la ganancia de HOY y no
-           la maxima alcanzada: exactamente el fallo que se corrigio en reglas.js este mes, colado
-           otra vez por la puerta de atras en este punto de llamada.
-         La leccion: tener las reglas en un solo fichero no basta si quien las llama se deja
-         argumentos. La prueba de integridad vigilaba umbrales duplicados, no llamadas incompletas. */
-      if (!cerrada) {
-        const ema50 = ((window.__EMAS__ || {})[f] || {})[x.clave];
-        stopPrevio = Math.max(stopPrevio, window.REGLAS.stopDe({ precio: p, ema50 }, x.precio, stopPrevio, ganMax) || 0);
-        if (p < stopPrevio) { salida = p; fSalida = f; motivo = 'stop'; cerrada = true; continue }
-        const limite = window.REGLAS.limiteDevolucion(ganMax);
-        const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
-        if (limite != null && devuelto >= limite) { salida = p; fSalida = f; motivo = 'devolución'; cerrada = true }
-      }
-    }
-    /* Sesiones con cierre frente a sesiones transcurridas: si faltan muchas, la simulacion no ha
-       podido aplicar las reglas y hay que decirlo en vez de dar la media por buena. */
-    const pct = v => (v / x.precio - 1) * 100;
-    return { ...x, conReglas: salida != null ? pct(salida) : x.ret, motivo, fSalida,
-      vistos, cobertura: x.sesiones ? vistos / x.sesiones : 1,
+    /* El recorrido vive en app.js (recorridoConReglas) para que Seguimiento y Resultados no puedan
+       contar historias distintas del mismo dia: aqui habia una copia del bucle y en la pestaña de
+       al lado otra, y acabaron con stops diferentes. */
+    const r = window.recorridoConReglas(x.clave, x.entrada, x.precio);
+    return { ...x, conReglas: r.ret != null ? r.ret : x.ret, motivo: r.motivo, fSalida: r.fecha,
+      vistos: r.vistos, cobertura: x.sesiones ? r.vistos / x.sesiones : 1,
       alSalirDelTop: x.retAlSalir != null ? x.retAlSalir : x.ret,
-      /* Peor momento (drawdown): cuanto llego a estar en rojo antes de donde acabo. Es lo que de
-         verdad tienes que aguantar, y no se veia por ningun lado: una entrada que acaba en +3 % pero
-         paso por -18 % no es la misma operacion que una que subio recta. */
-      peor: pct(peor), peorConReglas: pct(peorConReglas) };
+      /* Peor momento (drawdown): cuanto llego a estar en rojo antes de donde acabo. Una entrada que
+         acaba en +3 % pero paso por -18 % no es la misma operacion que una que subio recta. */
+      peor: r.peor, peorConReglas: r.peorCerrada };
   });
 }
 

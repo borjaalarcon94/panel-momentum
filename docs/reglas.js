@@ -102,6 +102,50 @@
       motivos, avisos, stop, gan, ganMax, devuelto, limite, maxVisto };
   }
 
+  /* RECORRIDO DE UNA ENTRADA CON LAS REGLAS DE SALIDA. Fuente unica para toda la web.
+
+     Nace de dos fallos reales. El 24/10/2026 la misma accion salia a -15,7 % en una tabla de
+     Resultados y a -5,6 % en otra, porque habia DOS copias de este bucle y una llamaba a stopDe con
+     dos argumentos de menos. Al dia siguiente aparecio que Seguimiento enseñaba de titular la media
+     "aguantando sin vender nunca" (+0,1 %) en vez de la media con los stops puestos (+1,2 %), que
+     es lo que el sistema hace de verdad. Con el bucle aqui, las pestañas no pueden divergir.
+
+     Recibe los datos en vez de ir a buscarlos, para que esta funcion siga siendo pura:
+       compra     precio de entrada
+       sesiones   fechas posteriores a la entrada, en orden
+       precioDe   f -> cierre de ese dia, o null si no se tiene
+       emaDe      f -> EMA 50 de ese dia, o undefined
+
+     Devuelve { ret, fecha, motivo, peor, peorCerrada, vistos }. ret es null si nunca salto: quien
+     llama decide si eso significa "sigue abierta" o "vale lo de hoy". */
+  function recorrido(compra, sesiones, precioDe, emaDe) {
+    const c = num(compra);
+    if (c == null || c <= 0) return { ret: null, fecha: null, motivo: null, peor: 0, peorCerrada: 0, vistos: 0 };
+    let maxVisto = c, peor = c, peorCerrada = c;
+    let salida = null, fSalida = null, motivo = null, stopPrevio = 0, vistos = 0, cerrada = false;
+    for (const f of sesiones || []) {
+      const p = num(precioDe(f));
+      if (p == null) continue;                 // no tenemos su cierre ese dia
+      vistos++;
+      maxVisto = Math.max(maxVisto, p);
+      peor = Math.min(peor, p);
+      if (cerrada) continue;
+      peorCerrada = Math.min(peorCerrada, p);
+      const gan = (p / c - 1) * 100, ganMax = (maxVisto / c - 1) * 100;
+      /* Los CUATRO argumentos de stopDe. Sin ema50 el stop se queda en el suelo de perdida maxima,
+         mas flojo que el de verdad; sin ganMax vuelve a mirar la ganancia de hoy en vez de la
+         maxima, que es el fallo que se corrigio aqui mismo este mes. */
+      stopPrevio = Math.max(stopPrevio, stopDe({ precio: p, ema50: num(emaDe(f)) }, c, stopPrevio, ganMax) || 0);
+      if (p < stopPrevio) { salida = p; fSalida = f; motivo = 'stop'; cerrada = true; continue }
+      const limite = limiteDevolucion(ganMax);
+      const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
+      if (limite != null && alMenos(devuelto, limite)) { salida = p; fSalida = f; motivo = 'devolución'; cerrada = true }
+    }
+    const pct = v => (v / c - 1) * 100;
+    return { ret: salida != null ? pct(salida) : null, fecha: fSalida, motivo,
+      peor: pct(peor), peorCerrada: pct(peorCerrada), vistos };
+  }
+
   /* Señales de deterioro para una acción que NO tienes comprada (seguimiento y top).
      Mismas reglas de mercado, sin las que dependen de tu precio de entrada. */
   function senalesDeMercado(datos) {
@@ -148,5 +192,5 @@
              tope, invalido, precioSinTope, retrocesoNecesario, sobreEma50 };
   }
 
-  raiz.REGLAS = { R, alMenos, limiteDevolucion, stopDe, maximoDesdeCompra, evaluaPosicion, senalesDeMercado, stopDeEntrada };
+  raiz.REGLAS = { R, alMenos, limiteDevolucion, stopDe, maximoDesdeCompra, evaluaPosicion, senalesDeMercado, stopDeEntrada, recorrido };
 })(typeof window !== 'undefined' ? window : globalThis);
