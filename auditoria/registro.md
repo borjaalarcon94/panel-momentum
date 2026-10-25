@@ -1942,3 +1942,49 @@ Misma familia. Corregido.
 **351 comprobaciones en verde.** Versión `6daadd8a`, verificada en producción: casilla +1,2 % «media
 con los stops», aclaración con el +0,1 % de aguantar al lado, banner coherente (+2,9 pt), cero
 errores de JavaScript.
+
+### 2026-10-25 — PENDIENTE PARA NOVIEMBRE: ¿discrimina la puntuación?
+
+Pregunta de Borja: *«¿no tendría sentido hacer la media con el top 10 en vez de con todas?»*.
+Respuesta medida: **ya está hecha con el top 10**, porque toda acción anotada llegó al registro
+*por* entrar en el top 10. «Las que entraron en el puesto 1-10» y «todas» son el mismo conjunto de
+28, con la misma media de +1,23 %. La única variante que cambiaría el número es «las que **siguen
+hoy** en el top» (+12,07 %), que es el sesgo de supervivencia ya documentado.
+
+**Lo que sí hay que mirar en noviembre.** Al comprobarlo salió un desorden que conviene no olvidar.
+Media por entrada con los stops aplicados, según el puesto que ocupaban **al entrar**:
+
+| puesto al entrar | n | con stops |
+|---|---|---|
+| 1-2 | 4 | **−4,17 %** |
+| 1-3 | 7 | −0,18 % |
+| 1-5 | 9 | **+5,64 %** |
+| 1-10 (todas) | 28 | +1,23 % |
+
+Y por tramos de nota al entrar:
+
+| nota | n | con stops |
+|---|---|---|
+| 85 o más | 5 | +2,44 % |
+| 80-84 | 7 | **−4,14 %** |
+| 75-79 | 12 | **+4,86 %** |
+| menos de 75 | 4 | −1,80 % |
+
+**Las dos series están desordenadas.** Si la puntuación midiera algo, el rendimiento bajaría según
+baja la nota, y no lo hace: el tramo 80-84 es el peor de los cuatro y el 75-79 el mejor. Con n entre
+4 y 12 esto **es ruido y no significa nada todavía** — quedarse con el +5,64 % del puesto 1-5 sería
+elegir el número bonito. Pero es la primera señal que tenemos sobre si la nota discrimina.
+
+**Qué hacer y cuándo.** A **finales de noviembre de 2026** se alcanzan las 30 entradas maduras y la
+pestaña Resultados desbloquea sola la tarjeta «¿sirve de algo la puntuación?», que parte por la
+mediana. Entonces:
+
+1. Repetir esta tabla con las entradas maduras. Si sigue igual de desordenada, hay que hablarlo.
+2. **No tocar los pesos aun así.** El acuerdo del 7 de octubre sigue en pie: hacen falta 150-200
+   entradas para distinguir diferencias de 5-6 puntos, y 30 solo detectan diferencias de 14 pp.
+   Treinta entradas sirven para **sospechar**, no para **ajustar**.
+3. Lo que sí se puede decidir con 30: si la nota no ordena nada en absoluto, la pestaña no debería
+   presentar el orden como «más momentum» sin matizarlo.
+
+Ver también la entrada del 24/10/2026 sobre las tres tarjetas que se desbloquean solas a finales de
+noviembre y hay que colocar dentro del orden actual, no encima.
