@@ -441,36 +441,13 @@ function bloqueOperando() {
       ' con ' + n(100 / r.cartera.length, 2) + ' € como las demás, sino con lo que quedó de la posición que se vendió antes. ' +
       'Por eso un +11 % suyo pesa menos que un +11 % de las otras.'));
     cuadre.appendChild(cc);
-    s.appendChild(cuadre);
-
-    s.appendChild(el('div', 'm', 'La fecha es la del día en que hubo hueco para comprarla, no la de su entrada al top: ' +
+    /* El cuadre y la nota de fechas no se pintan aqui: se guardan y bajan al plegable del final,
+       porque son respuesta a una duda concreta y no hay que releerlas cada vez. */
+    d._cuadre = cuadre;
+    d._fechas = el('div', 'm', 'La fecha de compra es la del día en que hubo hueco, no la de su entrada al top: ' +
       'solo se compra cuando una venta libera sitio. Por eso en el registro de más abajo estas mismas acciones ' +
-      'aparecen con otra fecha y otra rentabilidad, medida desde que entraron al top. Las dos son correctas. ' +
-      'Valoradas a precio de hoy: ninguna está cerrada, así que esto puede cambiar mañana.'));
+      'aparecen con otra fecha y otra rentabilidad, medida desde que entraron al top. Las dos son correctas.');
     d.appendChild(s);
-  }
-
-  /* Sensibilidad al numero de huecos. Se incluyen 1 y 2 porque "comprar lo que mas momentum tiene"
-     tambien puede querer decir una sola accion, y es justo donde mas se dispara el resultado: con
-     13 sesiones va de -2,7 % (3 huecos) a +4,8 % (2 huecos). Ese abanico es la mejor prueba de que
-     la cifra de arriba todavia no mide nada, y esconderlo daria una precision que el dato no tiene. */
-  const otras = [1, 2, 3, 8, 10].map(h => ({ h, r: operandoElPanel(h) })).filter(x => x.r);
-  if (otras.length) {
-    const todos = [...otras.map(x => x.r.ret), r.ret];
-    const abanico = Math.max(...todos) - Math.min(...todos);
-    const li = el('div', 'margen margen-cero');
-    li.appendChild(el('b', null, 'Cambiando solo cuántas posiciones llevas, el resultado se mueve ' +
-      n(abanico, 1) + ' puntos'));
-    const det = el('div', 'm');
-    det.appendChild(el('div', null, otras.concat([{ h: HUECOS, r }])
-      .sort((a, b) => a.h - b.h)
-      .map(x => x.h + (x.h === 1 ? ' posición ' : ' posiciones ') + pc(x.r.ret) + (x.h === HUECOS ? ' ←' : ''))
-      .join(' · ')));
-    det.appendChild(el('div', null, 'Con 1 posición compras solo la de más momentum en cada momento; con 10, el top entero. ' +
-      'Que la diferencia entre unas y otras sea de ' + n(abanico, 1) + ' puntos, con tan pocas ventas cerradas, ' +
-      'significa que esto es casualidad y no una pista de cuántas llevar.'));
-    li.appendChild(det);
-    d.appendChild(li);
   }
 
   if (r.cerradas.length) {
@@ -489,15 +466,41 @@ function bloqueOperando() {
     const w = el('div', 'tw'); w.appendChild(tv); d.appendChild(w);
   }
 
+  /* UN solo aviso con las dos razones por las que esta cifra no es una rentabilidad: pocas ventas
+     cerradas y una sensibilidad enorme a una decision arbitraria. Antes eran dos recuadros
+     separados diciendo lo mismo, y la pestaña se llenaba de prosa. */
+  const otras = [1, 2, 3, 8, 10].map(h => ({ h, r: operandoElPanel(h) })).filter(x => x.r);
+  const todos = otras.length ? [...otras.map(x => x.r.ret), r.ret] : [r.ret];
+  const abanico = Math.max(...todos) - Math.min(...todos);
   const av = el('div', 'margen margen-cero');
-  av.appendChild(el('b', null, r.cerradas.length < 10
-    ? 'Solo ' + r.cerradas.length + (r.cerradas.length === 1 ? ' venta cerrada' : ' ventas cerradas') + ': esto todavía no es una rentabilidad media'
-    : 'Sin comisiones ni diferencial'));
-  av.appendChild(el('div', 'm', 'Una rentabilidad media necesita decenas de operaciones completas, y aquí ' +
-    (r.cerradas.length === 1 ? 'hay una' : 'hay ' + r.cerradas.length) + '. ' +
-    'El resto son posiciones aún abiertas valoradas a precio de hoy, que puede cambiar mañana. ' +
-    'No hay comisiones ni diferencial, y las compras se hacen al cierre del día siguiente, que es cuando tú verías la señal.'));
+  av.appendChild(el('b', null, 'Esto todavía no es una rentabilidad'));
+  const ac = el('div', 'm');
+  ac.appendChild(el('div', null, 'Solo ' + r.cerradas.length +
+    (r.cerradas.length === 1 ? ' venta cerrada' : ' ventas cerradas') +
+    '; el resto son posiciones abiertas valoradas a precio de hoy, que puede cambiar mañana. ' +
+    'Una rentabilidad media necesita decenas de operaciones completas.'));
+  if (otras.length) ac.appendChild(el('div', null, 'Y cambiar solo cuántas posiciones llevas mueve el resultado ' +
+    n(abanico, 1) + ' puntos. Si una decisión arbitraria mueve más que el resultado, el resultado no dice nada.'));
+  ac.appendChild(el('div', null, 'Sin comisiones ni diferencial. Las compras, al cierre del día siguiente, que es cuando verías la señal.'));
+  av.appendChild(ac);
   d.appendChild(av);
+
+  /* El detalle, plegado y CERRADO: el cuadre de por que sale esa cifra, la nota de las fechas y lo
+     que habria salido con otro numero de posiciones. Son respuesta a una duda concreta, no algo que
+     haya que leer cada vez que abres la pestaña. */
+  const detalle = plegable('Ver el detalle: de dónde sale esa cifra',
+    [d._cuadre, d._fechas, (function () {
+      if (!otras.length) return null;
+      const x = el('div', 'm');
+      x.appendChild(el('b', null, 'Con otro número de posiciones'));
+      x.appendChild(el('div', null, otras.concat([{ h: HUECOS, r }])
+        .sort((a, b) => a.h - b.h)
+        .map(y => y.h + (y.h === 1 ? ' posición ' : ' posiciones ') + pc(y.r.ret) + (y.h === HUECOS ? ' ←' : ''))
+        .join(' · ')));
+      x.appendChild(el('div', null, 'Con 1 posición compras solo la de más momentum en cada momento; con 10, el top entero.'));
+      return x;
+    })()], false);
+  if (detalle) d.appendChild(detalle);
   return d;
 }
 
@@ -916,12 +919,12 @@ function intervalo(filas) {
    Lo que resolvio el lio fue el ORDEN, no esconderlas: Borja pidio verlas desplegadas y tiene
    sentido, porque llegar a ellas costaba un clic que no siempre se da. Sigue siendo una seccion
    aparte y se puede cerrar; simplemente no arranca cerrada. */
-function plegable(titulo, nodos) {
+function plegable(titulo, nodos, abierto) {
   const hijos = nodos.filter(Boolean);
   if (!hijos.length) return null;
   const d = document.createElement('details');
   d.className = 'plegable';
-  d.open = true;
+  d.open = abierto !== false;
   const s = document.createElement('summary');
   s.textContent = titulo;
   d.appendChild(s);

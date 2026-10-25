@@ -1024,7 +1024,7 @@ for (const f of orden) {
     : mal('no se ve qué acciones son', txtRes.slice(0, 200));
   /* La fecha de compra de la cartera no es la de entrada al top, y la misma accion sale en las dos
      tablas con fechas y rentabilidades distintas. Hay que decirlo o parece una contradiccion. */
-  /La fecha es la del día en que hubo hueco/.test(txtRes)
+  /fecha de compra es la del día en que hubo hueco/.test(txtRes)
     ? ok('y se avisa de que esa fecha no es la de entrada al top')
     : mal('la misma acción sale con dos fechas sin explicar por qué');
   /* Y las que la cartera tiene compradas no pueden quedar ocultas bajo el corte del registro:
@@ -1120,7 +1120,7 @@ for (const f of orden) {
   /1 posición [+\-−]/.test(txtRes) && /10 posiciones [+\-−]/.test(txtRes)
     ? ok('enseña desde 1 posición hasta 10, no solo la cifra elegida')
     : mal('esconde la sensibilidad al número de posiciones', txtRes.slice(0, 200));
-  /el resultado se mueve [\d,.]+ puntos/.test(txtRes)
+  /mueve el resultado [\d,.]+ puntos/.test(txtRes)
     ? ok('y cuánto se mueve el resultado solo por esa decisión')
     : mal('no cuantifica el abanico entre unas y otras');
 
