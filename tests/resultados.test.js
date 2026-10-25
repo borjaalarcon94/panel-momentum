@@ -389,5 +389,58 @@ comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia 
   ctx.document = antes; ctx.el = antesEl; ctx.fFecha = antesF;
 }
 
+
+/* ---- la cifra de cabecera y la tabla de posiciones no pueden separarse ---- */
+{
+  console.log('\nLa cartera cuadra consigo misma');
+  /* Se comprueban INVARIANTES, no los numeros de hoy: valen igual dentro de seis meses. */
+  const e3 = ['2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04', '2026-12-05', '2026-12-06'];
+  const monta = (tops, precios, huecos) => {
+    ctx.HIST = {}; Object.entries(tops).forEach(([f, ks]) =>
+      ctx.HIST[f] = { acciones: ks.map((k, i) => ({ t: k, s: k, p: 10, sc: 90 - i })), spy: 100 });
+    ctx.FH = Object.keys(tops).sort().reverse();
+    ctx.PRECIOS = precios; ctx.window.__EMAS__ = {};
+    ctx.window.REGLAS = { R: { perdidaMaxima: 15, gananciaProteger: 20 },
+      stopDe: (d, c, prev) => Math.max(d.ema50 || 0, c * 0.85, prev || 0), limiteDevolucion: () => null };
+    return ctx.operandoElPanel(huecos);
+  };
+  const casos = [
+    ['todo sube', { [e3[0]]: ['A','B','C'], [e3[1]]: ['A','B','C'], [e3[2]]: ['A','B','C'], [e3[3]]: ['A','B','C'] },
+      Object.fromEntries(e3.map((f,i) => [f, { A: 100+i*3, B: 100+i, C: 100+i*2 }])), 3],
+    ['una se desploma y salta el stop', { [e3[0]]: ['A','B','C','D'], [e3[1]]: ['A','B','C','D'], [e3[2]]: ['B','C','D'], [e3[3]]: ['B','C','D'] },
+      Object.fromEntries(e3.map((f,i) => [f, { A: i<2?100:50, B: 100+i, C: 100, D: 100 }])), 2],
+    ['un hueco de precio', { [e3[0]]: ['A','B'], [e3[1]]: ['A','B'], [e3[2]]: ['A','B'], [e3[3]]: ['A','B'] },
+      Object.fromEntries(e3.map((f,i) => [f, i===2 ? { B: 100 } : { A: 100+i, B: 100 }])), 2],
+  ];
+  let malos = 0;
+  for (const [nom, tops, precios, h] of casos) {
+    const r = monta(tops, precios, h);
+    if (!r) { malos++; console.log('  ✗ ' + nom + ': no devuelve cartera'); continue }
+    const suma = r.cartera.reduce((s, x) => s + x.valor, 0);
+    const fin = r.curva[r.curva.length - 1].v;
+    const errs = [];
+    /* 1. La identidad contable: lo que dice la cabecera es lo que suman caja y posiciones. */
+    if (Math.abs(fin - (r.caja + suma)) > 1e-6) errs.push(`valor ${fin.toFixed(4)} != caja ${r.caja.toFixed(4)} + posiciones ${suma.toFixed(4)}`);
+    /* 2. Y la rentabilidad es ese valor menos 100. */
+    if (Math.abs(r.ret - (fin - 100)) > 1e-9) errs.push('ret no es el valor final menos 100');
+    /* 3. Nunca mas posiciones que huecos. */
+    if (r.cartera.length > h) errs.push(`${r.cartera.length} posiciones con ${h} huecos`);
+    if (r.cartera.length !== r.abiertas) errs.push('abiertas no coincide con el tamaño de la cartera');
+    /* 4. Nada puede estar abierto y cerrado a la vez. */
+    const dobles = r.cartera.filter(x => r.cerradas.some(c => c.ticker === x.ticker));
+    if (dobles.length) errs.push('abierta y cerrada a la vez: ' + dobles.map(x => x.ticker));
+    /* 5. Cada fila es coherente: valor = acciones x precio, y el % es ese precio contra la compra. */
+    for (const x of r.cartera) {
+      if (x.ahora != null && Math.abs(x.valor - x.acciones * x.ahora) > 1e-6) errs.push(x.ticker + ': valor != acciones x precio');
+      if (x.ahora != null && Math.abs(x.ret - (x.ahora / x.compra - 1) * 100) > 1e-9) errs.push(x.ticker + ': el % no sale de sus precios');
+      if (x.compra <= 0 || x.acciones <= 0) errs.push(x.ticker + ': compra o acciones no positivas');
+    }
+    /* 6. La caja nunca puede ser negativa: no se compra a credito. */
+    if (r.caja < -1e-9) errs.push('caja negativa: ' + r.caja);
+    if (errs.length) { malos++; console.log('  ✗ ' + nom + ': ' + errs.join(' | ')) }
+  }
+  comprueba('las 6 invariantes se cumplen en los ' + casos.length + ' escenarios', malos === 0, malos + ' con fallos');
+}
+
 console.log(`\n${total - fallos}/${total} comprobaciones`);
 process.exit(fallos ? 1 : 0);

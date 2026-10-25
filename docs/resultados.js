@@ -328,12 +328,17 @@ function operandoElPanel(huecos) {
   /* 'cartera' son las posiciones que quedan vivas, con nombre: "5 posiciones" no dice CUALES, y
      esa era la duda. 'abiertas' sigue siendo el numero para no romper a quien ya lo usa. */
   const ultimo = dias[dias.length - 1];
+  /* Se devuelven tambien el valor de cada posicion y la caja: sin ellos no se puede comprobar la
+     identidad contable (valor final = caja + suma de las posiciones), que es lo unico que garantiza
+     que la cifra de cabecera y la tabla de posiciones no se separen nunca. */
   return { curva, ret: curva[curva.length - 1].v - 100, caida: caida * 100,
-    cerradas, abiertas: abiertas.length, sesiones: curva.length,
-    cartera: abiertas.map(x => ({ ticker: x.ticker, desde: x.f, compra: x.compra,
-      ahora: (PRECIOS[ultimo] || {})[x.k],
-      ret: (PRECIOS[ultimo] || {})[x.k] != null ? ((PRECIOS[ultimo][x.k] / x.compra - 1) * 100) : null }))
-      .sort((a, b) => (b.ret ?? -1e9) - (a.ret ?? -1e9)) };
+    cerradas, abiertas: abiertas.length, sesiones: curva.length, caja,
+    cartera: abiertas.map(x => {
+      const ah = (PRECIOS[ultimo] || {})[x.k];
+      return { ticker: x.ticker, desde: x.f, compra: x.compra, ahora: ah, acciones: x.acc,
+        valor: x.acc * (ah != null ? ah : x.compra),
+        ret: ah != null ? (ah / x.compra - 1) * 100 : null };
+    }).sort((a, b) => (b.ret ?? -1e9) - (a.ret ?? -1e9)) };
 }
 
 /* Expuesta para que Seguimiento pueda citar la cifra de la cartera sin recalcularla por su cuenta:

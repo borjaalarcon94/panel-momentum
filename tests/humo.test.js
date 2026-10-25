@@ -1046,6 +1046,30 @@ for (const f of orden) {
     faltan.length === 0
       ? ok('las ' + enCartera.length + ' de la cartera aparecen todas en el registro, aunque su nota las deje bajo el corte')
       : mal('la cartera tiene acciones que el registro esconde', faltan.join(', '));
+
+    /* LA IDENTIDAD CONTABLE, sobre los datos REALES de hoy y no sobre un escenario inventado: la
+       cifra de cabecera tiene que ser exactamente lo que suman la caja y las posiciones de la
+       tabla. Si algun dia se separan, la pestaña estaria enseñando dos verdades distintas de la
+       misma cartera y esto lo caza en el build de esa noche. */
+    const rc = ventana.operandoElPanel && ventana.operandoElPanel(5);
+    if (rc) {
+      const suma = rc.cartera.reduce((s, x) => s + x.valor, 0);
+      const fin = rc.curva[rc.curva.length - 1].v;
+      Math.abs(fin - (rc.caja + suma)) < 1e-6
+        ? ok('la cifra de cabecera es exactamente caja + posiciones (' + fin.toFixed(2) + ')')
+        : mal('la cabecera y la tabla de posiciones no cuadran',
+              fin.toFixed(4) + ' vs ' + rc.caja.toFixed(4) + ' + ' + suma.toFixed(4));
+      Math.abs(rc.ret - (fin - 100)) < 1e-9
+        ? ok('y la rentabilidad es ese valor menos 100')
+        : mal('la rentabilidad no sale del valor final');
+      rc.caja >= -1e-9 ? ok('y la caja nunca es negativa: no se compra a crédito')
+                       : mal('caja negativa', String(rc.caja));
+      const mismos = enCartera.length === rc.cartera.length &&
+        rc.cartera.every(x => enCartera.includes(x.ticker));
+      mismos ? ok('y la tabla enseña exactamente las posiciones que tiene la cartera')
+             : mal('la tabla y la cartera no llevan las mismas acciones',
+                   enCartera.join(',') + ' vs ' + rc.cartera.map(x => x.ticker).join(','));
+    } else mal('no se puede comprobar la identidad: operandoElPanel no está expuesta');
     /en la cartera simulada/.test(txtRes)
       ? ok('y se marcan para saber por qué están ahí')
       : mal('no se distingue por qué esas filas no se ocultan');
