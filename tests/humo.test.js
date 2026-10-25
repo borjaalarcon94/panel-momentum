@@ -1011,6 +1011,17 @@ for (const f of orden) {
   /Llevas como mucho \d+ acciones a la vez/.test(txtRes)
     ? ok('explicado antes de enseñar las cifras')
     : mal('la explicación de la cartera no precede a las cifras');
+  /* Y CUALES son. "5 posiciones" no dice cual compra ni con que criterio: hay que decir que son las
+     mejor puntuadas disponibles, que una vez dentro no se rotan, y enseñar los nombres. */
+  /mejor puntuadas que hubiera disponibles/.test(txtRes)
+    ? ok('y con qué criterio se eligen esas posiciones')
+    : mal('no dice cuáles de las del top compra');
+  /ahí se queda hasta que le salta el stop/.test(txtRes)
+    ? ok('y que una vez dentro no se cambia por otra mejor')
+    : mal('no aclara si la cartera se rota o se aguanta');
+  /Las \d+ que tendrías ahora mismo/.test(txtRes)
+    ? ok('y se listan por nombre las que quedarían abiertas')
+    : mal('no se ve qué acciones son', txtRes.slice(0, 200));
   /ventas cerradas/.test(txtRes)
     ? ok('y cuántas ventas se han cerrado de verdad')
     : mal('no dice cuántas operaciones están cerradas');

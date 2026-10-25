@@ -325,8 +325,15 @@ function operandoElPanel(huecos) {
     curva.push({ f: hoy, v: valor, n: abiertas.length });
   }
   if (curva.length < 3) return null;
+  /* 'cartera' son las posiciones que quedan vivas, con nombre: "5 posiciones" no dice CUALES, y
+     esa era la duda. 'abiertas' sigue siendo el numero para no romper a quien ya lo usa. */
+  const ultimo = dias[dias.length - 1];
   return { curva, ret: curva[curva.length - 1].v - 100, caida: caida * 100,
-    cerradas, abiertas: abiertas.length, sesiones: curva.length };
+    cerradas, abiertas: abiertas.length, sesiones: curva.length,
+    cartera: abiertas.map(x => ({ ticker: x.ticker, desde: x.f, compra: x.compra,
+      ahora: (PRECIOS[ultimo] || {})[x.k],
+      ret: (PRECIOS[ultimo] || {})[x.k] != null ? ((PRECIOS[ultimo][x.k] / x.compra - 1) * 100) : null }))
+      .sort((a, b) => (b.ret ?? -1e9) - (a.ret ?? -1e9)) };
 }
 
 /* Expuesta para que Seguimiento pueda citar la cifra de la cartera sin recalcularla por su cuenta:
@@ -350,9 +357,10 @@ function bloqueOperando() {
      primeras, las 5 primeras? no lo pone". Un +2,4 % sin saber sobre cuantas posiciones no se puede
      interpretar, y mas cuando cambiar ese numero mueve el resultado 5 puntos. */
   d.appendChild(el('div', 'blt', 'Si hubieras operado el panel con ' + HUECOS + ' posiciones: comprar cuando lo dice, vender con el stop'));
-  d.appendChild(el('div', 'm', 'Llevas como mucho ' + HUECOS + ' acciones a la vez, a partes iguales. Se compran las ' +
-    'mejor puntuadas del top según van apareciendo y, cuando a una le salta el stop, el dinero vuelve a la caja y entra ' +
-    'en la siguiente. Más abajo tienes lo que habría salido con otro número de posiciones.'));
+  d.appendChild(el('div', 'm', 'Llevas como mucho ' + HUECOS + ' acciones a la vez, a partes iguales: las ' + HUECOS +
+    ' mejor puntuadas que hubiera disponibles el día que compras. Una vez dentro, ahí se queda hasta que le salta el stop — ' +
+    'no se cambia por otra que suba de puesto. Al vender, ese hueco lo ocupa la mejor puntuada que no hayas tenido ya. ' +
+    'Más abajo tienes lo que habría salido con otro número de posiciones.'));
   /* La tercera casilla enseña la DIFERENCIA con el indice, no el peor momento: es la pregunta
      ("¿le gano al S&P o no?") y hace falta restar dos numeros a mano para saberla. El peor momento
      no se pierde, baja a la linea de texto. */
@@ -369,8 +377,32 @@ function bloqueOperando() {
     d.appendChild(leyenda(g, 'tu cartera', r.ret, 'el S&P 500', spyRet != null ? spyRet : 0));
   }
   d.appendChild(el('div', 'm', 'En ' + r.sesiones + ' sesiones. Por el camino llegó a estar en ' + pc(r.caida) +
-    ', que es lo que habrías tenido que aguantar. Cada posición lleva su propio stop, el de la pestaña Parámetros. ' +
-    'Quedan ' + r.abiertas + ' posiciones abiertas al final, contadas a precio de hoy.'));
+    ', que es lo que habrías tenido que aguantar. Cada posición lleva su propio stop, el de la pestaña Parámetros.'));
+
+  /* Cuales son, con nombre y apellidos. Sin esto "5 posiciones" es un numero abstracto. */
+  if (r.cartera && r.cartera.length) {
+    const s = el('div', 'blk');
+    /* Sin clase 'blt': es una tabla DENTRO de este bloque, no una seccion nueva. La prueba de humo
+       cuenta los titulos sin plegar y salta si la pestaña vuelve a llenarse de secciones, que es
+       justo lo que la hizo ilegible ayer. */
+    const cab = el('div', 'm'); cab.appendChild(el('b', null, 'Las ' + r.cartera.length + ' que tendrías ahora mismo'));
+    s.appendChild(cab);
+    const tv = el('table', 'tabla'), hv = el('tr');
+    ['Acción', 'Comprada', 'A', 'Ahora', 'Va'].forEach(x => hv.appendChild(el('th', null, x)));
+    tv.appendChild(hv);
+    r.cartera.forEach(x => {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, x.ticker));
+      tr.appendChild(el('td', null, fFecha(x.desde)));
+      tr.appendChild(el('td', null, n(x.compra) + ' $'));
+      tr.appendChild(el('td', null, x.ahora != null ? n(x.ahora) + ' $' : '—'));
+      tr.appendChild(el('td', x.ret == null ? 'm' : x.ret >= 0 ? 'up' : 'down', x.ret == null ? '—' : pc(x.ret)));
+      tv.appendChild(tr);
+    });
+    const w = el('div', 'tw'); w.appendChild(tv); s.appendChild(w);
+    s.appendChild(el('div', 'm', 'Valoradas a precio de hoy: ninguna está cerrada, así que esto puede cambiar mañana.'));
+    d.appendChild(s);
+  }
 
   /* Sensibilidad al numero de huecos. Se incluyen 1 y 2 porque "comprar lo que mas momentum tiene"
      tambien puede querer decir una sola accion, y es justo donde mas se dispara el resultado: con
