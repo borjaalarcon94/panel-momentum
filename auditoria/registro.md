@@ -2038,3 +2038,62 @@ justo cuando aguantar sin stop arruina y rotar no salva.
 
 Ver la entrada anterior del 25/10/2026 sobre si la puntuación discrimina: las dos preguntas se
 responden con el mismo lote de datos y conviene mirarlas juntas.
+
+### 2026-10-25 — PENDIENTE PARA NOVIEMBRE (3): ¿ser más selectivo y pedir más momentum?
+
+Reflexión de Borja, compartida expresamente **sin pedir cambios**: *«quizá una forma de mejorar la
+rentabilidad es ser más selectivos con lo que metemos en el top y exigir un mayor porcentaje de
+momentum»*. Se contrasta contra sus 29 entradas reales, con los stops aplicados.
+
+**Resultado por tercios** (histórico de precios descargado de nasdaq para cada entrada, momentum
+medido el día que entró al top):
+
+| momentum a 1 mes al entrar | resultado con stops |
+|---|---|
+| bajo (+4 %) | +1,66 % |
+| medio (+15 %) | **+6,59 %** |
+| **alto (+39 %)** | **−4,66 %** |
+
+| distancia sobre la EMA 50 al entrar | resultado con stops |
+|---|---|
+| **baja (+8,9 %)** | **+6,83 %** |
+| media (+15,7 %) | −1,05 % |
+| alta (+25,6 %) | −1,67 % |
+
+Correlaciones con el resultado: momentum 3 meses **+0,08**, puntuación **+0,01**, distancia sobre la
+EMA 50 **−0,17**, momentum a 1 mes **−0,42**.
+
+Casos: COHU entró tras subir **+60 % en un mes** → **−21,0 %**. SLDE entró tras subir **+1 %** →
+**+15,9 %**.
+
+**Nada de esto es concluyente.** El −0,42 tiene un IC95 de **[−0,65, +0,12]** remuestreando por día
+de entrada: incluye el cero. Y se probaron cuatro correlaciones, así que una de ese tamaño aparece
+por azar con facilidad. n = 29, trece sesiones, un solo régimen de mercado.
+
+**Pero tres cosas independientes apuntan al mismo sitio:**
+1. Estas 29 entradas: más momentum reciente, peor resultado.
+2. La simulación de 2026 fracasó **exactamente por esto**: al ordenar por momentum puro elegía
+   acciones a **+29 % sobre su EMA 50** frente al +6,4 % de la mediana, y dio −38 %.
+3. **El propio panel ya lo sabe**: `puntuacion.js` penaliza con 10 puntos estar a más del 80 % sobre
+   la EMA 50 y con 5 por encima del 50 %, y marca esas como `extendida` para apartarlas del top.
+
+Lectura provisional: **pedir más momentum no haría el sistema más selectivo, haría que comprara más
+arriba.** El efecto de comprar fuerza ya está; lo que se añadiría es comprar agotamiento.
+
+**La mitad de la idea que sí tiene recorrido.** Hoy el top son siempre 10, aunque el décimo sea
+mediocre. Un **mínimo de puntuación** —algunos días 6 nombres, otros 10— sería selectividad de
+verdad, y es un cambio pequeño y reversible.
+
+**Pero depende enteramente de la pregunta de noviembre.** Hoy la puntuación no ordena nada
+(correlación +0,01 con el resultado, tramos desordenados). Filtrar por una nota que no discrimina
+deja menos acciones, no mejores.
+
+**Orden de decisión, en noviembre, con 30 entradas maduras:**
+1. ¿Discrimina la puntuación? Si **no**, esta idea no tiene por dónde implementarse y se archiva.
+2. Si **sí**, probar el mínimo de puntuación —no el "más momentum"— y medir cuántos días la lista se
+   queda corta y qué pasa con las descartadas.
+3. En ningún caso subir el peso del momentum sin antes explicar por qué estas tres señales
+   independientes decían lo contrario.
+
+Es la tercera pendiente de noviembre, junto a si discrimina la nota y si la cartera bloquea a las
+ganadoras tardías. Las tres se responden con el mismo lote de datos.
