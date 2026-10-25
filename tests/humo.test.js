@@ -1028,10 +1028,28 @@ for (const f of orden) {
     ? ok('y se avisa de que esa fecha no es la de entrada al top')
     : mal('la misma acción sale con dos fechas sin explicar por qué');
   /* Y las que la cartera tiene compradas no pueden quedar ocultas bajo el corte del registro:
-     "¿por qué SLDE no sale en Resultados?" cuando estaba arriba, en la cartera. */
-  /en la cartera simulada/.test(txtRes)
-    ? ok('y las que tiene la cartera se marcan en el registro')
-    : mal('las de la cartera no se distinguen en el registro');
+     "¿por qué SLDE no sale en Resultados?" cuando estaba arriba, en la cartera.
+     Un primer intento solo miraba que apareciera el texto "en la cartera simulada", y pasaba igual
+     con el filtro quitado: cuatro de las cinco estaban dentro del corte de todas formas. Hay que
+     comprobar que TODAS las de la cartera estan en el registro, que es lo que se arregla. */
+  const tablasRes = (function rec(x, acc) {
+    if (x.tagName === 'TABLE') acc.push(x);
+    (x.hijos || []).forEach(h => rec(h, acc));
+    return acc;
+  })(porId.rres, []);
+  const tCart = tablasRes.find(x => (x.hijos[0] || { hijos: [] }).hijos.some(c => /Comprada/.test(c.textContent)));
+  const tReg = tablasRes.find(x => (x.hijos[0] || { hijos: [] }).hijos.some(c => /Nota al entrar/.test(c.textContent)));
+  if (tCart && tReg) {
+    const tick = tb => tb.hijos.slice(1).map(f => (f.hijos[0] || {}).textContent || '').map(s => (s.match(/^[A-Z.]+/) || [''])[0]);
+    const enCartera = tick(tCart), enRegistro = new Set(tick(tReg));
+    const faltan = enCartera.filter(x => x && !enRegistro.has(x));
+    faltan.length === 0
+      ? ok('las ' + enCartera.length + ' de la cartera aparecen todas en el registro, aunque su nota las deje bajo el corte')
+      : mal('la cartera tiene acciones que el registro esconde', faltan.join(', '));
+    /en la cartera simulada/.test(txtRes)
+      ? ok('y se marcan para saber por qué están ahí')
+      : mal('no se distingue por qué esas filas no se ocultan');
+  } else mal('no se encuentran las tablas de cartera y registro para cruzarlas');
   /ventas cerradas/.test(txtRes)
     ? ok('y cuántas ventas se han cerrado de verdad')
     : mal('no dice cuántas operaciones están cerradas');
