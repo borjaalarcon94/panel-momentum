@@ -392,15 +392,22 @@ function bloqueOperando() {
        justo lo que la hizo ilegible ayer. */
     const cab = el('div', 'm'); cab.appendChild(el('b', null, 'Las ' + r.cartera.length + ' que tendrías ahora mismo'));
     s.appendChild(cab);
+    /* Las columnas "le tocaron" y "valen" son las que hacen entendible el total. Sin ellas la
+       pestaña enseñaba cinco posiciones al +14, +11, +10, +3 y -0,2 % y un total de +2,4 %, y eso
+       parece imposible: "si solo hay una en negativo". La clave es que NO todas partieron de lo
+       mismo. Las que entraron tras una venta en perdida recibieron lo que quedo de ella: SLDE
+       empezo con 16,46 de cada 100, no con 20, porque es lo que sobrevivio de COHU. */
     const tv = el('table', 'tabla'), hv = el('tr');
-    ['Acción', 'Comprada', 'A', 'Ahora', 'Va'].forEach(x => hv.appendChild(el('th', null, x)));
+    ['Acción', 'Le tocaron', 'Valen hoy', 'Va'].forEach(x => hv.appendChild(el('th', null, x)));
     tv.appendChild(hv);
     r.cartera.forEach(x => {
+      const coste = x.ret != null ? x.valor / (1 + x.ret / 100) : x.valor;
       const tr = el('tr');
-      tr.appendChild(el('td', null, x.ticker));
-      tr.appendChild(el('td', null, fFecha(x.desde)));
-      tr.appendChild(el('td', null, n(x.compra) + ' $'));
-      tr.appendChild(el('td', null, x.ahora != null ? n(x.ahora) + ' $' : '—'));
+      const td = el('td'); td.appendChild(el('b', null, x.ticker));
+      td.appendChild(el('div', 'name', fFecha(x.desde) + ' · ' + n(x.compra) + ' $'));
+      tr.appendChild(td);
+      tr.appendChild(el('td', null, n(coste, 2) + ' €'));
+      tr.appendChild(el('td', null, n(x.valor, 2) + ' €'));
       tr.appendChild(el('td', x.ret == null ? 'm' : x.ret >= 0 ? 'up' : 'down', x.ret == null ? '—' : pc(x.ret)));
       tv.appendChild(tr);
     });
@@ -414,6 +421,28 @@ function bloqueOperando() {
        despista: SLDE entro al top el 7 pero no se pudo comprar hasta el 14, cuando se vendio COHU
        y quedo hueco. Se dice la regla y no se nombran los casos, porque le pasa practicamente a
        todas y la lista era puro ruido. */
+    /* La reconciliacion, que es lo que de verdad contesta "no tiene sentido el 2,4 %". */
+    const coste = r.cartera.reduce((s2, x) => s2 + (x.ret != null ? x.valor / (1 + x.ret / 100) : x.valor), 0);
+    const valor = r.cartera.reduce((s2, x) => s2 + x.valor, 0);
+    const media = r.cartera.reduce((s2, x) => s2 + (x.ret || 0), 0) / r.cartera.length;
+    const cuadre = el('div', 'margen');
+    cuadre.appendChild(el('b', null, '¿Por qué ' + pc(r.ret) + ' si las cinco van a ' + pc(media) + ' de media?'));
+    const cc = el('div', 'm');
+    cc.appendChild(el('div', null, '100,00 € para empezar.'));
+    cc.appendChild(el('div', null, n(coste - 100, 2) + ' € se perdieron en las ' + r.cerradas.length +
+      ' ventas cerradas (' + r.cerradas.map(x => x.ticker).join(', ') + '), así que solo quedaron ' +
+      n(coste, 2) + ' € invertidos.'));
+    cc.appendChild(el('div', null, '+' + n(valor - coste, 2) + ' € han ganado las ' + r.cartera.length +
+      ' vivas, pero sobre esos ' + n(coste, 2) + ' €, no sobre 100.'));
+    cc.appendChild(el('div', null, 'Total ' + n(valor + r.caja, 2) + ' € → ' + pc(r.ret) + '.'));
+    const tarde2 = r.cartera.filter(x => x.ret != null && Math.abs(x.valor / (1 + x.ret / 100) - 100 / r.cartera.length) > 0.01);
+    if (tarde2.length) cc.appendChild(el('div', null, 'Fíjate en la columna «le tocaron»: ' +
+      tarde2.map(x => x.ticker).join(' y ') + ' no empeza' + (tarde2.length === 1 ? 'ron' : 'ron') +
+      ' con ' + n(100 / r.cartera.length, 2) + ' € como las demás, sino con lo que quedó de la posición que se vendió antes. ' +
+      'Por eso un +11 % suyo pesa menos que un +11 % de las otras.'));
+    cuadre.appendChild(cc);
+    s.appendChild(cuadre);
+
     s.appendChild(el('div', 'm', 'La fecha es la del día en que hubo hueco para comprarla, no la de su entrada al top: ' +
       'solo se compra cuando una venta libera sitio. Por eso en el registro de más abajo estas mismas acciones ' +
       'aparecen con otra fecha y otra rentabilidad, medida desde que entraron al top. Las dos son correctas. ' +

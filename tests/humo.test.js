@@ -1037,7 +1037,9 @@ for (const f of orden) {
     (x.hijos || []).forEach(h => rec(h, acc));
     return acc;
   })(porId.rres, []);
-  const tCart = tablasRes.find(x => (x.hijos[0] || { hijos: [] }).hijos.some(c => /Comprada/.test(c.textContent)));
+  /* Se busca por "Le tocaron", la columna del capital que recibio cada posicion. Antes se buscaba
+     "Comprada", que se quito al reorganizar las columnas. */
+  const tCart = tablasRes.find(x => (x.hijos[0] || { hijos: [] }).hijos.some(c => /Le tocaron/.test(c.textContent)));
   const tReg = tablasRes.find(x => (x.hijos[0] || { hijos: [] }).hijos.some(c => /Nota al entrar/.test(c.textContent)));
   if (tCart && tReg) {
     const tick = tb => tb.hijos.slice(1).map(f => (f.hijos[0] || {}).textContent || '').map(s => (s.match(/^[A-Z.]+/) || [''])[0]);
@@ -1064,6 +1066,26 @@ for (const f of orden) {
         : mal('la rentabilidad no sale del valor final');
       rc.caja >= -1e-9 ? ok('y la caja nunca es negativa: no se compra a crédito')
                        : mal('caja negativa', String(rc.caja));
+      /* La reconciliacion: sin ella, cinco posiciones a +14, +11, +10, +3 y -0,2 % con un total de
+         +2,4 % parece imposible. Lo que falta en la foto son las ventas cerradas, que se comieron
+         capital ANTES de reinvertirlo, y que no todas las posiciones partieron del mismo dinero. */
+      const costeT = rc.cartera.reduce((s, x) => s + (x.ret != null ? x.valor / (1 + x.ret / 100) : x.valor), 0);
+      const mediaT = rc.cartera.reduce((s, x) => s + (x.ret || 0), 0) / rc.cartera.length;
+      const difMedia = Math.abs(mediaT - rc.ret);
+      /* Si la media simple y el total se parecen, no hay nada que explicar; si se separan, el
+         cuadre tiene que estar. Hoy la media es +7,5 % y el total +2,4 %. */
+      difMedia < 1
+        ? ok('la media de las posiciones y el total casi coinciden: no hace falta explicarlo')
+        : (/¿Por qué .* si las cinco van a .* de media\?/.test(txtRes)
+            ? ok('y se explica por qué el total (' + rc.ret.toFixed(1) + ' %) no es la media de las posiciones (' + mediaT.toFixed(1) + ' %)')
+            : mal('el total no se parece a la media de las posiciones y nada lo explica',
+                  'total ' + rc.ret.toFixed(2) + ' vs media ' + mediaT.toFixed(2)));
+      Math.abs(costeT + (100 - costeT) - 100) < 1e-9 && costeT <= 100 + 1e-9
+        ? ok('y lo invertido nunca supera el capital de partida (' + costeT.toFixed(2) + ' de 100)')
+        : mal('las posiciones costaron más que el capital', String(costeT));
+      /Le tocaron/.test(txtRes)
+        ? ok('y la tabla enseña con cuánto partió cada posición, no solo su porcentaje')
+        : mal('no se ve que unas posiciones partieron con menos dinero que otras');
       const mismos = enCartera.length === rc.cartera.length &&
         rc.cartera.every(x => enCartera.includes(x.ticker));
       mismos ? ok('y la tabla enseña exactamente las posiciones que tiene la cartera')
