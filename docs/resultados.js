@@ -329,6 +329,11 @@ function operandoElPanel(huecos) {
     cerradas, abiertas: abiertas.length, sesiones: curva.length };
 }
 
+/* Expuesta para que Seguimiento pueda citar la cifra de la cartera sin recalcularla por su cuenta:
+   las dos pestañas enseñaban un numero distinto ("1,2 % aqui y 2,4 % alli") sin decir que miden
+   cosas diferentes, y eso confunde mas que no poner nada. */
+window.operandoElPanel = operandoElPanel;
+
 function bloqueOperando() {
   const HUECOS = 5;
   const r = operandoElPanel(HUECOS);

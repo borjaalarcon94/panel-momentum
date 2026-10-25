@@ -125,27 +125,44 @@ window.seguimiento = async function () {
      reglas, que es la del sistema, y la de aguantar queda al lado como referencia.
      El recorrido lo hace REGLAS.recorrido a traves de recorridoConReglas: el mismo que usa
      Resultados, para que las dos pestañas no puedan decir cosas distintas. */
-  const conReglas = todo.map(a => {
+  /* Solo entran en las medias las que tienen precio de hoy. Una deslistada (BLFS) devuelve ret
+     null, y en JavaScript suma + null es suma + 0: se colaba como un 0 % y ademas dividia entre 29
+     en vez de 28. Daba 1,18 % en lugar de 1,23 %. Es el mismo sesgo que Resultados evita a
+     proposito, y aqui se estaba colando por la puerta de atras. */
+  const medibles = todo.filter(a => a.ret != null);
+  const conReglas = new Map(medibles.map(a => {
     const r = window.recorridoConReglas ? window.recorridoConReglas(a.clave, a.entrada, a.precioEntrada) : null;
-    return r && r.ret != null ? r.ret : a.ret;
-  });
-  const med = conReglas.reduce((s, v) => s + v, 0) / conReglas.length;
-  const medAguanta = todo.reduce((s, a) => s + a.ret, 0) / todo.length;
-  const pos = conReglas.filter(v => v > 0).length;
+    return [a, r && r.ret != null ? r.ret : a.ret];
+  }));
+  const vals = [...conReglas.values()];
+  const med = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+  const medAguanta = medibles.length ? medibles.reduce((s, a) => s + a.ret, 0) / medibles.length : 0;
+  const pos = vals.filter(v => v > 0).length;
+  const sinPrecio = todo.length - medibles.length;
   const st = el('div', 'stats');
   st.append(stat('siguen siendo oportunidad', todo.filter(viva).length), stat('descartadas', descartadas.length),
-    stat('en positivo', Math.round(pos / todo.length * 100) + ' %'),
+    stat('en positivo', vals.length ? Math.round(pos / vals.length * 100) + ' %' : '—'),
     stat('media con los stops', pc(med), signo(med)));
   R.appendChild(st);
-  R.appendChild(el('div', 'm', 'La media aplica las reglas de salida: lo que saltó el stop se vende ahí y no se arrastra. ' +
-    'Aguantando sin vender nunca saldría ' + pc(medAguanta) + ', que no es lo que hace el sistema. ' +
-    'El desglose completo está en la pestaña Resultados.'));
+  /* Las tres cifras juntas y nombradas. Antes aqui salia una y en Resultados otra, sin decir en
+     ningun sitio que miden cosas distintas: "da 1,2 % con los stops y en Resultados 2,4 % saliendo
+     con los stop". Las dos son correctas; lo que faltaba era decir de que es cada una. */
+  const cart = window.operandoElPanel ? window.operandoElPanel(5) : null;
+  const nota = el('div', 'm');
+  nota.appendChild(el('div', null, 'Es la media de cada acción POR SEPARADO, ya con su stop aplicado: ' +
+    'se suman las ' + medibles.length + ' y se divide. No es una cartera — aquí no hay dinero repartido ni reinversión.' +
+    (sinPrecio ? ' ' + sinPrecio + (sinPrecio === 1 ? ' ha dejado de cotizar y queda fuera de la media: sin precio de hoy no hay resultado que promediar.'
+                                                   : ' han dejado de cotizar y quedan fuera de la media.') : '')));
+  if (cart) nota.appendChild(el('div', null, 'Operando de verdad una cartera de 5 posiciones, comprando al día siguiente ' +
+    'y reinvirtiendo lo que se vende, sale ' + pc(cart.ret) + '. Ese es el número que más se parece a lo que harías tú, ' +
+    'y está desglosado en la pestaña Resultados.'));
+  nota.appendChild(el('div', null, 'Aguantando sin vender nunca saldría ' + pc(medAguanta) + ', que no es lo que hace el sistema.'));
+  R.appendChild(nota);
 
   /* El banner compara con el indice usando la MISMA media que la casilla: con a.ret decia una cosa
      arriba y otra abajo. */
-  const retReglas = new Map(todo.map((a, i) => [a, conReglas[i]]));
-  const cs = todo.filter(a => a.sp != null), spMed = cs.length ? cs.reduce((s, a) => s + a.sp, 0) / cs.length : null,
-    gana = cs.filter(a => retReglas.get(a) > a.sp).length;
+  const cs = medibles.filter(a => a.sp != null), spMed = cs.length ? cs.reduce((s, a) => s + a.sp, 0) / cs.length : null,
+    gana = cs.filter(a => conReglas.get(a) > a.sp).length;
   if (spMed != null) { const d = med - spMed, B = el('div', 'banner ' + (d >= 0 ? 'okb' : 'warnb'));
     B.appendChild(el('div', 'bt', (d >= 0 ? 'El top va mejor que el mercado: ' : 'El top va peor que el mercado: ') + 'de media ' + pc(med) + ' frente a ' + pc(spMed) + ' del S&P 500 en los mismos días (' + (d >= 0 ? '+' : '') + n(d, 1) + ' puntos). ' + gana + ' de ' + cs.length + ' lo hacen mejor que el índice.'));
     R.appendChild(B) }

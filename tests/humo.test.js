@@ -626,6 +626,22 @@ for (const f of orden) {
     /await cargaPrecios\(\)/.test(srcSeg)
       ? ok('cargando antes la serie diaria, sin la que el stop no puede saltar')
       : mal('no carga la serie: el recorrido solo vería los días dentro del top');
+    /* Una deslistada devuelve ret null, y en JavaScript suma + null es suma + 0: se colaba en la
+       media como un 0 % y ademas dividia por una entrada de mas. Daba 1,18 % en vez de 1,23 %. */
+    /todo\.filter\(a => a\.ret != null\)/.test(srcSeg)
+      ? ok('y dejando fuera de la media las que ya no cotizan')
+      : mal('las deslistadas se cuelan en la media como un 0 %');
+    /* Las dos pestañas tienen que contar las mismas entradas y dar la misma media por entrada. */
+    const nSeg = Number((txtSeg.match(/se suman las (\d+) y se divide/) || [])[1]);
+    const nRes = Number((porId.rres.textContent.replace(/\s+/g, ' ').match(/cada una de las (\d+) entradas/) || [])[1]);
+    nSeg && nRes && nSeg === nRes
+      ? ok('Seguimiento y Resultados promedian las mismas ' + nSeg + ' entradas')
+      : mal('cada pestaña promedia un número distinto de entradas', 'seg ' + nSeg + ' / res ' + nRes);
+    const medSeg = (txtSeg.match(/([+\-−][\d,]+ %)media con los stops|media con los stops([+\-−][\d,]+ %)/) || []).filter(Boolean)[1];
+    const medRes = (porId.rres.textContent.replace(/\s+/g, ' ').match(/Con nuestras reglas de salida[^%]*?([+\-−][\d,]+ %)/) || [])[1];
+    medSeg && medRes && medSeg === medRes
+      ? ok('y dan la misma media por entrada (' + medSeg + ')')
+      : mal('la media por entrada no coincide entre pestañas', 'seg ' + medSeg + ' / res ' + medRes);
   }
 
   /* El corte no es un numero elegido a ojo: se midio que la puntuacion se mueve 2 puntos de mediana
