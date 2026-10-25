@@ -1988,3 +1988,53 @@ mediana. Entonces:
 
 Ver también la entrada del 24/10/2026 sobre las tres tarjetas que se desbloquean solas a finales de
 noviembre y hay que colocar dentro del orden actual, no encima.
+
+### 2026-10-25 — PENDIENTE PARA NOVIEMBRE (2): ¿bloquea la cartera a las ganadoras que llegan tarde?
+
+Pregunta de Borja: *«un 2,4 % me parece muy poco para posiciones con momentum»*. En tres semanas no
+lo es —si ese ritmo se mantuviera sería enorme—, pero al mirarlo apareció algo que no se había visto.
+
+**La cartera de 5 solo llegó a tener 7 de las 29 acciones anotadas, y se perdió 6 de las 8 mejores:**
+
+| | entró | nota | aguantando | ¿la tuvo? |
+|---|---|---|---|---|
+| **FIGS** | 8 oct | 79 | **+34,8 %** | **NO** |
+| **RSKD** | 5 oct | 80 | +17,2 % | **NO** |
+| SLDE | 7 oct | 76,5 | +15,9 % | sí |
+| HNGE | 5 oct | 79,5 | +13,4 % | sí |
+| **TEAM** | 14 oct | 77 | +11,2 % | **NO** |
+| **IOVA** | 7 oct | 73,5 | +9,1 % | **NO** |
+| **VSTM** | 15 oct | 88 | +8,8 % | **NO** |
+| **CAI** | 9 oct | 76,5 | +7,7 % | **NO** |
+
+Con 5 huecos y **sin rotar**, las primeras cinco ocupan el sitio hasta que les salta el stop. FIGS
+entró el 8 de octubre con los cinco huecos llenos y nunca hubo sitio. No se perdió por mala: se
+perdió por llegar tarde. Nótese también que VSTM entró con nota **88**, la segunda más alta del
+registro, y tampoco pudo entrar.
+
+**Encaja con dos medidas independientes ya tomadas**, las dos en la misma dirección:
+
+| | |
+|---|---|
+| operando con stop, sin rotar | **+2,4 %** |
+| siguiendo el listado, rotando cada sesión | **+4,9 %** |
+| por entrada: vender al salir del top | **+4,2 %** frente a +1,2 % con stop |
+
+**No se cambia nada, y hay una razón concreta además de la muestra corta:** el efecto está
+**exagerado por el arranque**. La cartera se llenó entera el primer día, así que esos cinco tuvieron
+derecho de okupa desde el minuto cero. Con meses de funcionamiento los huecos giran más y el bloqueo
+es menor. Y el stop todavía no ha tenido que demostrar nada: no ha habido una caída fuerte, que es
+justo cuando aguantar sin stop arruina y rotar no salva.
+
+**Qué medir en noviembre, con 30 entradas maduras:**
+
+1. Repetir esta tabla: ¿cuántas de las mejores sigue sin tocar la cartera, ya con huecos que han
+   girado varias veces? Si el bloqueo se diluye solo, no hay nada que arreglar.
+2. Comparar las tres variantes sobre las mismas entradas: aguantar con stop, rotar con el listado, y
+   una intermedia —rotar **solo** cuando la que entra supera a la peor que tienes por un margen
+   claro— que conserva el stop y no genera la rotación del 26 % diaria.
+3. Cruzarlo con la otra pendiente: si la nota no discrimina (hoy sale desordenada), rotar hacia la
+   mejor puntuada no tiene por qué ayudar, y entonces esto se cae solo.
+
+Ver la entrada anterior del 25/10/2026 sobre si la puntuación discrimina: las dos preguntas se
+responden con el mismo lote de datos y conviene mirarlas juntas.
