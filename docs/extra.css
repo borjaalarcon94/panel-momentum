@@ -360,3 +360,55 @@ tr.total td{border-top:2px solid var(--line);font-weight:700;padding-top:10px}
 .plegable>summary::before{content:"▸";display:inline-block;margin-right:6px}
 .plegable[open]>summary::before{content:"▾"}
 .plegable>summary:hover{color:var(--text)}
+
+/* ========== MÓVIL: que las cuatro pestañas quepan ==========
+   Medido el 26/10/2026 a 375 px: las pestañas ocupaban 463 px en una fila de 351. «Parámetros»
+   empezaba en el píxel 375 de 375, o sea FUERA de la pantalla. Se llegaba deslizando, pero nada
+   lo indicaba: si no lo sabes, esa pestaña no existe.
+   En rejilla de dos por dos caben las cuatro, se ven siempre, y de paso cada una pasa de 37 px de
+   alto a 44, que es el mínimo recomendado para tocar con el dedo. */
+@media (max-width: 460px) {
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;overflow-x:visible;
+    border-bottom:1px solid var(--line);padding-bottom:6px}
+  .tab{white-space:normal;border-radius:10px;border:1px solid var(--line);border-bottom:1px solid var(--line);
+    margin-bottom:0;min-height:44px;padding:10px 8px;text-align:center;font-size:14px}
+  .tab[aria-selected=true]{border-color:var(--acc)}
+  /* Las subpestañas, igual: dos y caben de sobra, pero el alto táctil importa igual. */
+  .subtab{min-height:44px}
+  /* El botón de tema medía 24 px de alto: imposible de acertar. */
+  .tema{min-height:36px;padding:6px 12px}
+  /* Chips y selectores por debajo del mínimo táctil. */
+  .chip{min-height:40px}
+  select,input,button{min-height:40px}
+  /* Los selectores se apilaban cada uno con el ancho de su texto más largo: 251, 269 y 239 px,
+     un escalón distinto por fila. A ancho completo quedan alineados y son más fáciles de tocar. */
+  .row > select{flex:1 1 100%;width:100%;max-width:none}
+  /* Las tarjetas de cifras tenían alturas distintas según si la etiqueta cabía en una línea
+     (86 px) o en dos (68 px). Igualadas con la rejilla. */
+  .stats{align-items:stretch}
+}
+
+/* ========== ESCRITORIO: longitud de línea legible ==========
+   Medido el 26/10/2026 en una ventana de 1024 px: los párrafos llegaban a 124 caracteres por
+   línea, y en un monitor de 1920 pasarían de 200. Lo cómodo de leer son 45-75; por encima de 90
+   el ojo pierde el renglón al volver a la izquierda.
+   Se limita SOLO la prosa. Tablas, gráficas y rejillas de cifras siguen usando todo el ancho,
+   que es donde el espacio sí sirve para algo. Dentro de una tarjeta estrecha esta regla no hace
+   nada, porque el contenedor ya es más estrecho que el tope. */
+.m, .nota, .bt, .sub, .act { max-width: 78ch }
+
+/* ========== Aviso de que una tabla se puede deslizar ==========
+   Varias tablas no caben de ancho en el móvil y se cortan en el borde sin que nada lo indique.
+   Truco clásico de sombras con `background-attachment`: las capas `local` viajan con el contenido
+   y tapan la sombra cuando ya estás en el extremo, así que la sombra aparece SOLO si queda algo
+   por ver. Sin JavaScript y sin ocupar espacio. */
+.tw{
+  background:
+    linear-gradient(to right, var(--card) 40%, transparent) left center / 34px 100% no-repeat local,
+    linear-gradient(to left,  var(--card) 40%, transparent) right center / 34px 100% no-repeat local,
+    /* Una sombra negra no se ve sobre fondo oscuro. Con color-mix sobre --text sale clara en el
+       tema oscuro y oscura en el claro, que es lo que hace falta en cada uno. */
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--text) 26%, transparent), transparent) left center / 16px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--text) 26%, transparent), transparent) right center / 16px 100% no-repeat scroll,
+    var(--card);
+}
