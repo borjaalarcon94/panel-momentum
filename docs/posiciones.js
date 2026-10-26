@@ -23,7 +23,17 @@ const comoNumero = v => {
   return isFinite(x) ? x : NaN;
 };
 
-function leerPos() { try { return JSON.parse(localStorage.getItem(CLAVE) || '[]') } catch (e) { return [] } }
+/* SIEMPRE devuelve un array de objetos, pase lo que pase con lo guardado. El try/catch solo cubria
+   el JSON roto; si el contenido era valido pero NO un array (un objeto, un numero) o traia huecos,
+   los que llaman hacian .some/.filter/.reduce sobre eso y la pestaña entera se caia. Y la pestaña
+   caida significa quedarte sin ver tus stops con dinero abierto, asi que mas vale perder una
+   entrada corrupta que perderlas todas. */
+function leerPos() {
+  let v;
+  try { v = JSON.parse(localStorage.getItem(CLAVE) || '[]') } catch (e) { return [] }
+  if (!Array.isArray(v)) return [];
+  return v.filter(x => x && typeof x === 'object');
+}
 function guardarPos(p) { try { localStorage.setItem(CLAVE, JSON.stringify(p)) } catch (e) {} }
 window.tengoPosicion = t => leerPos().some(p => p.ticker === t && !p.cerrada);
 
@@ -882,7 +892,7 @@ window.posiciones = async function () {
       sb.appendChild(el('span', 'vl', n(r.stop) + ' $'));
       sb.appendChild(el('span', 'ds', pc((r.stop / r.ahora - 1) * 100, 0) + ' desde el precio actual'));
       if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
-        '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.apretado ? ': un día normal lo cruza' : '')));
+        '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.muyApretado ? ': un día normal lo cruza' : mg.apretado ? ': menos de dos días de rango' : '')));
       if (r.gan >= window.REGLAS.R.gananciaProteger) sb.appendChild(el('span', 'ds', '· ya protege tu compra'));
       c.appendChild(sb); }
     if (r.ahora != null) {

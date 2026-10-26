@@ -143,12 +143,20 @@ for (const f of orden) {
   console.log('\nMARGEN DEL STOP EN DÍAS DE RANGO');
   const MG = typeof ventana.MARGEN_STOP === 'function' ? ventana.MARGEN_STOP : () => null;
   typeof ventana.MARGEN_STOP === 'function' ? ok('window.MARGEN_STOP existe') : mal('window.MARGEN_STOP no existe');
-  const absi = MG(-2.4, 9.5), hnge = MG(-12.7, 3.5), justo = MG(-5, 5);
-  absi && absi.apretado ? ok('un stop a 2,4 % con ADR 9,5 % se marca como apretado (0,3 días)')
+  /* El umbral de aviso subio de 1 a 2 dias el 25/10/2026: medido sobre las 32 seguidas, la mediana
+     es 2,0 dias de rango y QUINCE estan por debajo de 2, pero con el umbral en 1 solo se avisaba de
+     cuatro. Un stop a menos de dos dias no es un nivel tecnico, es ruido. Quedan dos niveles:
+     'apretado' por debajo de 2 y 'muyApretado' por debajo de 1. */
+  const absi = MG(-2.4, 9.5), hnge = MG(-12.7, 3.5), unDia = MG(-5, 5), dosDias = MG(-10, 5), casi = MG(-9.9, 5);
+  absi && absi.apretado && absi.muyApretado
+    ? ok('un stop a 2,4 % con ADR 9,5 % es muy apretado (0,3 días)')
     : mal('no detecta un stop dentro del ruido de un día', JSON.stringify(absi));
   hnge && !hnge.apretado ? ok('un stop a 12,7 % con ADR 3,5 % no se marca (3,6 días)') : mal('marca un stop holgado');
-  justo && !justo.apretado && Math.abs(justo.dias - 1) < 1e-9
-    ? ok('justo en 1 ADR no se marca: el umbral es "menos de un día"') : mal('el límite de 1 ADR no es el esperado');
+  unDia && unDia.apretado && !unDia.muyApretado && Math.abs(unDia.dias - 1) < 1e-9
+    ? ok('justo en 1 ADR se avisa, pero no como "un día normal lo cruza"') : mal('el nivel de 1 ADR no es el esperado', JSON.stringify(unDia));
+  casi && casi.apretado ? ok('a 1,98 días todavía se avisa') : mal('no avisa justo por debajo de dos días', JSON.stringify(casi));
+  dosDias && !dosDias.apretado && Math.abs(dosDias.dias - 2) < 1e-9
+    ? ok('y justo en 2 ADR ya no: el umbral es "menos de dos días"') : mal('el límite de 2 ADR no es el esperado', JSON.stringify(dosDias));
   MG(-5, null) === null && MG(null, 5) === null && MG(-5, 0) === null
     ? ok('sin ADR o sin distancia no se inventa un margen') : mal('devuelve algo sin datos suficientes');
   MG(5, 5) && Math.abs(MG(5, 5).dias - 1) < 1e-9 ? ok('el signo de la distancia no importa') : mal('el signo de la distancia altera el margen');

@@ -186,12 +186,19 @@ window.TAMANO = function (distanciaStop) {
    octubre de 2026 sobre las 30 en seguimiento: 9 tenian el stop dentro de un dia de rango, y 6 de
    esas se dimensionaban al 21-25 % de la cartera. Esto solo lo ensena; no cambia ni el stop ni el
    tamano. Cambiarlos es la pregunta 5 de la seccion 7 y necesita 30 entradas maduras. */
+/* El margen del stop medido en DIAS de movimiento normal de esa accion: si el stop esta a 1 ADR,
+   basta una sesion corriente para que salte sin que nada se haya roto.
+   El umbral de aviso sube de 1 a 2 dias. Motivo medido el 25/10/2026 sobre las 32 seguidas: la
+   mediana es 2,0 dias y QUINCE estan por debajo de 2, pero con el umbral en 1 solo se avisaba de
+   cuatro. Un stop a menos de dos dias de rango no es un nivel tecnico, es una moneda al aire sobre
+   el ruido diario. El umbral no es una regla de compra ni de venta: solo decide cuando se enciende
+   el aviso, asi que no toca el sistema ni invalida el registro. */
 window.MARGEN_STOP = function (distanciaStop, adr) {
   const d = typeof distanciaStop === 'number' && isFinite(distanciaStop) ? Math.abs(distanciaStop) : null;
   const a = typeof adr === 'number' && isFinite(adr) && adr > 0 ? adr : null;
   if (d == null || a == null) return null;
   const dias = d / a;
-  return { dias, apretado: dias < 1 };
+  return { dias, apretado: dias < 2, muyApretado: dias < 1 };
 };
 
 /* Dias hasta la publicacion de resultados (hueco de precio: el stop no protege de un salto al abrir). */

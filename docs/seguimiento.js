@@ -234,7 +234,7 @@ window.seguimiento = async function () {
         ? 'sin stop válido: ya está por debajo de su EMA 50'
         : pc(o0.d, 0) + ' desde el precio de hoy'));
       if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
-        '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.apretado ? ': un día normal lo cruza' : '')));
+        '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.muyApretado ? ': un día normal lo cruza' : mg.apretado ? ': menos de dos días de rango' : '')));
       /* El precio al que deja de ser arriesgada lo dice el veredicto, arriba. Aqui no: dos precios
          con el mismo peso en la misma caja obligan a adivinar cual es cual. */
       c.appendChild(sb);

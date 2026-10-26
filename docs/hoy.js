@@ -169,7 +169,7 @@ sb.appendChild(el('span','ds'+(sal.invalido?' aviso':''),sal.invalido
   :pc(o.d,0)+' desde aquí'));
 /* Va pegado al stop y antes del dinero: califica al stop, y si el stop no es fiable el importe
    que viene detras tampoco lo es. */
-if(mg)sb.appendChild(el('span','ds'+(mg.apretado?' aviso':''),'· margen de '+n(mg.dias,1)+' días de rango'+(mg.apretado?': un día normal lo cruza':'')));
+if(mg)sb.appendChild(el('span','ds'+(mg.apretado?' aviso':''),'· margen de '+n(mg.dias,1)+' días de rango'+(mg.muyApretado?': un día normal lo cruza':mg.apretado?': menos de dos días de rango':'')));
 const tam=window.TAMANO(o.d);
 if(tam&&v.cls==='qok'){sb.appendChild(el('span','et','Comprar'));sb.appendChild(el('span','vl',n(tam.importe,0)));sb.appendChild(el('span','ds',n(tam.pct,1)+' % de tu cartera'));
 /* El tope del 25 % se aplicaba en silencio: el numero que veias no era el que salia de tu riesgo,
