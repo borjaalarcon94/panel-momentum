@@ -2097,3 +2097,55 @@ deja menos acciones, no mejores.
 
 Es la tercera pendiente de noviembre, junto a si discrimina la nota y si la cartera bloquea a las
 ganadoras tardías. Las tres se responden con el mismo lote de datos.
+
+## 2026-10-26 — Auditoría a fondo de lo que no se había revisado
+
+Alcance elegido a propósito: **lo que no se tocó estos días**. `posiciones.js` (el fichero más
+grande y donde está el dinero real), la coherencia del stop entre pestañas, la pestaña Parámetros y
+los umbrales escritos a mano.
+
+### Fallo encontrado: `leerPos()` podía tumbar la pestaña entera
+
+El `try/catch` solo cubría el JSON roto. Si lo guardado era **JSON válido pero no un array** —un
+objeto, un número, `null`— o traía huecos, quien llamaba hacía `.some`, `.filter` o `.reduce` sobre
+eso y **Mis posiciones se caía entera**. Eso significa quedarse sin ver los stops con dinero
+abierto, que es el peor momento posible para perder la pestaña.
+
+Corregido: devuelve siempre un array de objetos. **Más vale perder una entrada corrupta que
+perderlas todas.** Probado con 9 escenarios (JSON roto, objeto, `null`, número, array de números,
+array de textos, array con huecos, vacío, correcto): ninguno rompe, y cada uno deja el número de
+posiciones correcto.
+
+Probabilidad baja, consecuencia alta, arreglo de tres líneas.
+
+### Mejora: el aviso de stop apretado pasa de 1 día a 2
+
+Medido sobre las 32 seguidas: la mediana es **2,0 días de rango** y **quince están por debajo de 2**,
+pero con el umbral en 1 solo se avisaba de cinco. Un stop a menos de dos días de movimiento normal
+no es un nivel técnico, es una moneda al aire sobre el ruido diario.
+
+Ahora hay dos niveles: «menos de dos días de rango» y, por debajo de uno, «un día normal lo cruza».
+En vivo pasa de **5 avisos a 13**.
+
+**No es un cambio de regla.** No toca ninguna decisión de compra ni de venta, solo cuándo se
+enciende el aviso. El registro de evidencia sigue intacto.
+
+### `tests/posiciones.test.js`, nuevo
+
+15 comprobaciones sobre la aritmética del dinero —acciones por importe, promedios, ventas parciales,
+agrupación por posición— y sobre la robustez del almacenamiento. Verificado contra el código
+anterior: falla. Añadido al workflow.
+
+### Lo que se comprobó y estaba bien
+
+- El stop de Mis posiciones y el de las simulaciones **coinciden en las 29 acciones**.
+- Parámetros sigue describiendo los seis umbrales reales y explica el trinquete.
+- **Ningún umbral de regla escrito a mano fuera de `reglas.js`.** `MADUREZ = 15` y `n <= 45` son
+  falsos positivos: sesiones de madurez y el umbral del eje de fechas.
+- Cero funciones muertas y cero constantes sin usar tras los refactors de ayer.
+- La aritmética de ventas parciales, incluido que una venta ya hecha **conserva su precio medio de
+  entonces** aunque después promedies al alza, y que dos salidas de una posición cuentan como **una**
+  operación y no dos.
+- Las cuatro pestañas: cero errores de JavaScript.
+
+**379 comprobaciones en verde** (eran 369). Versión `6919b717`, en línea y verificada.
