@@ -140,6 +140,28 @@ for (const f of orden) {
   /* El tamano de posicion es riesgo / distancia al stop, asi que un stop muy pegado pide la posicion
      MAS grande justo donde la salida es mas aleatoria. 14/10/2026: 9 de las 30 en seguimiento tenian
      el stop dentro de un dia de rango y 6 de esas se dimensionaban al 21-25 %. Esto solo lo ensena. */
+  /* CON PRESUPUESTO CORTO: la lista de Comprar hoy YA venia ordenada por prioridad, pero no lo
+     decia, y al ver varias tarjetas verdes no habia forma de saber cual comprar primero. */
+  console.log('\nCOMPRAR HOY DICE CUÁL PRIMERO');
+  {
+    const txtHoy = porId.lista.textContent.replace(/\s+/g, ' ');
+    const verdes = ventana.vista().todas.filter(a =>
+      ventana.VEREDICTO(a, { extendida: a.pt ? a.pt.extendida : false, sinSeguimiento: a.sinSeguimiento, flojea: !!a.flojea }).cls === 'qok');
+    if (verdes.length > 1) {
+      /van en orden: 1, 2, 3/.test(txtHoy)
+        ? ok('con varias en COMPRA, dice que van en orden de prioridad')
+        : mal('no explica que la lista esté priorizada', txtHoy.slice(0, 160));
+      /* El orden interno va por la nota, que no discrimina: hay que decirlo o el numerito se lee
+         como una recomendación fuerte. */
+      /todavía no ha demostrado que acierte/.test(txtHoy)
+        ? ok('y avisa de que el orden entre ellas no está demostrado')
+        : mal('presenta el orden como si estuviera respaldado');
+      /Margen hasta el stop:/.test(txtHoy)
+        ? ok('y da el margen de cada una, que es lo que sí las separa')
+        : mal('no da el dato que distingue a las candidatas');
+    } else ok('hoy hay ' + verdes.length + ' en COMPRA: no hay nada que priorizar');
+  }
+
   console.log('\nMARGEN DEL STOP EN DÍAS DE RANGO');
   const MG = typeof ventana.MARGEN_STOP === 'function' ? ventana.MARGEN_STOP : () => null;
   typeof ventana.MARGEN_STOP === 'function' ? ok('window.MARGEN_STOP existe') : mal('window.MARGEN_STOP no existe');

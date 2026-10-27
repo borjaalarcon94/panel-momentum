@@ -108,6 +108,33 @@ const nc=$('nhoy');
 if(nc){const compras=top.filter(a=>window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento,flojea:!!a.flojea}).cls==='qok').length;
 nc.textContent=compras||'';nc.hidden=!compras;}
 if(!top.length){L.appendChild(el('div','empty','Ese día ninguna acción cumplió los requisitos.'));return}
+/* CON PRESUPUESTO CORTO: cuales comprar. La lista YA venia ordenada por prioridad de compra, pero
+   no lo decia en ninguna parte, asi que al ver varias tarjetas verdes no habia forma de saber que
+   estaban priorizadas ni por que. Aqui se dice, y se dan los dos datos que de verdad las separan.
+   No se cambia el orden: solo se explica el que ya habia. */
+const compras=top.filter(a=>window.VEREDICTO(a,{extendida:a.pt?a.pt.extendida:false,sinSeguimiento:a.sinSeguimiento,flojea:!!a.flojea}).cls==='qok');
+if(compras.length>1){
+const g=el('div','margen');
+g.appendChild(el('b',null,'Si no puedes comprarlas todas, van en orden: 1, 2, 3…'));
+const c=el('div','m');
+c.appendChild(el('div',null,'Hoy hay '+compras.length+' en COMPRA. Están ordenadas por prioridad: primero el veredicto, y entre las que empatan, la de mejor puntuación.'));
+/* Honestidad sobre el orden: el filtro COMPRA/arriesgada si esta respaldado por reglas, pero el
+   orden DENTRO va por la nota, y medido el 25/10/2026 su correlacion con el resultado es +0,01.
+   Decirlo evita que el numerito se lea como una recomendacion fuerte. */
+c.appendChild(el('div',null,'Ojo: lo que separa COMPRA de «arriesgada» son reglas, y ahí puedes fiarte. El orden entre las de COMPRA va por la puntuación, que todavía no ha demostrado que acierte: úsalo como desempate, no como verdad.'));
+/* Los dos datos que si distinguen, con evidencia detras: cuanto aguanta el stop y si repites sector. */
+const detalle=compras.map(a=>{const s=window.REGLAS.stopDeEntrada(a);
+  const d=s&&!s.invalido?(s.stop/a.precio-1)*100:null;
+  const m=d!=null?window.MARGEN_STOP(d,a.adr):null;
+  return {t:a.ticker,sec:a.sector,dias:m?m.dias:null,ap:m?m.apretado:false}});
+const conMargen=detalle.filter(x=>x.dias!=null);
+if(conMargen.length){
+c.appendChild(el('div',null,'Margen hasta el stop: '+conMargen.map(x=>x.t+' '+n(x.dias,1)+' días'+(x.ap?' (apretado)':'')).join(' · ')+
+  '. Cuanto más margen, menos probable es que te saque un día normal.'));}
+const sec={};detalle.forEach(x=>{if(x.sec)(sec[x.sec]=sec[x.sec]||[]).push(x.t)});
+const rep=Object.entries(sec).filter(([,v2])=>v2.length>1);
+if(rep.length)c.appendChild(el('div',null,'Mismo sector: '+rep.map(([s2,v2])=>v2.join(' y ')+' son '+s2).join('; ')+'. Si eliges esas dos, no diversificas.'));
+g.appendChild(c);L.appendChild(g)}
 top.forEach((a,i)=>L.appendChild(tarjeta(a,i)));
 /* Con el orden por prioridad una nota alta puede caer fuera de las 5 visibles porque hoy no sea
    entrada. Sin decirlo, parece que la accion ha desaparecido del panel. */
