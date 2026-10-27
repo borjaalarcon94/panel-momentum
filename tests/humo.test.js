@@ -831,8 +831,13 @@ for (const f of orden) {
      con el ultimo cierre. Borrar las que desaparecen deja el registro lleno de supervivientes. */
   console.log('\nUNA ACCIÓN QUE DESAPARECE NO SE BORRA EN SILENCIO');
   const desap = vm.runInContext(`(() => {
-    // tiene que ser una que este de verdad en el registro, no cualquiera de las seguidas
-    const clave = entradas().map(a => a.clave).find(k => T.actual[k]);
+    /* Tiene que estar en el registro Y en el top de HOY: la prueba comprueba las tres pestañas a
+       la vez, y si la elegida ya no sale en Hoy, el veredicto es "no esta" y fallan tres
+       comprobaciones sin que nada este roto. Paso el 27/10/2026 con los datos del lunes: la
+       primera del registro llevaba dias fuera del top. */
+    const enTopHoy = new Set(vista().todas.map(a => a.clave || a.simbolo));
+    const clave = entradas().map(a => a.clave).find(k => T.actual[k] && enTopHoy.has(k))
+      || entradas().map(a => a.clave).find(k => T.actual[k]);
     const copia = T.actual[clave];
     delete T.actual[clave]; delete ACT[clave]; const pr = T.precios[clave]; delete T.precios[clave];
     const ticker = copia.ticker;
