@@ -44,14 +44,20 @@ function editor(p, alCerrar) {
   const iF = document.createElement('input'); iF.type = 'date'; iF.value = p.fecha; iF.style.maxWidth = '160px';
   const iN = campoNumero('nº acciones (opcional)'); iN.style.maxWidth = '150px';
   if (p.acciones) iN.value = p.acciones;
+  /* Tu propio stop. Si lo pones, manda sobre el del sistema y es FIJO: no sube solo. Vacío = el
+     stop del panel, con su trinquete. */
+  const iS = campoNumero('mi stop (opcional)', p.stopPropio); iS.style.maxWidth = '150px';
   const fila = el('div', 'row');
-  fila.append(el('span', 'm', 'Precio medio'), iP, el('span', 'm', 'Fecha'), iF, iN);
+  fila.append(el('span', 'm', 'Precio medio'), iP, el('span', 'm', 'Fecha'), iF, iN, el('span', 'm', 'Mi stop'), iS);
   const guardar = el('button', 'chip', 'Guardar cambios');
   guardar.onclick = () => {
     const precio = comoNumero(iP.value);
     if (!precio || precio <= 0) return alert('Precio no válido.');
+    const propio = comoNumero(iS.value);
+    if (propio && propio >= precio) return alert('Tu stop tiene que estar por debajo del precio de compra.');
     guardarPos(leerPos().map(x => (x.ticker === p.ticker && !x.cerrada
-      ? { ...x, precio, fecha: iF.value || x.fecha, acciones: comoNumero(iN.value) || undefined, maxVisto: Math.max(x.maxVisto || precio, precio) } : x)));
+      ? { ...x, precio, fecha: iF.value || x.fecha, acciones: comoNumero(iN.value) || undefined,
+          stopPropio: propio || undefined, maxVisto: Math.max(x.maxVisto || precio, precio) } : x)));
     alCerrar();
   };
   const borrar = el('button', 'chip', 'Eliminar posición');
@@ -178,6 +184,17 @@ function revision(p) {
     stopPrevio: Math.max(p.stopMax || 0, trinqSerie || 0),
     dias, requisitos: req, diasResultados: window.DIAS_RESULTADOS(a),
     maxSerie: maximoEnSerie(p.simbolo || p.ticker, p.fecha) });
+  /* Tu stop manda sobre el del sistema. Es fijo y no sube solo: lo has puesto tú y moverlo es
+     decisión tuya. Se sustituye el nivel y se recalcula si hay que vender, pero el resto de
+     señales (RSI, devolución, requisitos) siguen vivas: el stop es una de las cuatro, no la única. */
+  const propio = Number(p.stopPropio) > 0 ? Number(p.stopPropio) : null;
+  if (propio != null) {
+    ev.stop = propio;
+    ev.stopDelSistema = Math.max(p.stopMax || 0, trinqSerie || 0, 0) || null;
+    const otros = ev.motivos.filter(m => m.codigo !== 'stop');
+    ev.motivos = ahora < propio ? [{ codigo: 'stop', stop: propio, mio: true }, ...otros] : otros;
+    ev.estado = ev.motivos.length ? 'vender' : ev.avisos.length ? 'vigilar' : 'mantener';
+  }
   const motivos = ev.motivos.map(window.TEXTO_SENAL), avisos = ev.avisos.map(window.TEXTO_SENAL);
   return { p, a, ahora, req, dias, ...ev, motivos, avisos, maxVisto: ev.maxVisto,
     t: ev.estado === 'vender' ? 'VENDER' : ev.estado === 'vigilar' ? 'VIGILAR' : 'MANTENER',
@@ -186,6 +203,34 @@ function revision(p) {
       : 'la tendencia aguanta. Stop en ' + (ev.stop ? n(ev.stop) + ' $ (' + pc((ev.stop / ahora - 1) * 100, 0) + ')' : '—')
         + (ev.gan >= window.REGLAS.R.gananciaProteger ? ': ya protege tu precio de compra.' : '.'),
     cls: ev.estado === 'vender' ? 'qbad' : ev.estado === 'vigilar' ? 'qwarn' : 'qok' };
+}
+
+/* Interruptor del modo simulación y aviso de lo que ha saltado. Si el modo está apagado se avisa
+   igual, con el precio y la fecha, para que puedas registrar la venta tú: el aviso no depende de
+   que delegues el cierre. */
+function cajaSimulacion(sim, saltadas, abiertas) {
+  const d = el('div', 'blk');
+  const fila = el('div', 'row');
+  const b = el('button', 'chip' + (sim.auto ? ' act' : ''), sim.auto ? 'Simulación: ACTIVADA' : 'Simulación: desactivada');
+  b.onclick = () => { window.SIMULACION.guardar({ auto: !sim.auto }); window.posiciones() };
+  fila.append(b, el('span', 'm', sim.auto
+    ? 'Las ventas por stop se registran solas, al precio del día en que saltó.'
+    : 'Actívala y, cuando salte un stop, la venta se anotará sola con su rentabilidad.'));
+  d.appendChild(fila);
+  if (saltadas.length) {
+    const av = el('div', 'margen margen-cero');
+    av.appendChild(el('b', null, sim.auto
+      ? 'Se ' + (saltadas.length === 1 ? 'ha cerrado 1 posición' : 'han cerrado ' + saltadas.length + ' posiciones') + ' por stop'
+      : (saltadas.length === 1 ? 'Ha saltado 1 stop' : 'Han saltado ' + saltadas.length + ' stops') + ' y sigue' + (saltadas.length === 1 ? '' : 'n') + ' abierta' + (saltadas.length === 1 ? '' : 's')));
+    const c = el('div', 'm');
+    saltadas.forEach(({ p, s }) => c.appendChild(el('div', null,
+      p.ticker + ': ' + (s.mio ? 'tu stop' : 'el stop del panel') + ' en ' + n(s.stop) + ' $ se rompió el ' +
+      fFecha(s.fecha) + ', cerró a ' + n(s.precio) + ' $ · ' + pc((s.precio / p.precio - 1) * 100))));
+    if (!sim.auto) c.appendChild(el('div', null, 'Con la simulación activada se habrían anotado solas. Mientras tanto, véndelas tú desde la tarjeta.'));
+    av.appendChild(c);
+    d.appendChild(av);
+  }
+  return d;
 }
 
 function cajaCartera() {
@@ -800,7 +845,21 @@ window.posiciones = async function () {
   const R = $('rpos'); R.replaceChildren();
   await cargaPrecios();   // el maximo alcanzado sale de la serie diaria, no de cuando abriste la app
   R.appendChild(cajaCartera());
+  /* MODO SIMULACIÓN: cierra solas las posiciones cuyo stop ya saltó, al precio y la fecha en que
+     saltó de verdad, no al de hoy. Si el stop se rompió el martes y abres la app el viernes, la
+     venta se anota con el cierre del martes. Viene apagado y hay que encenderlo: cerrar posiciones
+     sin preguntar sobre un registro de dinero real sería destruir datos irreproducibles. */
+  const sim = window.SIMULACION.leer();
+  const saltadas = leerPos().filter(p => !p.cerrada).map(p => ({ p, s: window.SALTO_STOP(p) })).filter(x => x.s);
+  if (sim.auto && saltadas.length) {
+    guardarPos(leerPos().map(p => {
+      const x = saltadas.find(y => y.p.ticker === p.ticker && y.p.fecha === p.fecha && !p.cerrada);
+      return x ? { ...p, cerrada: true, auto: true, precioSalida: x.s.precio, fechaSalida: x.s.fecha,
+        motivoSalida: x.s.mio ? 'tu stop' : 'el stop del panel', stopQueSalto: x.s.stop } : p;
+    }));
+  }
   const abiertas = leerPos().filter(p => !p.cerrada), cerradas = leerPos().filter(p => p.cerrada);
+  R.appendChild(cajaSimulacion(sim, saltadas, abiertas));
   if (!abiertas.length) {
     R.appendChild(el('div', 'empty', 'Aún no has anotado ninguna compra. En cada acción del top o del seguimiento tienes el botón «La tengo»: anota el precio al que compraste y aquí te diré si mantener o vender, con el stop actualizado cada día.'));
   }

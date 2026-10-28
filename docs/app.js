@@ -43,6 +43,48 @@ function cierre(f, clave) {
    semana, los escalones de esos dias se perdian y tu stop quedaba por debajo de lo que la tabla 5
    promete. Con el cierre y la EMA 50 de cada dia se recorre el camino entero y se coge el maximo.
    Medido con PAYS el 22/10/2026: el trinquete real habia subido 8 veces, de 12,75 a 13,33 $. */
+/* ¿SALTÓ EL STOP, Y QUÉ DÍA? Recorre la serie diaria desde la compra y devuelve el PRIMER cierre
+   que rompió el stop, con su fecha y su precio.
+
+   Hace falta porque el panel solo mira el precio de HOY: si el stop saltó el martes y abres la app
+   el viernes, el martes no existía para nadie. Operando en simulación eso es la diferencia entre
+   anotar la venta al precio al que de verdad habrías salido y anotarla tres días tarde.
+
+   Si la posición trae `stopPropio`, manda ese y es FIJO: es el que tú has puesto, y subirlo o
+   bajarlo solo lo decides tú. Sin él se usa el stop del sistema, con su trinquete.
+
+   Devuelve null si nunca saltó. */
+window.SALTO_STOP = function (p) {
+  const clave = p.simbolo || p.ticker, compra = Number(p.precio);
+  const dias = PRECIOS || {}, emas = (window.__EMAS__ || {});
+  if (!compra || compra <= 0 || !p.fecha) return null;
+  const propio = Number(p.stopPropio) > 0 ? Number(p.stopPropio) : null;
+  let maxCierre = compra, trinquete = 0;
+  for (const f of Object.keys(dias).sort()) {
+    if (f <= p.fecha) continue;                 // el día de la compra no cuenta: ya estabas dentro
+    const c = dias[f] && dias[f][clave];
+    if (c == null) continue;
+    if (propio != null) {
+      if (c < propio) return { fecha: f, precio: c, stop: propio, mio: true };
+      continue;
+    }
+    const e = emas[f] && emas[f][clave];
+    maxCierre = Math.max(maxCierre, c);
+    const ganMax = (maxCierre / compra - 1) * 100;
+    trinquete = Math.max(trinquete, window.REGLAS.stopDe({ precio: c, ema50: e }, compra, trinquete, ganMax) || 0);
+    if (trinquete && c < trinquete) return { fecha: f, precio: c, stop: trinquete, mio: false };
+  }
+  return null;
+};
+
+/* Modo simulación: cuando está activo, una posición cuyo stop ha saltado se cierra sola y queda
+   registrada como venta con su rentabilidad. Viene APAGADO: cerrar posiciones sin preguntar sobre
+   un registro de dinero real sería destruir datos que no son reproducibles. */
+window.SIMULACION = {
+  leer() { try { return JSON.parse(localStorage.getItem('simulacion-v1') || 'null') || { auto: false } } catch (e) { return { auto: false } } },
+  guardar(v) { try { localStorage.setItem('simulacion-v1', JSON.stringify(v)) } catch (e) {} },
+};
+
 window.TRINQUETE_EN_SERIE = function (clave, desde, compra) {
   const dias = PRECIOS || {}, emas = (window.__EMAS__ || {});
   if (!compra) return null;
