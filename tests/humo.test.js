@@ -1972,6 +1972,176 @@ for (const f of orden) {
       : mal('la ventana no se ha restaurado');
   }
 
+  /* UNA POSICION VENDIDA A TROZOS ES UNA OPERACION EN TODA LA PESTAÑA.
+
+     El propio codigo lo declara en porPosicion(): "si contara dos, el acertadas X de Y se infla y
+     ese es el numero con el que juzgas la estrategia". El historial lo respetaba; la curva de la
+     cuenta y la tabla mensual NO: contaban filas. Con una posicion vendida en tres veces la misma
+     pestaña decia "1 operacion, acertadas 1 de 1" en un bloque y "3 operaciones" en otros tres.
+     Encontrado el 31/10/2026 construyendo el caso. Invariante: la pestaña no puede dar dos cuentas
+     distintas de lo mismo, y lo que son ventas se llaman ventas. */
+  console.log('\nUNA POSICIÓN VENDIDA A TROZOS CUENTA COMO UNA OPERACIÓN');
+  {
+    const previo = almacen['posiciones-v1'];
+    almacen['posiciones-v1'] = JSON.stringify([
+      { ticker: 'ZZA', simbolo: 'NY:ZZA', precio: 10, acciones: 40, fecha: '2026-10-05', cerrada: '2026-09-12', precioSalida: 12, parcial: true, id: 'q1' },
+      { ticker: 'ZZA', simbolo: 'NY:ZZA', precio: 10, acciones: 30, fecha: '2026-10-05', cerrada: '2026-10-19', precioSalida: 14, parcial: true, id: 'q2' },
+      { ticker: 'ZZA', simbolo: 'NY:ZZA', precio: 10, acciones: 30, fecha: '2026-10-05', cerrada: '2026-10-26', precioSalida: 9 },
+    ]);
+    await ventana.posiciones();
+    const leerT = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerT).join(' ');
+    const txt = leerT(porId.rpos).replace(/\s+/g, ' ');
+
+    /* 1 · la tasa de acierto se mide por operacion: 1 de 1, no 2 de 3. Es el numero con el que
+       juzga la estrategia, y es el que mas se inflaba. */
+    /acertadas\s*1 de 1 · 100 %/.test(txt)
+      ? ok('la tasa de acierto es 1 de 1, no 2 de 3')
+      : mal('la tasa de acierto se mide por salida', (txt.match(/acertadas\s*\d+ de \d+[^·]*·[^ ]*/) || ['(no encontrada)'])[0]);
+
+    /* 2 · ningun bloque puede decir "3 operaciones": son 3 ventas de UNA operacion. */
+    const sueltas = (txt.match(/\b([2-9]|\d\d+) operaciones\b/g) || []);
+    sueltas.length === 0 ? ok('ningún bloque cuenta las ventas como operaciones')
+      : mal('algún bloque sigue contando ventas como operaciones', sueltas.join(', '));
+
+    /* 3 · y lo que son ventas se dicen ventas, con la operacion al lado para que se pueda atar. */
+    /3 salidas en 1 operación/.test(txt) ? ok('la curva dice "3 salidas en 1 operación"')
+      : mal('la curva no distingue salidas de operaciones', (txt.match(/\d+ (salidas?|operaciones)[^·]*/) || ['(no)'])[0]);
+    /TOTAL\s*3 en 1 op\./.test(txt) ? ok('la tabla mensual suma "3 en 1 op."')
+      : mal('la tabla mensual no ata las salidas a su operación', (txt.match(/TOTAL\s*\d+[^ ]*/) || ['(no)'])[0]);
+    /En verde/.test(txt) ? ok('y su columna se llama "En verde", no "Acertadas"')
+      : mal('la columna mensual sigue llamándose Acertadas: se lee como la tasa de acierto');
+
+    /* 4 · el dinero SI suma todas las ventas: 40x2 + 30x4 - 30x1 = 80 + 120 - 30 = 170 $ */
+    /\+170,00 \$/.test(txt) ? ok('el dinero suma las tres ventas: +170,00 $')
+      : mal('el resultado en dinero no suma las tres ventas', (txt.match(/[+−]\d+,\d\d \$/g) || []).join(' '));
+
+    almacen['posiciones-v1'] = previo || '[]';
+    await ventana.posiciones();
+  }
+
+  /* CON TU PROPIO STOP, LA TARJETA DICE QUE ES TUYO Y DONDE TENDRIA EL SUYO EL PANEL.
+
+     revision() calculaba ev.stopDelSistema y NADIE lo usaba: codigo muerto, y ademas con el valor
+     mal (guardaba solo el trinquete, que es uno de los cuatro candidatos del stop y casi siempre el
+     mas bajo). Importa porque tu stop es FIJO y el del sistema SUBE: con el tiempo se separan, y si
+     el tuyo queda muy por debajo de la EMA 50 el panel te deja aguantar una tendencia ya rota sin
+     decirtelo. Encontrado el 31/10/2026 barriendo la pestaña de Posiciones. */
+  console.log('\nCON UN STOP PROPIO, LA TARJETA LO DISTINGUE DEL DEL PANEL');
+  {
+    const previo = almacen['posiciones-v1'];
+    const k = Object.keys(panel.actual).find(x => panel.actual[x].ema50 && panel.actual[x].precio > panel.actual[x].ema50);
+    const d = panel.actual[k];
+    /* Compra por debajo de la EMA 50 y un stop propio a la mitad: el del sistema es la EMA 50 y
+       queda muy por encima del propio, que es el caso que hay que avisar.
+       La fecha es la de HOY a proposito: sin sesiones posteriores el trinquete no existe todavia, y
+       asi el unico valor posible para el stop del sistema es el que calcula reglas.js. Con una
+       compra antigua el trinquete ya ha subido hasta la EMA 50 y las dos versiones coinciden: el
+       escenario pasaba igual con el codigo viejo y la prueba no probaba nada. */
+    const hoyF = panel.dias[panel.dias.length - 1];
+    almacen['posiciones-v1'] = JSON.stringify([{ ticker: d.ticker, simbolo: k, acciones: 10,
+      precio: +(d.ema50 * 0.9).toFixed(2), fecha: hoyF, stopPropio: +(d.ema50 * 0.5).toFixed(2) }]);
+    await ventana.posiciones();
+    const leerS = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerS).join(' ');
+    const txt = leerS(porId.rpos).replace(/\s+/g, ' ');
+    /Tu stop/.test(txt) ? ok('la caja dice "Tu stop", no "Stop"') : mal('no distingue tu stop del del panel');
+    const m = txt.match(/el del panel estaría en ([\d.]+),(\d+) \$/);
+    m ? ok('y dice dónde tendría el suyo el panel: ' + m[1] + ',' + m[2] + ' $')
+      : mal('no dice dónde tendría su stop el panel');
+    /* Y ese numero es la EMA 50, no el trinquete: es el stop de verdad del sistema. */
+    const servido = m ? parseFloat(m[1].replace('.', '') + '.' + m[2]) : null;
+    servido != null && Math.abs(servido - d.ema50) < 0.02
+      ? ok('y es el stop real del sistema (la EMA 50), no solo el trinquete')
+      : mal('el stop del sistema que muestra no es el que calcula reglas.js', servido + ' vs EMA 50 ' + (d.ema50 || 0).toFixed(2));
+    /por encima del tuyo/.test(txt) ? ok('y avisa de que queda por encima del tuyo')
+      : mal('no avisa de que el stop del panel queda por encima del tuyo');
+    almacen['posiciones-v1'] = previo || '[]';
+    await ventana.posiciones();
+  }
+
+  /* TU STOP NO CONTAMINA EL TRINQUETE DEL SISTEMA.
+
+     El trinquete (stopMax) se guardaba desde r.stop, que cuando pones tu propio stop ES EL TUYO. Y
+     el trinquete no baja nunca. Asi que un stop propio por encima del del panel quedaba grabado como
+     trinquete del SISTEMA, y al borrar el tuyo el panel seguia clavado ahi para siempre: con la
+     EMA 50 en 27,81 y un stop propio de 31,75 el panel mandaba vender un 14 % por encima de su
+     propia regla. Dinero real: en la simulacion que esta corriendo usa stops propios.
+     Encontrado el 31/10/2026 barriendo Posiciones. */
+  console.log('\nTU PROPIO STOP NO SE GRABA COMO TRINQUETE DEL SISTEMA');
+  {
+    const previo = almacen['posiciones-v1'];
+    const k = Object.keys(panel.actual).find(x => panel.actual[x].ema50 && panel.actual[x].precio > panel.actual[x].ema50);
+    const d = panel.actual[k], hoyF = panel.dias[panel.dias.length - 1];
+    const alto = +(d.precio * 0.99).toFixed(2);          // propio POR ENCIMA del del sistema
+    /* stopMax se pone a 0 explicitamente: si quedase el de otra comprobacion anterior, el trinquete
+       ya traeria el valor y la prueba pasaria sin probar nada. */
+    almacen['posiciones-v1'] = JSON.stringify([{ ticker: d.ticker, simbolo: k, acciones: 10,
+      precio: +(d.ema50 * 0.9).toFixed(2), fecha: hoyF, stopPropio: alto, stopMax: 0, maxVisto: 0 }]);
+    alto > d.ema50 ? ok('el escenario muerde: el stop propio (' + alto + ') está por encima de la EMA 50 (' + d.ema50.toFixed(2) + ')')
+                   : mal('el stop propio no queda por encima: la prueba no probaría nada');
+    await ventana.posiciones();
+    const guardado = JSON.parse(almacen['posiciones-v1'])[0].stopMax;
+    Math.abs(guardado - d.ema50) < 0.02
+      ? ok('el trinquete guarda el stop del sistema (' + guardado.toFixed(2) + '), no el tuyo')
+      : mal('el trinquete ha guardado ' + guardado + ' en vez de la EMA 50 ' + d.ema50.toFixed(2));
+
+    /* Y la prueba que de verdad importa: al quitar tu stop, el del panel vuelve a su sitio. */
+    const sinMio = JSON.parse(almacen['posiciones-v1']); delete sinMio[0].stopPropio;
+    almacen['posiciones-v1'] = JSON.stringify(sinMio);
+    await ventana.posiciones();
+    const leerP = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerP).join(' ');
+    const txt = leerP(porId.rpos).replace(/\s+/g, ' ');
+    const m = txt.match(/Stop\s*([\d.]+),(\d+) \$/);
+    const nivel = m ? parseFloat(m[1].replace('.', '') + '.' + m[2]) : null;
+    nivel != null && Math.abs(nivel - d.ema50) < 0.02
+      ? ok('al quitar tu stop, el del panel vuelve a la EMA 50 (' + nivel + ')')
+      : mal('al quitar tu stop el panel se queda con el tuyo', 'muestra ' + nivel + ', la EMA 50 es ' + d.ema50.toFixed(2));
+
+    /* Y el trinquete sigue siendo un trinquete: se le mete un valor mas alto a mano y no puede
+       bajar al repintar, aunque la EMA 50 de hoy sea menor. Sin esto, sustituir el Math.max por una
+       asignacion directa pasaba sin que nada fallase. */
+    const conAlto = JSON.parse(almacen['posiciones-v1']);
+    const subido = +(d.ema50 * 1.08).toFixed(4);
+    conAlto[0].stopMax = subido; delete conAlto[0].stopPropio;
+    almacen['posiciones-v1'] = JSON.stringify(conAlto);
+    await ventana.posiciones();
+    const tras = JSON.parse(almacen['posiciones-v1'])[0].stopMax;
+    tras >= subido - 1e-9 ? ok('el trinquete no baja: sigue en ' + tras.toFixed(2) + ' con la EMA 50 en ' + d.ema50.toFixed(2))
+      : mal('el trinquete ha bajado de ' + subido + ' a ' + tras);
+
+    almacen['posiciones-v1'] = previo || '[]';
+    await ventana.posiciones();
+  }
+
+  /* LA TARJETA DICE LO QUE LA POSICION PESA HOY, NO SOLO LO QUE METISTE.
+     Son cosas distintas en cuanto la posicion se mueve: una comprada al 12 % que sube un 43 % pesa
+     ya el 17 %, y el riesgo que corres es el de hoy. Con solo "Invertido 12 %" el tope de
+     concentracion del 12 % parecia respetado cuando ya estaba rebasado. */
+  console.log('\nLA TARJETA DICE EL PESO DE HOY, NO SOLO LO INVERTIDO');
+  {
+    const previo = almacen['posiciones-v1'], prevC = almacen['cartera-v1'];
+    const k = Object.keys(panel.actual).find(x => panel.actual[x].precio > 5);
+    const d = panel.actual[k], compra = +(d.precio * 0.7).toFixed(2);
+    almacen['cartera-v1'] = JSON.stringify({ total: 10000, riesgo: 1 });
+    almacen['posiciones-v1'] = JSON.stringify([{ ticker: d.ticker, simbolo: k,
+      acciones: +(1200 / compra).toFixed(4), precio: compra,
+      fecha: panel.dias[panel.dias.length - 1], stopMax: 0, maxVisto: 0 }]);
+    await ventana.posiciones();
+    const leerW = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerW).join(' ');
+    const txt = leerW(porId.rpos).replace(/\s+/g, ' ');
+    /Invertido[\d.,]+ \$ · 12,0 % de tu cartera/.test(txt)
+      ? ok('dice lo invertido y qué parte de la cartera fue (12,0 %)')
+      : mal('no dice el porcentaje invertido', (txt.match(/Invertido[^A-Z]{0,50}/) || ['(no)'])[0]);
+    const m = txt.match(/pesa el ([\d,]+) %/);
+    m && parseFloat(m[1].replace(',', '.')) > 12
+      ? ok('y que hoy pesa el ' + m[1] + ' %, más que lo invertido')
+      : mal('no dice el peso de hoy', (txt.match(/Valor ahora[^A-Z]{0,60}/) || ['(no)'])[0]);
+    new RegExp('sobre el tope del ' + ventana.REGLAS.R.topePosicion + ' %').test(txt)
+      ? ok('y avisa de que está por encima del tope de concentración')
+      : mal('no avisa de que el peso de hoy rebasa el tope');
+    almacen['posiciones-v1'] = previo || '[]'; if (prevC) almacen['cartera-v1'] = prevC;
+    await ventana.posiciones();
+  }
+
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
   if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
 })();

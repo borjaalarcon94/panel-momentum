@@ -2425,3 +2425,61 @@ suyo en el campo `version`, que es exactamente lo que tiene que cambiar.
 Y añadida la guarda que lo dice directamente, en `filtros.test.py`: el sello `actualizado` no puede
 ser anterior al último día de `dias`, y todas las acciones del top de hoy tienen que tener estado en
 `actual`. 2 mutaciones probadas y detectadas. Hasta ahora esto solo se detectaba de rebote.
+
+## 31/10/2026 · Barrido de Hoy, Posiciones y Simulación (las tres sin revisar)
+
+Cuatro hallazgos. Dos de ellos cuestan dinero.
+
+### 1 · El trinquete del sistema guardaba TU stop (fallo con dinero en juego)
+
+`window.posiciones()` persistía `stopMax: Math.max(p.stopMax||0, r.stop||0)`, y `r.stop` **es tu
+propio stop** cuando lo pones (`revision()` sustituye `ev.stop = propio`). El trinquete no baja
+nunca, así que un stop propio por encima del del panel quedaba grabado como **trinquete del
+sistema**. Reproducido: EMA 50 en 27,81, stop propio 31,75; al borrar el propio, **el panel seguía
+diciendo 31,75 para siempre** y habría mandado vender un **14 % por encima de su propia regla**.
+
+Importa ahora porque la simulación que está corriendo usa stops propios. Corregido: el trinquete
+guarda el stop del sistema (`r.stopMio ? r.stopDelSistema : r.stop`), nunca el tuyo.
+
+*Nota:* el `Math.max` al guardar resulta redundante — el trinquete ya lo garantiza `stopDe` vía
+`stopPrevio`. Sustituirlo por una asignación directa es neutro, así que esa mutación no se detecta
+y no es un hueco de la prueba.
+
+### 2 · Tres bloques contaban ventas como operaciones
+
+El propio código lo declara en `porPosicion()`: *«si contara dos, el acertadas X de Y se infla y ese
+es el número con el que juzgas la estrategia»*. El historial lo respetaba; **la curva de la cuenta y
+la tabla mensual no**. Con una posición vendida en tres veces, la misma pestaña decía:
+
+| Bloque | Antes | Ahora |
+|---|---|---|
+| Historial | «1 operación · 3 salidas», acertadas **1 de 1** | igual |
+| Curva de la cuenta | «**3 operaciones**» | «3 salidas en 1 operación» |
+| Tabla mensual (TOTAL) | «3», acertadas **2 de 3** | «3 en 1 op.», columna **En verde** |
+| Aviso de copia | «tus **3 posiciones**» | «tus 3 anotaciones» |
+
+Por mes la unidad natural *es* la salida (una venta cae en un mes y solo en uno), así que la columna
+se llama «Salidas» y la de aciertos «En verde». La tasa de acierto por operación vive donde se puede
+medir: el historial. El dinero sigue sumando todas las salidas (+170 $ en el caso de prueba).
+
+### 3 · `stopDelSistema`: código muerto y además con el valor mal
+
+`revision()` lo calculaba y **nadie lo usaba**, y guardaba solo el trinquete —uno de los cuatro
+candidatos del stop y casi siempre el más bajo—, así que el número era falso. Ahora es el stop real
+del sistema y **se muestra**: con tu stop puesto, la caja dice «Tu stop» y «el del panel estaría en
+X $», con aviso si ya lo habría saltado. Tu stop es fijo y el del sistema sube: con el tiempo se
+separan, y sin esto el panel te dejaba aguantar una tendencia ya rota sin decirlo.
+
+### 4 · La tarjeta no decía lo que la posición pesa HOY
+
+Mostraba «Invertido 1.200 $ · 12,0 %» y nada más. Una comprada al 12 % que sube un 43 % **pesa ya el
+17 %**, y el riesgo que corres es el de hoy. Con el tope de concentración bajado al 12 % ayer, eso
+hacía parecer respetado un tope ya rebasado. Ahora: «Valor ahora 1.714 $ · pesa el 17,1 % (sobre el
+tope del 12 %)».
+
+**Pruebas:** 11 nuevas en `humo.test.js`, todas sobre la pestaña renderizada con datos reales.
+**19 mutaciones probadas, 18 detectadas** (la 19 es la neutra de la nota del punto 1).
+
+Dos escenarios de prueba resultaron flojos y hubo que apretarlos: uno usaba una compra antigua, y el
+trinquete ya había subido hasta la EMA 50, así que el valor viejo y el nuevo coincidían y la mutación
+pasaba; otro no ponía `stopMax` a cero y arrastraba el de una comprobación anterior.

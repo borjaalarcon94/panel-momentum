@@ -101,7 +101,13 @@ function dinero(p, ahora, stop) {
   const c = window.CARTERA.leer() || {};
   return { acciones: acc, invertido, valor, pyl: valor - invertido,
     riesgo: stop ? Math.max(0, (ahora - stop) * acc) : null,
-    pctCartera: c.total ? invertido / c.total * 100 : null };
+    pctCartera: c.total ? invertido / c.total * 100 : null,
+    /* Lo que PESA HOY, no lo que metiste. Son cosas distintas en cuanto la posicion se mueve: una
+       comprada al 12 % que sube un 44 % pesa ya el 17 %, y el riesgo que corres es el de hoy, no el
+       del dia de la compra. Importa desde que el tope de concentracion bajo al 12 % (30/10/2026):
+       ensenar solo "Invertido 12 %" escondia que el tope ya estaba rebasado. */
+    pesoHoy: c.total ? valor / c.total * 100 : null,
+    tope: (window.REGLAS || {}).R ? window.REGLAS.R.topePosicion : null };
 }
 
 /* ── Ventas parciales ────────────────────────────────────────────────────────
@@ -189,14 +195,21 @@ function revision(p) {
      señales (RSI, devolución, requisitos) siguen vivas: el stop es una de las cuatro, no la única. */
   const propio = Number(p.stopPropio) > 0 ? Number(p.stopPropio) : null;
   if (propio != null) {
+    /* El stop del sistema se guarda ANTES de sustituirlo, y es el que calculo evaluaPosicion:
+       max(EMA 50, compra x 0,85, compra si llego al +20 %, trinquete). Antes se guardaba solo el
+       trinquete (stopMax/serie), que es UNO de los cuatro candidatos y casi siempre el mas bajo, asi
+       que el numero salia por debajo del stop real del panel. Da igual que nadie lo mirase: estaba
+       calculado y sin usar, y era falso. Ahora se muestra en la tarjeta, que es para lo que servia:
+       con tu propio stop puesto, el panel te enseñaba un nivel sin decir que era el TUYO ni donde
+       tendria el suyo. Encontrado el 31/10/2026 barriendo la pestaña. */
+    ev.stopDelSistema = ev.stop;
     ev.stop = propio;
-    ev.stopDelSistema = Math.max(p.stopMax || 0, trinqSerie || 0, 0) || null;
     const otros = ev.motivos.filter(m => m.codigo !== 'stop');
     ev.motivos = ahora < propio ? [{ codigo: 'stop', stop: propio, mio: true }, ...otros] : otros;
     ev.estado = ev.motivos.length ? 'vender' : ev.avisos.length ? 'vigilar' : 'mantener';
   }
   const motivos = ev.motivos.map(window.TEXTO_SENAL), avisos = ev.avisos.map(window.TEXTO_SENAL);
-  return { p, a, ahora, req, dias, ...ev, motivos, avisos, maxVisto: ev.maxVisto,
+  return { p, a, ahora, req, dias, ...ev, motivos, avisos, maxVisto: ev.maxVisto, stopMio: propio != null,
     t: ev.estado === 'vender' ? 'VENDER' : ev.estado === 'vigilar' ? 'VIGILAR' : 'MANTENER',
     d: ev.estado === 'vender' ? '(ahora ' + pc(ev.gan) + ') ' + motivos.join(' · ')
       : ev.estado === 'vigilar' ? avisos.join(' · ')
@@ -301,7 +314,7 @@ function copiaSeguridad() {
     if (dd == null || dd >= 30) {
       const av = el('div', 'm'); av.style.marginTop = '8px'; av.style.color = 'var(--warn)';
       av.textContent = dd == null
-        ? 'No has descargado ninguna copia. Tus ' + nPos + (nPos === 1 ? ' posición vive' : ' posiciones viven') + ' solo en este navegador: si lo limpias, se pierden y no hay forma de recuperarlas.'
+        ? 'No has descargado ninguna copia. Tus ' + nPos + (nPos === 1 ? ' anotación vive' : ' anotaciones viven') + ' solo en este navegador: si lo limpias, se pierden y no hay forma de recuperarlas.'
         : 'Tu última copia es de hace ' + dd + ' días. Conviene descargar una nueva.';
       d.appendChild(av);
     }
@@ -352,7 +365,8 @@ function formularioOperacion(alGuardar) {
    mas honesta de ver como vas, porque enseña el CAMINO y no solo el destino: dos historiales que
    acaban en +500 $ no son iguales si uno subio recto y el otro paso por -800 $ a mitad. */
 function graficaCurva(cerradas) {
-  const ops = cerradas.filter(p => p.cerrada && p.precioSalida && Number(p.acciones) > 0)
+  const filas = cerradas.filter(p => p.cerrada && p.precioSalida && Number(p.acciones) > 0);
+  const ops = filas
     .map(p => ({ f: p.cerrada, t: p.ticker, pyl: (p.precioSalida - p.precio) * Number(p.acciones) }))
     .sort((a, b) => (a.f < b.f ? -1 : a.f > b.f ? 1 : 0));
   if (ops.length < 2) return null;   // con un solo punto no hay curva que enseñar
@@ -386,15 +400,23 @@ function graficaCurva(cerradas) {
     `<polyline points="${linea}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>` +
     puntos.slice(1).map((p, i) => `<circle cx="${x(i + 1).toFixed(2)}" cy="${y(p.v).toFixed(2)}" r="2.2" fill="${color}" vector-effect="non-scaling-stroke"/>`).join('');
 
+  const nOps = porPosicion(filas).length;   // mismas filas que la curva, agrupadas por posición
   const d = el('div'); d.style.marginTop = '18px';
   d.appendChild(el('h2', 'blt', 'Cómo va tu cuenta'));
-  d.appendChild(el('p', 'nota', 'Resultado acumulado después de cada operación cerrada. La línea gris es tu punto de partida.'));
+  d.appendChild(el('p', 'nota', 'Resultado acumulado después de cada venta. La línea gris es tu punto de partida.'));
   const caja = el('div', 'curvacaja'); caja.appendChild(svg); d.appendChild(caja);
   const pie = el('div', 'curvapie');
   const peor = Math.min(...vs);
   pie.append(
     el('span', null, puntos[0].f ? fFecha(puntos[0].f) : ''),
-    el('span', 'm', ops.length + ' operaciones · peor momento ' + (peor >= 0 ? '+' : '−') + n(Math.abs(peor), 0) + ' $'),
+    /* "N operaciones" aqui contaba FILAS, y una posicion vendida en tres veces son tres filas. El
+       bloque de abajo decia "1 operacion, acertadas 1 de 1" y este "3 operaciones", en la misma
+       pestaña. Lo que esta curva dibuja son SALIDAS (un punto por cada venta), asi que se llama por
+       su nombre, y cuando hay parciales se da ademas el numero de operaciones, que es el que cuadra
+       con el historial. Encontrado el 31/10/2026 construyendo el caso de tres ventas parciales. */
+    el('span', 'm', ops.length + (ops.length === 1 ? ' salida' : ' salidas') +
+      (nOps !== ops.length ? ' en ' + nOps + (nOps === 1 ? ' operación' : ' operaciones') : '') +
+      ' · peor momento ' + (peor >= 0 ? '+' : '−') + n(Math.abs(peor), 0) + ' $'),
     el('span', acc >= 0 ? 'up' : 'down', (acc >= 0 ? '+' : '−') + n(Math.abs(acc), 2) + ' $'));
   d.appendChild(pie);
   return d;
@@ -422,7 +444,7 @@ function beneficioMensual(cerradas) {
   });
   const d = el('div'); d.style.marginTop = '18px';
   d.appendChild(el('h2', 'blt', 'Beneficio y pérdida por mes'));
-  d.appendChild(el('p', 'nota', 'Lo que ganaste o perdiste cada mes, contando las operaciones el día que las cerraste. El acumulado es tu curva: lo que llevas desde que empezaste.'));
+  d.appendChild(el('p', 'nota', 'Lo que ganaste o perdiste cada mes, contando cada venta el día que la hiciste. «Salidas» son ventas, no operaciones: una posición de la que vendiste en varias veces aparece en todos los meses en que vendiste algo. La tasa de acierto por operación está en el historial de abajo. El acumulado es tu curva: lo que llevas desde que empezaste.'));
   /* Sin operaciones cerradas la seccion se devolvia como null y no se dibujaba NADA, asi que no
      habia forma de saber que existe. La de arriba si se enseña vacia: aqui igual. */
   if (!porMes.size) {
@@ -430,7 +452,13 @@ function beneficioMensual(cerradas) {
     return d;
   }
   const t = el('table', 'tabla'), h = el('tr');
-  ['Mes', 'Operaciones', 'Acertadas', 'Resultado', 'Acumulado'].forEach(x => h.appendChild(el('th', null, x)));
+  /* "Operaciones" y "Acertadas" por mes contaban FILAS: una posicion vendida en tres veces salia
+     como tres operaciones y su acierto se juzgaba tres veces, que es justo la inflacion que
+     porPosicion() existe para evitar. Y el TOTAL daba "2 de 3" mientras el historial decia "1 de 1"
+     en la misma pestaña. Por mes la unidad natural ES la salida (una venta cae en un mes y solo en
+     uno), asi que se llama por su nombre y el acierto se mide donde se puede medir: en el historial,
+     por operacion completa. Encontrado el 31/10/2026. */
+  ['Mes', 'Salidas', 'En verde', 'Resultado', 'Acumulado'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
   let acumulado = 0, totalOps = 0, totalGan = 0, faltan = 0;
   [...porMes.entries()].sort().forEach(([clave, m]) => {
@@ -446,9 +474,10 @@ function beneficioMensual(cerradas) {
       (acumulado >= 0 ? '+' : '−') + n(Math.abs(acumulado), 2) + ' $'));
     t.appendChild(tr);
   });
+  const nGrupos = porPosicion(cerradas.filter(p => p.cerrada)).length;
   const tr = el('tr', 'total');
   tr.appendChild(el('td', 'left', el('b', null, 'TOTAL').textContent));
-  tr.appendChild(el('td', null, String(totalOps)));
+  tr.appendChild(el('td', null, String(totalOps) + (nGrupos !== totalOps ? ' en ' + nGrupos + ' op.' : '')));
   tr.appendChild(el('td', null, totalGan + ' de ' + totalOps));
   tr.appendChild(el('td', acumulado >= 0 ? 'up' : 'down',
     (acumulado >= 0 ? '+' : '−') + n(Math.abs(acumulado), 2) + ' $'));
@@ -865,9 +894,18 @@ window.posiciones = async function () {
   }
   const revs = abiertas.map(revision);
   // Actualiza el máximo visto de cada posición (para medir cuánto devuelve desde su mejor momento).
+  /* EL TRINQUETE GUARDA EL STOP DEL SISTEMA, NUNCA EL TUYO.
+     Guardaba r.stop, que cuando pones tu propio stop ES EL TUYO. Y el trinquete no baja nunca, asi
+     que un stop propio por encima del del panel se quedaba grabado como trinquete del sistema: al
+     quitar tu stop, el del panel seguia clavado ahi para siempre. Caso real reproducido el
+     31/10/2026: stop del sistema 27,81 (la EMA 50), stop propio 31,75; tras borrar el propio, el
+     panel seguia diciendo 31,75 y habria mandado vender un 14 % por encima de su propia regla.
+     Tu stop es tuyo y es fijo; el del sistema se calcula con sus cuatro candidatos. No se mezclan. */
   guardarPos(leerPos().map(p => {
     const r = revs.find(x => x.p.ticker === p.ticker && !p.cerrada);
-    return r && !p.cerrada ? { ...p, maxVisto: Math.max(p.maxVisto || 0, r.maxVisto || 0), stopMax: Math.max(p.stopMax || 0, r.stop || 0) } : p;
+    const delSistema = r ? (r.stopMio ? r.stopDelSistema : r.stop) : null;
+    return r && !p.cerrada ? { ...p, maxVisto: Math.max(p.maxVisto || 0, r.maxVisto || 0),
+      stopMax: Math.max(p.stopMax || 0, delSistema || 0) } : p;
   }));
 
   if (revs.length) {
@@ -947,9 +985,18 @@ window.posiciones = async function () {
          la caja en ambar, igual que en la pestaña Hoy: un stop poco fiable tiene que parecerlo. */
       const mg = window.MARGEN_STOP((r.stop / r.ahora - 1) * 100, (r.a || {}).adr);
       const sb = el('div', 'stopbox' + (mg && mg.apretado ? ' lejos' : ''));
-      sb.appendChild(el('span', 'et', 'Stop'));
+      sb.appendChild(el('span', 'et', r.stopMio ? 'Tu stop' : 'Stop'));
       sb.appendChild(el('span', 'vl', n(r.stop) + ' $'));
       sb.appendChild(el('span', 'ds', pc((r.stop / r.ahora - 1) * 100, 0) + ' desde el precio actual'));
+      /* Con tu stop puesto, decir donde tendria el suyo el panel no es un adorno: tu stop es FIJO y
+         el del sistema sube, asi que con el tiempo se separan y el tuyo puede quedar muy por debajo
+         de la EMA 50. Si eso pasa, el panel estaria dejandote aguantar una tendencia ya rota sin
+         decirtelo. Se dice. */
+      if (r.stopMio && r.stopDelSistema)
+        sb.appendChild(el('span', 'ds' + (r.stopDelSistema > r.ahora ? ' aviso' : ''),
+          '· el del panel estaría en ' + n(r.stopDelSistema) + ' $' +
+          (r.stopDelSistema > r.ahora ? ': ya lo habría saltado'
+            : r.stopDelSistema > r.stop ? ' (' + pc((r.stopDelSistema / r.stop - 1) * 100, 0) + ' por encima del tuyo)' : '')));
       if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
         '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.muyApretado ? ': un día normal lo cruza' : mg.apretado ? ': menos de dos días de rango' : '')));
       if (r.gan >= window.REGLAS.R.gananciaProteger) sb.appendChild(el('span', 'ds', '· ya protege tu compra'));
@@ -960,8 +1007,9 @@ window.posiciones = async function () {
          para decidir; los demas bajan al desplegable para que la tarjeta quepa en pantalla. */
       const filas = [];
       if (din) filas.push(
-        ['Invertido', n(din.invertido, 2) + ' $' + (din.pctCartera != null ? ' · ' + n(din.pctCartera, 1) + ' %' : '')],
-        ['Valor ahora', n(din.valor, 2) + ' $'],
+        ['Invertido', n(din.invertido, 2) + ' $' + (din.pctCartera != null ? ' · ' + n(din.pctCartera, 1) + ' % de tu cartera' : '')],
+        ['Valor ahora', n(din.valor, 2) + ' $' + (din.pesoHoy != null
+          ? ' · pesa el ' + n(din.pesoHoy, 1) + ' %' + (din.tope && din.pesoHoy > din.tope ? ' (sobre el tope del ' + din.tope + ' %)' : '') : '')],
         /* "Si salta el stop: −1.024,84 $" se lee como una perdida, y con el stop por encima del
            precio de compra saltar el stop es GANAR. Se dice con cuanto te quedas, y entre
            parentesis lo que devuelves desde el valor de ahora, que es lo que esa cifra media. */
