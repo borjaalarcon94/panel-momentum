@@ -2184,3 +2184,60 @@ periodo alcista y solapado, con 18 sesiones de operación real. Reproducir las s
 **Nota de alcance:** la rejilla vive en humo.test.js, que no bloquea la publicación porque depende
 de los datos del día. Un fallo ahí es logica-contra-logica y sí significa divergencia real, pero no
 detiene el build.
+
+## 30/10/2026 · Revisión general. Fallo en la respuesta a «¿habrías ganado dinero siguiendo el panel?»
+
+**Estado medido con 18 sesiones y 34 entradas anotadas** (32 medibles; BLFS dejó de cotizar y queda
+fuera, NRIX acaba de entrar):
+
+- media por entrada **con los stops: +1,5 %** · aguantando sin vender nunca: **+2,3 %** · S&P 500 en
+  los mismos días: **−0,4 %**. En positivo: 16 de 32 (50 %).
+- **7 cerradas, las 7 por stop**, media −13,4 %. Ninguna por devolución, RSI ni requisitos.
+- cartera simulada de 5 posiciones: +2,1 % contra −1,2 % del índice en su tramo (+3,4 pt).
+
+**El stop sigue costando dinero**: +1,5 % con stops contra +2,3 % aguantando. Coherente con la
+medición del 24/10/2026 (stop estrecho, mediana de corte a los 14 días). No se cambia nada.
+
+**El tope del 15 % no es un suelo, es un nivel de disparo.** Dos salidas lo rebasaron:
+- **IOVA −26,0 %**: cerró a 9,56 con el stop en 11,64 tras un **hueco de −35 % en una sesión**
+  (14,81 → 9,56) el 29/10. Resultados estaban a 7 días (05/11), así que el aviso de «resultados en
+  ≤10 días» **no se habría activado**: fue noticia, el punto ciego declarado del sistema.
+- **COHU −21,0 %**: sin hueco. Cerró a 58,24 con el stop en 62,67, un −7,2 % en un día normal.
+  Al actuar solo con cierres, **siempre se sale por debajo del stop**; aquí el exceso fue 6 pp.
+
+### Fallo encontrado y corregido
+
+**«¿Habrías ganado dinero siguiendo el panel?» se respondía con `a.ret`, que es aguantar sin vender
+nunca.** La pregunta dice «siguiendo el panel» y el panel vende en el stop. Con el registro de hoy:
+respondía **+2,3 %** donde el sistema hace **+1,5 %**. Y «¿Mejor que comprar el índice?» comparaba
+cada posición con el índice **hasta hoy**, aunque hubiese cerrado dos semanas antes: dos ventanas
+distintas, atribuyéndole al panel lo que hizo el mercado con el dinero ya fuera.
+
+**Estaba oculto**: las tres preguntas se desbloquean con 30 maduras y hoy hay 13 (estimado 19/11),
+así que nunca enseñó un número equivocado. Se habría activado justo cuando sirve para decidir si
+seguir operando.
+
+Corregido extrayendo `ganaDinero(maduras)` (devuelve las dos cifras a propósito, para poder decir
+cuál es cuál) y `spEntre(dIni, dFin)`, el índice en el tramo exacto de cada posición. 11 pruebas
+nuevas en `resultados.test.js` con un escenario donde aguantar y el protocolo dan respuestas
+**opuestas**. 7 mutaciones detectadas, incluida la reintroducción del fallo original.
+
+**«¿Sirve de algo la puntuación?» se queda midiendo aguantando, a propósito**: la pregunta es si la
+nota sabe elegir, y aplicarle los stops mediría las dos cosas mezcladas. Ahora lo dice en el texto.
+
+### Etiquetas corregidas (esto sí estaba visible)
+
+`comparaIndice` mostraba «las anotadas +2,3 %» sin decir que era aguantando, a una pestaña de
+distancia del «+1,5 % con los stops» de Seguimiento. Las dos correctas, ninguna decía cuál era.
+Ahora el bloque se llama «Comparado con el S&P 500, aguantando sin vender», la columna de `porGrupo`
+es «Media aguantando», y la nota apunta a dónde está la otra cifra.
+
+### Limitación de datos que conviene anotar
+
+`docs/datos/<fecha>.json` guarda **solo el top-10 de ese día**, así que de una acción que sale del
+top se conserva el precio (en `precios.json`) pero **no sus indicadores**. Consecuencia: la regla de
+venta por **RSI < 45** y la de **≥2 requisitos roto** no se pueden medir retrospectivamente; el
+`recorrido` solo implementa stop y devolución, que son las de precio. Hoy 3 de las 34 tienen RSI < 45
+(COHU, IOVA, OSCR) y a las tres les había saltado ya el stop antes, pero **no es comprobable que eso
+pase siempre**. Guardar el RSI de los 36 seguidos costaría 36 números al día, lo mismo que ya cuesta
+la EMA 50. Sin decidir: no cambia ninguna regla, solo permitiría medirla.

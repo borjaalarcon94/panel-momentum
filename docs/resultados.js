@@ -32,6 +32,21 @@ function entradas() {
 
 const media = v => (v.length ? v.reduce((s, x) => s + x, 0) / v.length : null);
 
+/* El indice en el MISMO tramo que una posicion: de su entrada a SU salida, no a hoy. Comparar una
+   posicion que cerro el 14/10 contra el indice hasta el 29/10 mide dos ventanas distintas y le
+   atribuye al panel lo que hizo el mercado cuando el dinero ya estaba fuera. Si falta el dato de
+   un dia concreto se coge el ultimo anterior que haya, que es lo que hace un cierre de verdad. */
+function spEntre(dIni, dFin) {
+  const spyDe = f => {
+    if ((HIST[f] || {}).spy) return HIST[f].spy;
+    const antes = FH.filter(x => x <= f).sort();
+    for (let i = antes.length - 1; i >= 0; i--) if ((HIST[antes[i]] || {}).spy) return HIST[antes[i]].spy;
+    return null;
+  };
+  const x = spyDe(dIni), y = spyDe(dFin);
+  return x && y ? (y / x - 1) * 100 : null;
+}
+
 /* Cuantas semanas quedan: las entradas que ya hay tienen que madurar, y si aun no hay suficientes,
    se proyecta al ritmo al que estan apareciendo. Es una estimacion, y se dice que lo es. */
 function cuandoEstara(xs) {
@@ -108,6 +123,27 @@ function simula(xs) {
   });
 }
 
+/* RESPUESTA A "¿HABRIAS GANADO DINERO SIGUIENDO EL PANEL?".
+
+   Separada en su propia funcion porque la respuesta se daba mal y hacia falta poder probarla: usaba
+   a.ret, que es aguantar sin vender nunca, cuando la pregunta dice "siguiendo el panel" y el panel
+   vende en el stop. Con el registro del 30/10/2026 eran +2,3 % contra +1,5 %. Devuelve las dos
+   cifras a proposito, para que la de arriba pueda decir cual es cual.
+
+   contraIndice compara cada posicion con el indice EN SU TRAMO: de su entrada a su salida, no hasta
+   hoy. Una cerrada el 14/10 contra el indice hasta el 29/10 son dos ventanas distintas. */
+function ganaDinero(maduras) {
+  const sim = simula(maduras);
+  const ret = media(sim.map(a => a.conReglas));
+  return { sim, ret,
+    pos: sim.filter(a => a.conReglas > 0).length,
+    cerradas: sim.filter(a => a.fSalida).length,
+    aguantando: media(maduras.map(a => a.ret)),
+    contraIndice: sim.map(a => ({ ...a, spTramo: spEntre(a.dia, a.fSalida || FH[0]) }))
+      .filter(a => a.spTramo != null)
+      .map(a => ({ ...a, ret: a.conReglas, sp: a.spTramo })) };
+}
+
 /* Como va cada grupo. Nace de una sugerencia razonable ("saca la rentabilidad de solo las que siguen
    en el top") que, aplicada como filtro, mentiria: una accion sale del top JUSTO cuando se debilita,
    asi que quedarse con las de dentro es quedarse con las ganadoras por construccion. Medido con el
@@ -120,7 +156,7 @@ function porGrupo(xs) {
   const d = el('div', 'blk');
   d.appendChild(el('div', 'blt', 'Las que siguen en el top y las que ya salieron'));
   const t = el('table', 'tabla'), h = el('tr');
-  ['Grupo', 'Cuántas', 'Media', 'Frente al S&P 500', 'Peor'].forEach(x => h.appendChild(el('th', null, x)));
+  ['Grupo', 'Cuántas', 'Media aguantando', 'Frente al S&P 500', 'Peor'].forEach(x => h.appendChild(el('th', null, x)));
   t.appendChild(h);
   [['Siguen en el top', dentro], ['Ya salieron del top', fuera], ['Todas', xs]].forEach(([nom, v]) => {
     const tr = el('tr'), m = media(v.map(a => a.ret));
@@ -853,7 +889,7 @@ function comparaIndice(xs) {
   if (conSp.length) {
     const mAcc = media(conSp.map(a => a.ret)), mSp = media(conSp.map(a => a.sp)), dif = mAcc - mSp;
     const c = el('div', 'blk'); c.style.marginTop = '10px';
-    c.appendChild(el('div', 'blt', 'Comparado con el S&P 500'));
+    c.appendChild(el('div', 'blt', 'Comparado con el S&P 500, aguantando sin vender'));
     const st = el('div', 'stats');
     st.append(stat('las anotadas', pc(mAcc), signo(mAcc)), stat('el S&P 500 esos mismos días', pc(mSp), signo(mSp)),
       stat('diferencia', (dif >= 0 ? '+' : '') + n(dif, 1) + ' pt', signo(dif)));
@@ -884,7 +920,9 @@ function comparaIndice(xs) {
       c.appendChild(li);
     }
 
-    c.appendChild(el('p', 'nota', 'Cada acción se compara con lo que hizo el índice desde el día que ella entró, no desde el principio.'));
+    c.appendChild(el('p', 'nota', 'Cada acción se compara con lo que hizo el índice desde el día que ella entró, no desde el principio. ' +
+      'Y se mide AGUANTANDO SIN VENDER NUNCA, hasta el precio de hoy: esto responde a si el panel sabe ELEGIR, sin mezclarlo con cuándo sale. ' +
+      'Con los stops puestos la media sale distinta, y es la que da la pestaña Seguimiento y la que contesta «¿habrías ganado dinero siguiendo el panel?» aquí arriba.'));
     return c;
   }
   return null;
@@ -957,30 +995,44 @@ window.resultados = async function () {
   /* Las respuestas solo aparecen cuando se sostienen. Antes salian en gris diciendo "no se puede
      saber" y justo debajo una tabla con numeros al decimal: se contradecian solas. */
   if (maduras.length >= MINIMO) {
-    const ret = media(maduras.map(a => a.ret)), pos = maduras.filter(a => a.ret > 0).length;
+    /* La pregunta dice "SIGUIENDO EL PANEL", asi que se responde con el protocolo del panel: con los
+       stops puestos. Antes se respondia con a.ret, que es aguantar sin vender nunca, o sea
+       justo lo que el sistema NO hace. Con el registro del 30/10/2026 eran +2,3 % contra +1,5 %: la
+       respuesta se daba medio punto mejor de lo que el panel consigue de verdad. Y el indice se
+       comparaba siempre hasta hoy, aunque la posicion hubiese cerrado dos semanas antes.
+       Encontrado el 30/10/2026 con las preguntas todavia ocultas (13 de 30 maduras), asi que nunca
+       llego a enseñar un numero equivocado: se activaban hacia el 19 de noviembre. */
+    const g = ganaDinero(maduras);
+    const sim = g.sim, ret = g.ret;
     R.appendChild(pregunta('¿Habrías ganado dinero siguiendo el panel?',
       (ret >= 0 ? 'Sí, ' : 'No, ') + pc(ret) + ' de media por acción',
-      'De las ' + maduras.length + ' entradas con recorrido, ' + pos + ' van en positivo (' + Math.round(pos / maduras.length * 100) + ' %).', ret >= 0));
+      'De las ' + sim.length + ' entradas con recorrido, ' + g.pos + ' van en positivo (' + Math.round(g.pos / sim.length * 100) + ' %). ' +
+      'Con los stops del sistema puestos: ' + g.cerradas + ' ya cerraron y ' + (sim.length - g.cerradas) + ' siguen abiertas. ' +
+      'Aguantando sin vender nunca saldría ' + pc(g.aguantando) + ', que no es lo que hace el panel.', ret >= 0));
 
-    const cs = maduras.filter(a => a.sp != null), vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
+    const cs = g.contraIndice;
+    const vsSp = cs.length ? media(cs.map(a => a.ret - a.sp)) : null;
     /* Con el intervalo delante: una diferencia cuyo margen cruza el cero no responde "si", responde
        "no se sabe". Antes decia "Si, +1,7 puntos" aunque el margen fuese de -1,8 a +6,8. */
     if (vsSp != null) {
       const ic = intervalo(cs), cruza = ic && ic.lo < 0 && ic.hi > 0;
       R.appendChild(pregunta('¿Mejor que comprar el índice?',
         cruza ? 'Todavía no se puede decir' : (vsSp >= 0 ? 'Sí, ' : 'No, ') + (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos frente al S&P 500',
-        (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos de media frente al S&P 500 en esos mismos días' +
+        (vsSp >= 0 ? '+' : '') + n(vsSp, 1) + ' puntos de media frente al S&P 500 en el tramo exacto de cada posición (de su entrada a su salida, no hasta hoy)' +
         (ic ? ', con un margen de error de ' + (ic.lo >= 0 ? '+' : '') + n(ic.lo, 1) + ' a ' + (ic.hi >= 0 ? '+' : '') + n(ic.hi, 1) +
           ' pt (remuestreando por día de entrada, ' + ic.dias + ' días)' : '') + '.' +
         (cruza ? ' El margen incluye el cero: con este historial la ventaja no se distingue de la casualidad.' : ''),
         !cruza && vsSp >= 0));
     }
 
+    /* Esta SI se mide aguantando sin vender, y a proposito: la pregunta es si la nota sabe elegir, y
+       mezclarla con las reglas de salida mide las dos cosas a la vez. Se dice en el texto. */
     const dis = discrimina(maduras);
     if (dis) R.appendChild(pregunta('¿Sirve de algo la puntuación?',
       (dis.dif >= 0 ? 'Sí, las mejor puntuadas rinden ' : 'No, las mejor puntuadas rinden ') + (dis.dif >= 0 ? '+' : '') + n(dis.dif, 1) + ' puntos más',
       'Partiendo por la mediana (' + n(dis.corte, 0) + '): de ' + n(dis.corte, 0) + ' para arriba, ' + pc(media(dis.altas.map(a => a.ret))) + ' en ' + dis.altas.length +
-      ' casos; por debajo, ' + pc(media(dis.bajas.map(a => a.ret))) + ' en ' + dis.bajas.length + '.', dis.dif >= 0));
+      ' casos; por debajo, ' + pc(media(dis.bajas.map(a => a.ret))) + ' en ' + dis.bajas.length + '. ' +
+      'Medido aguantando sin vender, a propósito: la pregunta es si la nota sabe elegir, y aplicarle los stops mediría las dos cosas mezcladas.', dis.dif >= 0));
 
   }
 

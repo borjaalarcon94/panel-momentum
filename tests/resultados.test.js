@@ -442,5 +442,67 @@ comprueba('resta el indice: si la accion y el S&P hacen lo mismo, la diferencia 
   comprueba('las 6 invariantes se cumplen en los ' + casos.length + ' escenarios', malos === 0, malos + ' con fallos');
 }
 
+
+/* "¿HABRIAS GANADO DINERO SIGUIENDO EL PANEL?" SE RESPONDE CON EL PROTOCOLO DEL PANEL.
+
+   Fallo real encontrado el 30/10/2026: la respuesta se calculaba con a.ret, que es aguantar sin
+   vender nunca. La pregunta dice "siguiendo el panel" y el panel VENDE en el stop. Con el registro
+   de ese dia eran +2,3 % contra +1,5 %: se respondia casi un punto mejor de lo que el sistema hace.
+   Estaba oculto todavia (13 de 30 maduras, se activaba hacia el 19 de noviembre), asi que nunca
+   enseño un numero equivocado, pero se habria activado justo cuando sirve para decidir si seguir.
+
+   Y el indice se comparaba siempre hasta HOY, aunque la posicion hubiese cerrado dos semanas antes.
+   Aqui se comprueba que cada posicion se compara con su propio tramo. */
+console.log('\n¿Habrías ganado dinero siguiendo el panel?');
+{
+  /* Escenario construido para que aguantar y seguir el protocolo den respuestas OPUESTAS: dos
+     entradas que saltan el stop con perdida y luego se recuperan hasta cerrar en verde. Aguantando
+     sale positivo; con los stops puestos, negativo. Si la funcion se equivoca de cifra, invierte
+     la respuesta a la pregunta, que es el peor fallo posible aqui. */
+  ctx.HIST = { '2026-01-05': { spy: 100 }, '2026-01-06': { spy: 101 }, '2026-01-07': { spy: 102 },
+               '2026-01-08': { spy: 110 }, '2026-01-09': { spy: 120 } };
+  ctx.FH = ['2026-01-09', '2026-01-08', '2026-01-07', '2026-01-06', '2026-01-05'];   // FH va al reves
+  const salidas = { A: { ret: -20, fecha: '2026-01-07', motivo: 'stop', peor: -20, peorCerrada: -20, vistos: 4 },
+                    B: { ret: -10, fecha: '2026-01-08', motivo: 'stop', peor: -10, peorCerrada: -10, vistos: 4 } };
+  ctx.window.recorridoConReglas = (clave) => salidas[clave];
+  const maduras = [
+    { clave: 'A', ticker: 'A', dia: '2026-01-05', entrada: '2026-01-05', precio: 10, ret: 30, sp: 20, sesiones: 4, score: 80 },
+    { clave: 'B', ticker: 'B', dia: '2026-01-06', entrada: '2026-01-06', precio: 10, ret: 10, sp: 18.8, sesiones: 4, score: 70 },
+  ];
+  const g = ctx.ganaDinero(maduras);
+
+  comprueba('la cifra es la del protocolo (-15 %), no la de aguantar (+20 %)',
+    Math.abs(g.ret - (-15)) < 1e-9, 'salió ' + g.ret);
+  comprueba('devuelve aparte la de aguantar, para poder decir cuál es cuál',
+    Math.abs(g.aguantando - 20) < 1e-9, 'salió ' + g.aguantando);
+  comprueba('aguantar y el protocolo dan respuestas OPUESTAS en este escenario',
+    g.aguantando > 0 && g.ret < 0);
+  comprueba('cuenta las que han cerrado por stop', g.cerradas === 2, 'salió ' + g.cerradas);
+  comprueba('ninguna en positivo con el protocolo', g.pos === 0, 'salió ' + g.pos);
+
+  /* El indice en el tramo de cada una: A de 01-05 a 01-07 = 102/100-1 = +2 %.
+     B de 01-06 a 01-08 = 110/101-1 = +8,91 %. NO el +20 % / +18,8 % de a.sp, que llega hasta hoy. */
+  const ci = g.contraIndice;
+  comprueba('compara con el índice en el tramo de cada posición, no hasta hoy',
+    ci.length === 2 && Math.abs(ci[0].sp - 2) < 1e-9 && Math.abs(ci[1].sp - (110 / 101 - 1) * 100) < 1e-9,
+    JSON.stringify(ci.map(x => x.sp)));
+  comprueba('y el ret que compara es el del protocolo',
+    Math.abs(ci[0].ret - (-20)) < 1e-9 && Math.abs(ci[1].ret - (-10)) < 1e-9,
+    JSON.stringify(ci.map(x => x.ret)));
+
+  /* Una posicion que sigue abierta se compara hasta hoy, que es FH[0]. */
+  ctx.window.recorridoConReglas = () => ({ ret: null, fecha: null, motivo: null, peor: -5, peorCerrada: -5, vistos: 4 });
+  const g2 = ctx.ganaDinero([maduras[0]]);
+  comprueba('si sigue abierta, usa el resultado de hoy y el índice hasta hoy',
+    Math.abs(g2.ret - 30) < 1e-9 && Math.abs(g2.contraIndice[0].sp - 20) < 1e-9,
+    g2.ret + ' / ' + g2.contraIndice[0].sp);
+
+  /* spEntre: si falta el dato de un dia, coge el ultimo anterior que haya. */
+  comprueba('spEntre usa el último día con dato cuando falta el exacto',
+    Math.abs(ctx.spEntre('2026-01-05', '2026-01-07b') - 2) < 1e-9, String(ctx.spEntre('2026-01-05', '2026-01-07b')));
+  comprueba('spEntre devuelve null si no hay índice',
+    ctx.spEntre('2025-01-01', '2026-01-07') === null);
+}
+
 console.log(`\n${total - fallos}/${total} comprobaciones`);
 process.exit(fallos ? 1 : 0);
