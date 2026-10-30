@@ -669,10 +669,21 @@ for (const f of orden) {
       ? ok('cargando antes la serie diaria, sin la que el stop no puede saltar')
       : mal('no carga la serie: el recorrido solo vería los días dentro del top');
     /* Una deslistada devuelve ret null, y en JavaScript suma + null es suma + 0: se colaba en la
-       media como un 0 % y ademas dividia por una entrada de mas. Daba 1,18 % en vez de 1,23 %. */
-    /todo\.filter\(a => a\.ret != null\)/.test(srcSeg)
+       media como un 0 % y ademas dividia por una entrada de mas. Daba 1,18 % en vez de 1,23 %.
+       Esto comprobaba el texto EXACTO del filtro y se rompio el 31/10/2026 al añadirle una condicion
+       mas (las que entran hoy). Un test que falla porque el codigo correcto cambia de forma no sirve:
+       ahora se comprueba la condicion que importa, y ademas el numero que se enseña. */
+    /medibles = todo\.filter\(a => a\.ret != null/.test(srcSeg)
       ? ok('y dejando fuera de la media las que ya no cotizan')
       : mal('las deslistadas se cuelan en la media como un 0 %');
+    const sinPrecio = (txtSeg.match(/(\d+) han? dejado de cotizar/) || [])[1];
+    const sumadas = (txtSeg.match(/se suman las (\d+) y se divide/) || [])[1];
+    if (sinPrecio && sumadas) {
+      const filas = vm.runInContext('historial(999).length', ctx);
+      Number(sumadas) <= filas - Number(sinPrecio)
+        ? ok('y la media promedia ' + sumadas + ' de ' + filas + ', con ' + sinPrecio + ' sin precio fuera')
+        : mal('la media promedia más entradas de las que tienen precio', sumadas + ' de ' + filas);
+    } else ok('hoy no hay ninguna sin precio de hoy: nada que comprobar aquí');
     /* Las dos pestañas tienen que contar las mismas entradas y dar la misma media por entrada. */
     const nSeg = Number((txtSeg.match(/se suman las (\d+) y se divide/) || [])[1]);
     const nRes = Number((porId.rres.textContent.replace(/\s+/g, ' ').match(/cada una de las (\d+) entradas/) || [])[1]);
@@ -2209,6 +2220,78 @@ for (const f of orden) {
       : mal('el banner no dice el régimen', txtM.slice(0, 80));
     (txtM.match(/media 50 d/g) || []).length >= 3 ? ok('y el ✓/✗ de la media de 50 de cada índice')
       : mal('falta el ✓/✗ de algún índice', txtM.slice(0, 160));
+  }
+
+  /* LAS QUE ENTRAN HOY APARECEN EN OPORTUNIDADES.
+
+     historial() las borraba: ".filter(a => a.entrada !== hoyF)", con el motivo de que "aun no tienen
+     evolucion". Dos consecuencias que no se vieron:
+       1. La accion salia en "Comprar hoy" marcada COMPRA y en "Oportunidades" NO EXISTIA, sin decir
+          por que. Lo pregunto Borja el 31/10/2026 con FLYW (y pasaba igual con HNI).
+       2. Peor: el codigo promete "nunca se ocultan las que tienes compradas", y el filtro las quitaba
+          ANTES de que imprescindible() pudiera salvarlas. Una accion comprada hoy desaparecia de
+          Oportunidades el mismo dia de comprarla.
+     No tener evolucion es motivo para dejarla fuera de las MEDIAS, no para esconderla. */
+  console.log('\nLAS QUE ENTRAN HOY SALEN EN OPORTUNIDADES, PERO NO EN LAS MEDIAS');
+  {
+    const previo = almacen['posiciones-v1'];
+    /* Datos REALES: los bloques de antes sobreescriben HIST con escenarios sinteticos, y con eso la
+       cuenta de la media salia 49 y "las que entran hoy" eran otras. */
+    const evO = c => vm.runInContext(c, ctx);
+    const HISTprev = evO('JSON.stringify(HIST)'), FHprev = evO('JSON.stringify(FH)');
+    evO('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' +
+        JSON.stringify(panel.historico) + '); FH = ' + JSON.stringify([...panel.dias].sort().reverse()) + ';');
+    porId.per.value = 999; porId.segorden.value = 'score'; porId.segest.value = 'vivas';
+    almacen['posiciones-v1'] = '[]';
+    await ventana.seguimiento();
+    const leerO = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerO).join(' ');
+    const txt = leerO(porId.rseg).replace(/\s+/g, ' ');
+
+    /* Quienes entran hoy = cuya PRIMERA aparicion en la ventana es hoy, que es lo que mira el
+       codigo (r.entrada === hoyF). No basta con "no estaba ayer": SLDE reentro el 30/10 despues de
+       dos dias fuera y NO es nueva, su entrada sigue siendo el 07/10. Confundir las dos cosas hacia
+       fallar la prueba contra el codigo ya arreglado.
+       Si hoy no entrase ninguna, la comprobacion seria vacia y se dice, en vez de darla por buena. */
+    const hoyF = panel.dias[panel.dias.length - 1];
+    const primera = {};
+    [...panel.dias].sort().forEach(f => (panel.historico[f].acciones || []).forEach(x => {
+      if (!(x.t in primera)) primera[x.t] = f;
+    }));
+    const entranHoy = Object.keys(primera).filter(t => primera[t] === hoyF);
+    if (!entranHoy.length) {
+      ok('hoy no entra ninguna nueva al top: nada que comprobar aquí (no es un fallo)');
+    } else {
+      const fuera = entranHoy.filter(t => !new RegExp('(^|[^A-Z])' + t + '([^A-Z]|$)').test(txt));
+      fuera.length === 0 ? ok('las ' + entranHoy.length + ' que entran hoy (' + entranHoy.join(', ') + ') salen en Oportunidades')
+        : mal('las que entran hoy no salen en Oportunidades', fuera.join(', '));
+      /* Y se marcan como lo que son, en vez de un "0,0 %" en verde que se lee como resultado. */
+      /ENTRA HOY/.test(txt) ? ok('se marcan con "ENTRA HOY"') : mal('no se distinguen de las que llevan días');
+      /todavía sin recorrido/.test(txt) ? ok('y dicen que todavía no tienen recorrido, en vez de "0,0 %"')
+        : mal('muestran un 0 % como si fuera un resultado');
+      /entran? hoy y queda[n]? fuera de la media/.test(txt)
+        ? ok('y la nota dice que quedan fuera de la media') : mal('no se dice que quedan fuera de la media');
+
+      /* La media NO puede moverse por incluirlas: su 0 % no es un resultado. */
+      const med = (txt.match(/media con los stops([+-−][\d,]+) %/) || [])[1];
+      const m = txt.match(/se suman las (\d+) y se divide/);
+      m && entranHoy.length && Number(m[1]) + entranHoy.length <= 40
+        ? ok('la media se calcula sobre ' + m[1] + ' entradas, sin contar las ' + entranHoy.length + ' de hoy' + (med ? ' (' + med + ' %)' : ''))
+        : mal('no se puede comprobar cuántas entran en la media', JSON.stringify(m && m[1]));
+
+      /* Y la promesa que estaba rota: comprada HOY, no puede desaparecer. */
+      const t0 = entranHoy[0];
+      const clave = (panel.historico[hoyF].acciones.find(x => x.t === t0) || {}).s || t0;
+      almacen['posiciones-v1'] = JSON.stringify([{ ticker: t0, simbolo: clave,
+        precio: (panel.actual[clave] || {}).precio || 10, acciones: 1, fecha: hoyF }]);
+      await ventana.seguimiento();
+      const conPos = leerO(porId.rseg);
+      new RegExp('(^|[^A-Z])' + t0 + '([^A-Z]|$)').test(conPos)
+        ? ok('comprada hoy, ' + t0 + ' sigue apareciendo en Oportunidades')
+        : mal('una acción comprada hoy desaparece de Oportunidades: rompe "nunca se ocultan las que tienes"');
+    }
+    almacen['posiciones-v1'] = previo || '[]';
+    evO('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' + HISTprev + '); FH = ' + FHprev + ';');
+    await ventana.seguimiento();
   }
 
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);

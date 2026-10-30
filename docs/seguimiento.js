@@ -63,11 +63,22 @@ function historial(lim) {
       ret: ahora != null && r.precioEntrada ? (ahora / r.precioEntrada - 1) * 100 : null,
       max: r.maxCierre && r.precioEntrada ? (r.maxCierre / r.precioEntrada - 1) * 100 : null,
       desdeMax: ahora != null && r.maxCierre ? (ahora / r.maxCierre - 1) * 100 : null,
-      sp: r.spyEntrada && spyHoy ? (spyHoy / r.spyEntrada - 1) * 100 : null };
+      sp: r.spyEntrada && spyHoy ? (spyHoy / r.spyEntrada - 1) * 100 : null,
+      /* Entra HOY: no tiene evolucion que mirar (su precio de entrada ES el cierre de hoy, asi que
+         su resultado es 0 % por definicion). Antes se BORRABA de la lista por eso:
+           }).filter(a => a.entrada !== hoyF);
+         y eso creaba dos problemas que no se vieron. Uno: la accion salia en "Comprar hoy" marcada
+         COMPRA y en "Oportunidades" no existia, sin decir por que (FLYW y HNI el 30/10/2026). Dos, y
+         peor: el codigo promete "nunca se ocultan las que tienes compradas", y el filtro las quitaba
+         ANTES de que imprescindible() pudiera salvarlas, asi que una accion comprada hoy desaparecia
+         de Oportunidades el mismo dia de comprarla.
+         No tener evolucion es motivo para no meterla en las MEDIAS, no para esconderla. Se marca y
+         quien calcula medias la excluye. Encontrado por Borja el 31/10/2026. */
+      nuevaHoy: r.entrada === hoyF };
     /* Se quedan las que han perdido el precio (fusion, cambio de simbolo, exclusion de bolsa): salen
        como "sin datos" entre las descartadas. Borrarlas sin mas haria desaparecer del panel una accion
        que quiza tienes comprada. */
-  }).filter(a => a.entrada !== hoyF);   // las que entran hoy aun no tienen evolucion
+  });
 }
 
 const ETIQUETA = {
@@ -129,7 +140,10 @@ window.seguimiento = async function () {
      null, y en JavaScript suma + null es suma + 0: se colaba como un 0 % y ademas dividia entre 29
      en vez de 28. Daba 1,18 % en lugar de 1,23 %. Es el mismo sesgo que Resultados evita a
      proposito, y aqui se estaba colando por la puerta de atras. */
-  const medibles = todo.filter(a => a.ret != null);
+  /* Las que entran hoy no entran en las medias: su resultado es 0 % por definicion (el precio de
+     entrada es el cierre de hoy), asi que sumarlas no mide nada y tira la media hacia cero. */
+  const medibles = todo.filter(a => a.ret != null && !a.nuevaHoy);
+  const nuevasHoy = todo.filter(a => a.nuevaHoy).length;
   const conReglas = new Map(medibles.map(a => {
     const r = window.recorridoConReglas ? window.recorridoConReglas(a.clave, a.entrada, a.precioEntrada) : null;
     return [a, r && r.ret != null ? r.ret : a.ret];
@@ -151,6 +165,8 @@ window.seguimiento = async function () {
   const nota = el('div', 'm');
   nota.appendChild(el('div', null, 'Es la media de cada acción POR SEPARADO, ya con su stop aplicado: ' +
     'se suman las ' + medibles.length + ' y se divide. No es una cartera — aquí no hay dinero repartido ni reinversión.' +
+    (nuevasHoy ? ' ' + nuevasHoy + (nuevasHoy === 1 ? ' entra hoy y queda fuera de la media: su resultado sería 0 % por definición, porque su precio de entrada es el cierre de hoy.'
+                                                    : ' entran hoy y quedan fuera de la media: su resultado sería 0 % por definición, porque su precio de entrada es el cierre de hoy.') : '') +
     (sinPrecio ? ' ' + sinPrecio + (sinPrecio === 1 ? ' ha dejado de cotizar y queda fuera de la media: sin precio de hoy no hay resultado que promediar.'
                                                    : ' han dejado de cotizar y quedan fuera de la media.') : '')));
   if (cart) nota.appendChild(el('div', null, 'Operando de verdad una cartera de 5 posiciones, comprando al día siguiente ' +
@@ -177,12 +193,20 @@ window.seguimiento = async function () {
       window.tengoPosicion && window.tengoPosicion(a.ticker) ? 'LA TIENES' : 'SEÑAL DE SALIDA'));
     const l = el('a', 'tk', a.ticker); l.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(a.clave); l.target = '_blank'; l.rel = 'noopener';
     izq.appendChild(l);
-    if (a.enTop) izq.appendChild(el('span', 'new', 'EN EL TOP HOY'));
+    if (a.nuevaHoy) izq.appendChild(el('span', 'new', 'ENTRA HOY'));
+    else if (a.enTop) izq.appendChild(el('span', 'new', 'EN EL TOP HOY'));
     else if (a.ultimo !== FH[0]) izq.appendChild(el('span', 'm', 'fuera del top desde ' + fFecha(a.ultimo)));
     izq.appendChild(el('div', 'name', (a.empresa || '') + ' · entró ' + fFecha(a.entrada) + ' · ' + a.dias + (a.dias === 1 ? ' día' : ' días') + ' en el top'));
     const der = el('div', 'px');
-    der.appendChild(el('b', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
-    der.appendChild(el('div', 'm', n(a.precioEntrada) + ' $ → ' + n(a.ahora) + ' $'));
+    /* Para una que entra hoy, "0,0 %" en verde grande se lee como un resultado, y no lo es: su
+       precio de entrada ES el cierre de hoy, asi que el 0 es aritmetica, no evolucion. */
+    if (a.nuevaHoy) {
+      der.appendChild(el('b', 'm', '—'));
+      der.appendChild(el('div', 'm', 'entra hoy a ' + n(a.precioEntrada) + ' $: todavía sin recorrido'));
+    } else {
+      der.appendChild(el('b', a.ret >= 0 ? 'up' : 'down', pc(a.ret)));
+      der.appendChild(el('div', 'm', n(a.precioEntrada) + ' $ → ' + n(a.ahora) + ' $'));
+    }
     if (a.score != null) {
       const sc = el('div', 'score' + (a.score >= 75 ? ' s3' : a.score >= 55 ? ' s2' : ' s1'));
       sc.appendChild(el('b', null, n(a.score, 0)));

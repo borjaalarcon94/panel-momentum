@@ -2527,3 +2527,42 @@ dos casos sustituyendo `vista()`. Sin eso, «siempre singular» y «siempre plur
 hallazgo tiene prueba que falla contra el código anterior, y las 8 suites están en verde (943
 comprobaciones). Los fallos de este proyecto han salido siempre de la capa de presentación —números
 derivados y etiquetas—, y ahí es donde hoy hay más pruebas que antes, no menos sitios donde fallar.
+
+## 31/10/2026 (3) · FLYW salía en «Comprar hoy» y no existía en «Oportunidades»
+
+Lo preguntó Borja. `historial()` terminaba con:
+
+```js
+}).filter(a => a.entrada !== hoyF);   // las que entran hoy aun no tienen evolucion
+```
+
+El motivo es cierto —una acción que entra hoy tiene el precio de entrada igual al cierre de hoy, así
+que su resultado es 0 % por aritmética— pero **borrarla tiene dos consecuencias que no se vieron**:
+
+1. **Contradicción entre pestañas sin explicación.** FLYW y HNI entraron el 30/10, salían en «Comprar
+   hoy» marcadas COMPRA, y en «Oportunidades» no existían. Nada decía por qué.
+2. **Rompía una promesa explícita del propio código.** `imprescindible()` garantiza que *«nunca se
+   ocultan las que tienes compradas ni las que han dado señal de salida»*, pero el filtro las quitaba
+   **antes** de que esa regla pudiera actuar. Comprobado: una acción comprada hoy **desaparecía de
+   Oportunidades el mismo día de comprarla**, estando a la vez en «Comprar hoy» y en «Mis posiciones».
+
+No tener evolución es motivo para dejarla fuera de las **medias**, no para esconderla. Ahora:
+
+- se marcan `nuevaHoy` y **salen en la lista**;
+- quedan fuera de `medibles`, así que la media no se mueve (sigue en −0,4 % con 33 entradas);
+- la tarjeta dice **«ENTRA HOY»** y, en vez de un «0,0 %» en verde que se lee como resultado,
+  «entra hoy a 19,69 $: todavía sin recorrido»;
+- la nota de la media dice cuántas quedan fuera y por qué.
+
+El recuento de «siguen siendo oportunidad» pasa de 16 a 18, que es lo correcto: son oportunidades.
+
+**6 pruebas nuevas, 5 mutaciones probadas y detectadas.**
+
+### Dos pruebas propias que hubo que arreglar
+
+- Una comprobaba el **texto exacto** del filtro de la media (`todo.filter(a => a.ret != null)`) y se
+  rompió al añadirle una condición. Un test que falla porque el código correcto cambia de forma no
+  sirve: ahora comprueba la condición que importa **y** el número que se enseña.
+- Mi propia prueba definía «entran hoy» como «no estaban ayer», y eso **no** es lo que mira el
+  código: SLDE reentró el 30/10 tras dos días fuera y **no** es nueva (su entrada sigue siendo el
+  07/10). Con la definición mala, la prueba fallaba contra el código ya arreglado.
