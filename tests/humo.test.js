@@ -1744,6 +1744,69 @@ for (const f of orden) {
   bt.onclick();
   doc.documentElement.dataset.tema === undefined && almacen.tema === 'oscuro' ? ok('y vuelve a oscuro') : mal('no vuelve a oscuro', doc.documentElement.dataset.tema + '/' + almacen.tema);
 
+  /* LA CASCADA DEL DOCUMENTO PARA LA OTRA APP, CONTRA LA DE VERDAD.
+
+     docs/instrucciones-para-otra-app.md describe el orden exacto de los ocho veredictos. El orden se
+     comprueba en integridad.test.js leyendo app.js, pero leer el orden no prueba que las CONDICIONES
+     esten bien descritas: un paso bien colocado y mal explicado da el mismo fichero y otro resultado.
+     Aqui se reimplementa la cascada del documento desde cero y se compara, caso por caso, con la de
+     la app sobre todas las acciones del panel, mas variantes sinteticas que fuerzan cada frontera
+     (RSI 44 y 45, caida del 15 % justo, max52 x 0,89 y x 0,90, EMA 50 / 0,85) y las 24 combinaciones
+     de los cuatro parametros externos. Vive aqui porque este fichero ya monta el navegador y usa los
+     datos del dia; por eso no bloquea la publicacion, igual que el resto del humo.
+
+     Si falla, el documento describe el sistema mal y la otra app operara con reglas distintas. */
+  console.log('\nLA CASCADA DEL DOCUMENTO COINCIDE CON LA DE LA APP');
+  {
+    const R = ventana.REGLAS.R, alM = (v, u) => v >= u - 1e-9;
+    const cascadaDoc = (a, x) => {
+      if (x.sinSeguimiento) return 'Sin datos';
+      if ((x.fallos || []).filter(f => !f.entrada).length) return 'Ya no cumple';
+      let roto = false;
+      if (a.precio != null && a.ema50 != null && a.precio < a.ema50) roto = true;
+      else if (a.precio != null && a.ema21 != null && a.precio < a.ema21) roto = true;
+      if (a.rsi != null && a.rsi < R.rsiVenta) roto = true;
+      const caida = a.max1m && a.precio ? (a.precio / a.max1m - 1) * 100 : null;
+      if (caida != null && alM(-caida, R.perdidaMaxima)) roto = true;
+      if (roto) return 'No comprar';
+      if (x.extendida) return 'No comprar aquí';
+      if (x.flojea) return 'Vigilar';
+      const dmax = a.precio && a.max52 ? (a.precio / a.max52 - 1) * 100 : null;
+      if (dmax != null && dmax < -R.lejosDeMaximo) return 'Esperar';
+      const dE = a.ema50 ? (a.ema50 / a.precio - 1) * 100 : null;
+      if (dE != null && !alM(dE, -R.perdidaMaxima)) return 'Compra arriesgada';
+      return 'COMPRA';
+    };
+    const base = Object.entries(panel.actual).map(([s, d]) => ({ ...d, simbolo: s }));
+    const vs = [];
+    for (const a of base) {
+      vs.push(a);
+      if (a.ema50) vs.push({ ...a, precio: a.ema50 * 0.99 }, { ...a, precio: a.ema50 / 0.85 }, { ...a, precio: a.ema50 / 0.85 * 1.001 });
+      if (a.ema21) vs.push({ ...a, precio: a.ema21 * 0.995, ema50: a.ema21 * 0.9 });
+      vs.push({ ...a, rsi: 44 }, { ...a, rsi: 45 });
+      if (a.max1m) vs.push({ ...a, precio: a.max1m * 0.85 }, { ...a, precio: a.max1m * 0.8501 });
+      if (a.max52) vs.push({ ...a, precio: a.max52 * 0.89, ema50: a.max52 * 0.85 }, { ...a, precio: a.max52 * 0.90, ema50: a.max52 * 0.85 });
+    }
+    const xs = [];
+    for (const sn of [false, true]) for (const ex of [false, true]) for (const fl of [false, true])
+      for (const fa of [[], [{ entrada: true, t: 'Capitalización', v: '1 M' }], [{ entrada: false, t: 'RSI > 55', v: '40' }]])
+        xs.push({ sinSeguimiento: sn, extendida: ex, flojea: fl, fallos: fa });
+    let malos = 0, ejemplo = '', alcanzados = {};
+    for (const a of vs) for (const x of xs) {
+      const real = ventana.VEREDICTO(a, x).t, doc2 = cascadaDoc(a, x);
+      alcanzados[real] = (alcanzados[real] || 0) + 1;
+      if (real !== doc2 && !malos++) ejemplo = (a.ticker || '?') + ': app="' + real + '" documento="' + doc2 + '"';
+    }
+    malos ? mal('la cascada del documento discrepa en ' + malos + ' de ' + (vs.length * xs.length) + ' casos', ejemplo)
+          : ok('la cascada del documento coincide en los ' + (vs.length * xs.length) + ' casos de la rejilla');
+    /* Sin esto la comprobacion de arriba pasaria tambien si la rejilla no visitase ninguna rama
+       interesante: coincidir en 9.504 "Sin datos" no prueba nada. */
+    const ocho = ['Sin datos', 'Ya no cumple', 'No comprar', 'No comprar aquí', 'Vigilar', 'Esperar', 'Compra arriesgada', 'COMPRA'];
+    const sinVisitar = ocho.filter(t => !alcanzados[t]);
+    sinVisitar.length ? mal('la rejilla no alcanza ' + sinVisitar.length + ' veredicto(s)', sinVisitar.join(', '))
+                      : ok('la rejilla alcanza los 8 veredictos');
+  }
+
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
   if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
 })();

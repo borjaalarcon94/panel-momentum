@@ -337,6 +337,19 @@ Distinción que conviene no perder: el requisito 9 exige estar a menos del **20 
 entrar en el top; el veredicto pasa a «Esperar» ya a más del **10 %**. Son dos umbrales distintos
 a propósito: el primero decide si aparece, el segundo si hoy se compra.
 
+Dos notas de implementación sobre los pasos 1, 2 y 5, que no se calculan dentro de la cascada sino
+que se le pasan desde fuera:
+
+- **`flojea`** (paso 5) compara la nota de hoy con la que tenía **el día que entró en el top**, y la
+  racha se corta si falta un día: si la acción desapareció del listado y volvió, se cuenta desde la
+  vuelta. Si la otra app no guarda la nota de entrada, este paso no puede existir y la acción
+  seguirá como COMPRA mientras cumpla.
+- **`fallos`** (paso 2) y **`sinSeguimiento`** (paso 1) los aporta quien llama. En el panel, el
+  listado del día se construye con acciones que ya cumplen los 9 requisitos, así que el paso 2 solo
+  se activa de hecho en la pestaña de Seguimiento, sobre lo que llevas anotado. **Para tus propias
+  posiciones lo que manda no es esta cascada, sino §3.3**: la cascada dice si entrar, `evaluaPosicion`
+  dice si salir.
+
 ### 5.3 La ventana de compra
 
 Cuando una acción está a más del 10 % de su máximo, el sistema pide **dos cosas a la vez**:

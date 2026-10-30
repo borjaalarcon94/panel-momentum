@@ -2149,3 +2149,38 @@ anterior: falla. Añadido al workflow.
 - Las cuatro pestañas: cero errores de JavaScript.
 
 **379 comprobaciones en verde** (eran 369). Versión `6919b717`, en línea y verificada.
+
+## 30/10/2026 · Verificación del documento de especificación para la otra app
+
+`docs/instrucciones-para-otra-app.md` describe el motor para reimplementarlo fuera. Verificado en
+tres niveles, porque los dos primeros no bastaban:
+
+1. **Umbrales** (integridad.test.js, +17): cada número del documento contra `reglas.js` y
+   `panel.json`. 12 mutaciones de umbral detectadas.
+2. **Comportamiento del motor** (documento.test.js, 42, nuevo): las afirmaciones ejecutadas contra
+   `reglas.js`, fronteras incluidas (la ganancia del 20 % calculada como 19,999999999999996, la
+   devolución justo en el límite, la EMA 50 justo a −15 %). 14 mutaciones detectadas.
+3. **La cascada de veredictos** (humo.test.js, +2): esto era el hueco. El orden se comprobaba
+   leyendo `app.js`, pero **leer el orden no prueba que las condiciones estén bien descritas**: un
+   paso bien colocado y mal explicado da el mismo fichero y otro resultado. Se reimplementó la
+   cascada desde el documento y se comparó con la de la app sobre **9.504 casos** (396 variantes de
+   las acciones del panel × 24 combinaciones de los cuatro parámetros externos), con variantes
+   sintéticas que fuerzan cada frontera. **9.504 de 9.504 coinciden y se alcanzan los 8 veredictos.**
+   7 mutaciones de `app.js` detectadas.
+
+También se comparó contra la app, sobre las 25 llamadas reales de hoy: los 9 requisitos (incluida
+la marca de solo-entrada), la penalización y el `extendida`, el stop de entrada y su validez, el
+tamaño de posición, el margen en días de ADR y la ventana de compra. 201 de 201.
+
+**Imprecisión encontrada y corregida en el documento:** `fallos` y `sinSeguimiento` los aporta quien
+llama, y el listado del día se construye con acciones que ya cumplen los 9 requisitos, así que el
+paso 2 de la cascada ("Ya no cumple") solo se activa de hecho en Seguimiento. El documento lo
+describía como si se evaluara siempre. Añadido además que `flojea` necesita la nota del día de
+entrada y que la racha se corta si falta un día.
+
+**Lo que NO está verificado:** que las reglas descritas sean buenas. Siguen calibradas sobre un
+periodo alcista y solapado, con 18 sesiones de operación real. Reproducir las señales no las valida.
+
+**Nota de alcance:** la rejilla vive en humo.test.js, que no bloquea la publicación porque depende
+de los datos del día. Un fallo ahí es logica-contra-logica y sí significa divergencia real, pero no
+detiene el build.
