@@ -2142,6 +2142,75 @@ for (const f of orden) {
     await ventana.posiciones();
   }
 
+  /* LA CABECERA DE HOY NO INVENTA UNA MEDIA QUE NO EXISTE.
+
+     Promediaba a.score||0, asi que una accion SIN nota entraba como un 0. Si falla la referencia del
+     dia, build.py deja todas las notas a null y la cabecera decia "puntuacion media 0", que se lee
+     como "estas acciones valen 0" cuando lo cierto es que hoy no hay notas. Y decia "1 nuevas hoy".
+     Encontrado el 31/10/2026 barriendo la pestaña Hoy. */
+  console.log('\nLA CABECERA DE HOY NO INVENTA UNA MEDIA QUE NO EXISTE');
+  {
+    ventana.pinta();
+    const normal = porId.stats.textContent;
+    /puntuación media \d+/.test(normal) ? ok('con notas da la media: ' + (normal.match(/puntuación media \d+/) || [''])[0])
+      : mal('no da la media con notas', normal);
+    /* El singular se comprueba FORZANDO el caso: con los datos del dia puede haber 0, 1 o 7 nuevas,
+       y si no hay exactamente una la comprobacion no comprueba nada. Se sustituye vista() por una
+       con una sola accion marcada como nueva. */
+    {
+      const real = ventana.vista;
+      const v0 = real(), base = v0.todas[0];
+      ventana.vista = () => ({ fecha: v0.fecha, fechaTxt: v0.fechaTxt, mercado: [], universo: null, candidatas: null,
+        orden: '', filtros: [], enMarcha: [],
+        todas: [{ ...base, nueva: true, score: 80 }], filas: [{ ...base, nueva: true, score: 80 }] });
+      ventana.pinta();
+      const uno = porId.stats.textContent;
+      ventana.vista = real;
+      / 1 nueva hoy/.test(uno) ? ok('con una sola dice "1 nueva hoy", no "1 nuevas hoy"')
+        : mal('el singular de "nueva hoy" no concuerda', uno);
+      /* Y el plural, forzado igual: si no, bastaria poner el singular siempre. */
+      const dos = [{ ...base, nueva: true, score: 80 }, { ...base, ticker: base.ticker + '2', nueva: true, score: 70 }];
+      ventana.vista = () => ({ fecha: v0.fecha, fechaTxt: v0.fechaTxt, mercado: [], universo: null, candidatas: null,
+        orden: '', filtros: [], enMarcha: [], todas: dos, filas: dos });
+      ventana.pinta();
+      const par = porId.stats.textContent;
+      ventana.vista = real;
+      / 2 nuevas hoy/.test(par) ? ok('y con dos dice "2 nuevas hoy"')
+        : mal('el plural de "nuevas hoy" no concuerda', par);
+      ventana.pinta();
+    }
+
+    /* Se le quita la puntuacion a TODAS: es lo que pasa cuando falla la referencia del dia. */
+    vm.runInContext('window.__PT__ = window.PUNTUA; window.PUNTUA = () => null;', ctx);
+    ventana.pinta();
+    const sinNota = porId.stats.textContent;
+    vm.runInContext('window.PUNTUA = window.__PT__;', ctx);
+    /sin puntuaciones hoy/.test(sinNota) ? ok('sin notas lo dice, en vez de dar "media 0"')
+      : mal('sin notas sigue dando una media', sinNota);
+    !/media 0\b/.test(sinNota) ? ok('y no aparece ningún "media 0"') : mal('sigue apareciendo "media 0"', sinNota);
+    ventana.pinta();
+  }
+
+  /* Y las señales de salida del bloque de cambios son el estado de HOY, no una novedad respecto a
+     ayer: una accion con señal desde hace una semana salia cada dia bajo "Cambios respecto a...". */
+  console.log('\nLAS SEÑALES DE SALIDA NO SE ANUNCIAN COMO UN CAMBIO DE AYER');
+  {
+    const txtC = (function leerC(x) { return (x.textContent || '') + ' ' + (x.hijos || []).map(leerC).join(' ') })(porId.cambios).replace(/\s+/g, ' ');
+    !/(^|[^a-zá])Señales de salida/.test(txtC) ? ok('ya no se titula "Señales de salida" dentro de los cambios')
+      : mal('sigue listando señales como cambio respecto a ayer');
+    const hayAlerta = /Con señal de salida hoy/.test(txtC);
+    const sinNada = /Sin cambios/.test(txtC);
+    hayAlerta || sinNada ? ok(hayAlerta ? 'dice "Con señal de salida hoy"' : 'hoy no hay señales y lo dice')
+      : mal('el bloque de cambios no dice ni una cosa ni la otra', txtC.slice(0, 120));
+    /* El contador de a50 que no se usaba: si vuelve, esto no lo ve, pero el banner sí tiene que
+       seguir diciendo el régimen y el ✓/✗ de cada índice. */
+    const txtM = (function leerM(x) { return (x.textContent || '') + ' ' + (x.hijos || []).map(leerM).join(' ') })(porId.mercado).replace(/\s+/g, ' ');
+    /(Mercado a favor|Modo defensivo)/.test(txtM) ? ok('el banner sigue diciendo el régimen')
+      : mal('el banner no dice el régimen', txtM.slice(0, 80));
+    (txtM.match(/media 50 d/g) || []).length >= 3 ? ok('y el ✓/✗ de la media de 50 de cada índice')
+      : mal('falta el ✓/✗ de algún índice', txtM.slice(0, 160));
+  }
+
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
   if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
 })();

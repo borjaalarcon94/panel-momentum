@@ -2483,3 +2483,47 @@ tope del 12 %)».
 Dos escenarios de prueba resultaron flojos y hubo que apretarlos: uno usaba una compra antigua, y el
 trinquete ya había subido hasta la EMA 50, así que el valor viejo y el nuevo coincidían y la mutación
 pasaba; otro no ponía `stopMax` a cero y arrastraba el de una comprobación anterior.
+
+## 31/10/2026 (2) · Barrido de la pestaña Hoy (la última sin recorrer)
+
+Cuatro hallazgos, todos de presentación. Ninguno cambia una señal.
+
+**1 · «puntuación media 0» cuando no hay puntuaciones.** La media promediaba `a.score||0`, así que
+una acción **sin** nota entraba como un cero. Si falla la referencia del día, `build.py` deja todas
+las notas a `null` y la cabecera decía «puntuación media 0», que se lee como *estas acciones valen 0*
+cuando lo cierto es que hoy no hay notas. Ahora promedia solo lo que existe, dice «sin puntuaciones
+hoy» si no hay ninguna, y «(7 de 10 con nota)» si faltan algunas.
+
+**2 · «1 nuevas hoy».** Concordancia. Trivial, pero está en la primera línea que se lee.
+
+**3 · Las señales de salida se anunciaban como un cambio respecto a ayer.** El bloque «Cambios
+respecto a <fecha>» mezclaba dos cosas distintas: entrar y salir del top (cambios de verdad) y las
+señales de salida, que son el **estado de hoy**. Una acción con señal desde hace una semana aparecía
+cada día bajo «Cambios», leyéndose como novedad. No se pueden calcular las de ayer —de una acción
+fuera del top solo se guarda el precio, no sus indicadores—, así que se dice lo que son: **«Con señal
+de salida hoy»**.
+
+**4 · Variable muerta `a50`** en el banner de mercado: contaba índices sobre su media de 50 y no se
+usaba en ninguna parte. El régimen lo decide `REGIMEN.favorable` y cada índice ya lleva su ✓/✗.
+
+**Pruebas:** 9 nuevas. **7 mutaciones probadas, las 7 detectadas.**
+
+Dos comprobaciones salieron **vacías** y hubo que hacerlas deterministas: el singular de «nueva hoy»
+dependía de que ese día hubiera exactamente una nueva, y el plural de que hubiera dos. Se fuerzan los
+dos casos sustituyendo `vista()`. Sin eso, «siempre singular» y «siempre plural» pasaban las dos.
+
+### Estado del barrido completo
+
+| Pestaña | Revisada a fondo | Hallazgos |
+|---|---|---|
+| Resultados | 30/10 | 1 (la respuesta a «¿ganarías dinero?» medía aguantar) + 2 etiquetas |
+| Seguimiento | 30/10 | cuadrada contra el motor por fuera, al decimal |
+| Posiciones | 31/10 | 4 (uno con dinero en juego: el trinquete guardaba tu stop) |
+| Simulación | 31/10 | cubierta en lo que toca a stops y contabilidad |
+| Hoy | 31/10 | 4, todos de presentación |
+| Parámetros | atada por tests al código desde el 29/10 | — |
+
+**No declaro la app libre de fallos.** Lo que sostengo: cada pestaña se ha recorrido una vez, cada
+hallazgo tiene prueba que falla contra el código anterior, y las 8 suites están en verde (943
+comprobaciones). Los fallos de este proyecto han salido siempre de la capa de presentación —números
+derivados y etiquetas—, y ahí es donde hoy hay más pruebas que antes, no menos sitios donde fallar.

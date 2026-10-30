@@ -4,8 +4,9 @@
 function stat(k,v,cls){const s=el('div','stat',k);s.prepend(el('b',cls||null,v));return s}
 const signo=v=>v==null?null:v>0?'up':v<0?'down':null;
 function mercado(v){const m=v.mercado||[],B=$('mercado');B.replaceChildren();if(!m.length){B.hidden=true;return}B.hidden=false;
-const nom={SPY:'S&P 500',QQQ:'Nasdaq 100',IWM:'Russell 2000'};let a50=0;
-m.forEach(x=>{if(x.precio>x.ema50)a50++});
+const nom={SPY:'S&P 500',QQQ:'Nasdaq 100',IWM:'Russell 2000'};
+/* Habia aqui un contador a50 de indices sobre su media de 50 que no se usaba en ninguna parte: el
+   regimen lo decide REGIMEN.favorable y cada indice ya lleva su propio ✓/✗. Fuera. */
 const bien=REGIMEN.favorable;B.className='banner linea '+(bien?'okb':'warnb');
 B.appendChild(el('span','bt',bien?'Mercado a favor':'Modo defensivo'));
 m.forEach(x=>{const s2=el('span','mki2');s2.appendChild(el('b',null,nom[x.ticker]||x.ticker));
@@ -29,10 +30,14 @@ function cambios(v){
   C.appendChild(el('div','blt','Cambios respecto a '+fFecha(fprev)));
   linea('Entran al top',entran,'up');
   linea('Salen del top',salen,'down');
+  /* Entrar y salir del top SI son cambios respecto a ayer. Las señales de salida NO: son el estado
+     de HOY, y una accion que lleva una semana con señal aparecia cada dia bajo "Cambios respecto
+     a ayer", que se lee como novedad. No se pueden calcular las de ayer (de una accion fuera del
+     top solo se guarda el precio, no sus indicadores), asi que se dice lo que son. */
   /* Las señales iban en un párrafo corrido de seis avisos seguidos: 281 px de texto rojo imposible
      de escanear. Una por línea, con el ticker destacado. */
   if(alertas.length){
-    const d=el('div','cl');d.appendChild(el('span','clt','Señales de salida'));
+    const d=el('div','cl');d.appendChild(el('span','clt','Con señal de salida hoy'));
     const u=el('ul','bll');
     alertas.slice(0,6).forEach(t=>{const i=t.indexOf(':'),li=el('li','risk');
       li.appendChild(el('b',null,t.slice(0,i)));li.appendChild(el('span',null,t.slice(i)));u.appendChild(li)});
@@ -45,7 +50,7 @@ function cambios(v){
   if(res){const p=[];
     if(entran.length)p.push(entran.length+(entran.length===1?' entra':' entran'));
     if(salen.length)p.push(salen.length+(salen.length===1?' sale':' salen'));
-    if(alertas.length)p.push(alertas.length+(alertas.length===1?' señal de salida':' señales de salida'));
+    if(alertas.length)p.push(alertas.length+(alertas.length===1?' con señal de salida':' con señal de salida'));
     res.textContent=p.length?'Cambios de hoy · '+p.join(', '):'Cambios de hoy · sin novedades';
   }
 }
@@ -98,8 +103,17 @@ if(a.pt&&a.pt.penal.motivos.length)c.appendChild(el('div','pen','Muy extendida: 
 L.appendChild(c)})}
 
 window.pinta=function(){const v=window.vista();mercado(v);sectores(v);cambios(v);const L=$('lista');L.replaceChildren();marcha(v);
-const top=v.filas,medio=top.length?top.reduce((s,a)=>s+(a.score||0),0)/top.length:0;
-$('stats').replaceChildren(el('span',null,'Top '+top.length+' · puntuación media '+n(medio,0)+' · '+top.filter(a=>a.nueva).length+' nuevas hoy'+
+const top=v.filas;
+/* La media contaba a.score||0, asi que una accion SIN nota entraba como un 0 y arrastraba la media.
+   Si falla la referencia del dia, build.py deja todas las notas a null y la cabecera decia
+   "puntuacion media 0", que se lee como "estas acciones valen 0" cuando lo cierto es que hoy no hay
+   notas. Se promedia solo lo que existe y, si no existe nada, se dice. Encontrado el 31/10/2026. */
+const conNota=top.filter(a=>a.score!=null);
+const medio=conNota.length?conNota.reduce((s,a)=>s+a.score,0)/conNota.length:null;
+const nuevas=top.filter(a=>a.nueva).length;
+$('stats').replaceChildren(el('span',null,'Top '+top.length+
+(medio==null?' · sin puntuaciones hoy':' · puntuación media '+n(medio,0)+(conNota.length<top.length?' ('+conNota.length+' de '+top.length+' con nota)':''))+
+' · '+nuevas+(nuevas===1?' nueva hoy':' nuevas hoy')+
 (v.candidatas?' · '+v.candidatas+' cumplían los requisitos de '+(v.universo||'?')+' analizadas':'')));
 $('cuenta').textContent='';
 /* Contador en la subpestaña: con Hoy dentro de Seguimiento hay que poder ver desde fuera si hoy
