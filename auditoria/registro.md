@@ -2406,3 +2406,22 @@ Reflejado en la tabla 5 de Parámetros y en el §5.4 del documento para la otra 
 
 **Lo que NO se ha tocado:** ninguna señal, ningún peso, ningún umbral de entrada o salida. Esto
 cambia cuánto se mete, no qué se compra ni cuándo se vende.
+
+### Nota del 30/10/2026: un `actual` viejo publicado por error mío
+
+Al integrar el cierre del 30 que publicó el bot resolví el conflicto con
+`git checkout --theirs docs/panel.json`. **En un rebase, `--theirs` es el commit que se está
+aplicando, no el de arriba**, así que me quedé con el `panel.json` de mi commit (18 sesiones) y
+luego `--rehacer` le puso el histórico de 19. Resultado: `historico` llegaba al 30 y `actual`
+—el estado de hoy de cada acción, que `rehacer` conserva porque no toca la red— era del 29.
+
+**Lo cazó el test de coherencia entre pestañas**: HNGE y SLDE salían COMPRA en Hoy y Vigilar en
+Seguimiento. Las dos habían estado fuera del top algún día, así que el desfase las partía. No es un
+fallo del código: `rehacer()` no toca `actual` y hace bien.
+
+Corregido tomando el `panel.json` del bot y volviendo a lanzar `--rehacer`: ahora solo difiere del
+suyo en el campo `version`, que es exactamente lo que tiene que cambiar.
+
+Y añadida la guarda que lo dice directamente, en `filtros.test.py`: el sello `actualizado` no puede
+ser anterior al último día de `dias`, y todas las acciones del top de hoy tienen que tener estado en
+`actual`. 2 mutaciones probadas y detectadas. Hasta ahora esto solo se detectaba de rebote.

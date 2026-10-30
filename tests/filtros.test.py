@@ -413,5 +413,30 @@ finally:
     if _guardado is not None: _real.write_text(_guardado)
     elif _real.exists(): _real.unlink()
 
+
+# ─── EL ESTADO DE HOY NO PUEDE SER MAS VIEJO QUE EL HISTORICO ────────────────────────────────────
+# panel.json lleva dos cosas que tienen que ir al mismo dia: "historico" (que --rehacer reconstruye
+# desde docs/datos) y "actual" (el estado de hoy de cada accion, que solo se puede saber preguntando
+# al mercado y que --rehacer conserva tal cual).
+#
+# Si se quedan desparejados, las pestañas se contradicen: Seguimiento mira el historico (que llega a
+# hoy) y el veredicto se calcula con "actual" (que seria de ayer). Paso el 30/10/2026 resolviendo un
+# rebase: en un rebase "--theirs" es el commit que se aplica, no el de arriba, asi que me quede con
+# el panel.json de MI commit (18 dias) y luego --rehacer le puso el historico de 19. Dos acciones,
+# HNGE y SLDE, salian COMPRA en Hoy y Vigilar en Seguimiento. Lo cazo el test de coherencia entre
+# pestañas, pero solo porque corre con los datos de verdad: esta comprobacion lo dice directamente.
+print("\nEL ESTADO DE HOY VA AL MISMO DIA QUE EL HISTORICO")
+_p = _json.loads((b.WEB / "panel.json").read_text())
+_ultimo = max(_p["dias"])
+_sello = (_p.get("actualizado") or "")[:10]
+comprueba("panel.json dice cuándo se actualizó", bool(_sello), True)
+comprueba(f"el estado de hoy ({_sello}) no es anterior al último cierre ({_ultimo})",
+          _sello >= _ultimo, True)
+# Y las acciones del ultimo dia del historico tienen que tener estado de hoy: si falta, el veredicto
+# de esa accion se calcula con lo que haya quedado por ahi.
+_hoy = {a.get("s") or a["t"] for a in _p["historico"][_ultimo]["acciones"]}
+_sin = sorted(_hoy - set(_p.get("actual") or {}))
+comprueba(f"las {len(_hoy)} del top de hoy tienen estado actual", _sin, [])
+
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)
