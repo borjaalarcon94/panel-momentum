@@ -215,5 +215,74 @@ for (const [nombre, re] of sospechosos) {
   donde.length ? mal('el umbral de ' + nombre + ' aparece fuera de reglas.js: ' + donde.join(', ')) : ok('el umbral de ' + nombre + ' solo vive en reglas.js');
 }
 
+/* EL DOCUMENTO PARA LA OTRA APP DICE LOS MISMOS NUMEROS QUE EL MOTOR.
+   docs/instrucciones-para-otra-app.md es la especificacion que se le pasa a otra aplicacion (o a
+   otra IA) para que genere las mismas señales. Es texto escrito a mano: si alguien cambia un umbral
+   en reglas.js o en panel.json y no lo cambia ahi, la otra app operara con reglas distintas a las
+   del panel y las dos se contradiran sin que nada lo avise. Esto lo ata. */
+console.log('\nEL DOCUMENTO PARA LA OTRA APP CUADRA CON EL CÓDIGO');
+{
+  const doc = fs.readFileSync(path.join(dir, 'instrucciones-para-otra-app.md'), 'utf8');
+  const R = (() => { const g = {}; new Function('window', fuente['reglas.js'])(g); return g.REGLAS.R })();
+  const C = JSON.parse(fs.readFileSync(path.join(dir, 'panel.json'), 'utf8')).criterios;
+
+  /* Cada umbral con los sitios del documento donde tiene que aparecer. Se buscan literales que solo
+     pueden salir del valor correcto, no un "15" suelto que acertaria por casualidad. */
+  const esperadas = [
+    ['perdidaMaxima', R.perdidaMaxima, [`(1 - ${R.perdidaMaxima}/100)`, `ema50 / (1 - ${R.perdidaMaxima}/100)`, `del −${R.perdidaMaxima} %`]],
+    ['gananciaProteger', R.gananciaProteger, [`alMenos(pico, ${R.gananciaProteger})`, `ganar un ${R.gananciaProteger} %`]],
+    ['rsiVenta', R.rsiVenta, [`rsi < ${R.rsiVenta}`, `\`< ${R.rsiVenta}\``]],
+    ['avisoDevolucion', R.avisoDevolucion, [`limite * ${String(R.avisoDevolucion).replace('.', ',')}`]],
+    ['lejosDeMaximo', R.lejosDeMaximo, [`(1 - ${R.lejosDeMaximo}/100)`, `- 1)*100 < -${R.lejosDeMaximo}`]],
+    ['devolución 100→40', R.devolucion[0], [`alMenos(ganMax, ${R.devolucion[0].desde}):  devolver ${R.devolucion[0].limite}`]],
+    ['devolución 30→50', R.devolucion[1], [`alMenos(ganMax,  ${R.devolucion[1].desde}):  devolver ${R.devolucion[1].limite}`]],
+    ['precioMin', C.precioMin, [`> ${C.precioMin} $`]],
+    ['volumenMin', C.volumenMin, [`> ${(C.volumenMin / 1000).toLocaleString('de-DE')}.000 acciones`]],
+    ['rsiMin', C.rsiMin, [`> ${C.rsiMin}`]],
+    ['crecimientoMin', C.crecimientoMin, [`>= ${C.crecimientoMin} %`]],
+    ['maxDesdeMaximo', C.maxDesdeMaximo, [`>= -${C.maxDesdeMaximo} %`]],
+  ];
+  for (const [nombre, , textos] of esperadas) {
+    const faltan = textos.filter(t => !doc.includes(t));
+    faltan.length ? mal('el documento no refleja ' + nombre, 'falta: ' + faltan.join(' | '))
+                  : ok('el documento refleja ' + nombre);
+  }
+
+  /* El techo de capitalizacion: si algun dia vuelve, el documento no puede seguir diciendo "sin techo". */
+  C.capMax == null
+    ? (doc.includes('sin techo') ? ok('el documento dice que no hay techo de capitalización') : mal('no hay techo pero el documento no lo dice'))
+    : (doc.includes('sin techo') ? mal('hay techo de capitalización y el documento dice que no') : ok('el documento no niega el techo'));
+
+  /* El suelo de capitalizacion y la liquidez, en las unidades en que estan escritos en la tabla. */
+  doc.includes('> ' + Math.round(C.capMin / 1e6) + ' M $') ? ok('el documento refleja capMin') : mal('el documento no refleja capMin (' + C.capMin + ')');
+  doc.includes('> ' + Math.round(C.liquidezMin / 1e6) + ' M$/día') ? ok('el documento refleja liquidezMin') : mal('el documento no refleja liquidezMin (' + C.liquidezMin + ')');
+
+  /* La caida de nota que marca "pierde fuerza" y el tope de penalizacion que marca "extendida". */
+  const caida = (fuente['app.js'].match(/window\.CAIDA_FUERZA\s*=\s*(\d+)/) || [])[1];
+  doc.includes('cayó > ' + caida + ' puntos') ? ok('el documento refleja CAIDA_FUERZA') : mal('el documento no refleja CAIDA_FUERZA (' + caida + ')');
+  const ext = (fuente['puntuacion.js'].match(/extendida:\s*pen\s*>=\s*(\d+)/) || [])[1];
+  doc.includes('extendida = (pen >= ' + ext + ')') ? ok('el documento refleja el umbral de extendida') : mal('el documento no refleja el umbral de extendida (' + ext + ')');
+
+  /* El orden de la cascada de veredictos: es la fuente de error mas facil de reproducir mal, porque
+     cada paso por separado parece correcto y solo el orden decide el resultado. */
+  const orden = [...fuente['app.js'].matchAll(/return \{ t: '([^']+)'/g)].map(m => m[1]);
+  const vistos = [], i = {};
+  for (const t of orden) if (!(t in i)) { i[t] = vistos.length; vistos.push(t) }
+  const enDoc = vistos.filter(t => doc.includes('"' + t + '"'));
+  const pos = enDoc.map(t => doc.indexOf('"' + t + '"'));
+  const ordenado = pos.every((v, k) => k === 0 || v > pos[k - 1]);
+  /* No basta con que los que estan vayan en orden: faltando uno, los demas siguen ordenados y la
+     comprobacion pasaria. Tienen que estar TODOS, porque un veredicto ausente del documento es un
+     caso que la otra app no cubrira y que fallara en silencio. */
+  const ausentes = vistos.filter(t => !doc.includes('"' + t + '"'));
+  ausentes.length ? mal('el documento no describe ' + ausentes.length + ' veredicto(s) de app.js', ausentes.join(', '))
+    : ordenado ? ok('la cascada del documento describe los ' + enDoc.length + ' veredictos en el orden de app.js')
+    : mal('la cascada del documento no va en el orden de app.js', 'código: ' + vistos.join(' > ') + ' | documento: ' + enDoc.join(' > '));
+
+  /* La plantilla no carga este .md (es un documento, no codigo), pero tiene que existir y no quedarse
+     en un esqueleto: si alguien lo vacia, los tests de arriba pasarian por no encontrar nada que falle. */
+  doc.length > 15000 ? ok('el documento tiene cuerpo (' + Math.round(doc.length / 1024) + ' KB)') : mal('el documento está demasiado corto: ' + doc.length + ' caracteres');
+}
+
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
 if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }

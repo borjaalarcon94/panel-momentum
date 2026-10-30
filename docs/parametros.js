@@ -103,9 +103,15 @@ window.parametros = function () {
     try { await navigator.clipboard.writeText(textoParametros()); bc.textContent = '✓ Copiado'; setTimeout(() => { bc.textContent = 'Copiar como texto' }, 2000); }
     catch (e) { alert('No se pudo copiar. Usa el PDF.'); }
   };
-  barra.append(bp, bc);
+  /* El .md es la especificacion para reimplementar las señales en otra app, no un resumen: lleva las
+     formulas, el orden exacto de la cascada y los tres errores que ya se cometieron aqui. Sus numeros
+     se comprueban contra reglas.js y panel.json en tests/integridad.test.js, asi que no puede
+     desactualizarse en silencio. */
+  const bi = el('a', 'chip', 'Instrucciones para otra app');
+  bi.href = 'instrucciones-para-otra-app.md'; bi.target = '_blank'; bi.rel = 'noopener';
+  barra.append(bp, bc, bi);
   R.appendChild(barra);
-  R.appendChild(el('p', 'nota', 'Para auditar las instrucciones por tu cuenta o con otra IA.'));
+  R.appendChild(el('p', 'nota', 'Para auditar las instrucciones por tu cuenta o con otra IA. El último enlace es la especificación completa del motor (stop, señales de venta y veredictos) para reproducirlo en otra aplicación.'));
 
   R.appendChild(tabla('1 · Qué tiene que cumplir para entrar en el top',
     ['Requisito', 'Umbral', 'Por qué'], [

@@ -42,6 +42,7 @@ jobs:
           node tests/integridad.test.js
           node tests/resultados.test.js
           node tests/posiciones.test.js
+          node tests/documento.test.js
           python3 tests/filtros.test.py
 
       # El test de humo SI depende de los datos del dia. El 21/10/2026 fallo por un empate de orden
