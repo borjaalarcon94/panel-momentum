@@ -2286,3 +2286,46 @@ Dos pruebas que ya existían resultaron ser flojas y se han apretado:
   siempre 0 y cuatro mutaciones pasaban sin que nada fallase. Encontrado al no detectarlas.
 
 Sigue pendiente, y es del usuario: **descargar la copia de seguridad de posiciones.**
+
+## 30/10/2026 (3) · ¿Son las subidas del 20-44 % señal de que el algoritmo funciona?
+
+Pregunta de Borja al ver que varias posiciones pasaban del +20 %. **Medido: no.** Son dispersión.
+
+**Toda la media es una sola acción.** De los +1,45 pt de media, FIGS aporta **1,33**. Sin FIGS la
+media es **+0,13 %**; sin las dos mejores, **−0,57 %**. Dispersión de las 33 entradas: p10 −12,6,
+p25 −3,3, mediana **0,00**, p75 +6,3, p90 +15,1. Dos por encima de +20 % y dos por debajo de −15 %.
+Una cesta de momentum con esta dispersión produce un +44 % por construcción, gane o pierda la cesta.
+
+**Placebo de timing** (4.000 sorteos): las MISMAS 33 acciones, entrando un día **al azar** de los
+que hay serie, con el mismo protocolo de stops.
+- media del panel **+1,45 %** · media al azar **+0,94 %** (p10 −0,1, p90 +2,1)
+- **el azar iguala o supera al panel el 27 % de las veces.** No se distingue.
+- la mejor al azar sale **+22,5 %** de media y supera el +43,9 % de FIGS el **7,2 %** de las veces.
+
+Conclusión: **el día que el panel elige entrar no se distingue de entrar un día cualquiera** en esas
+mismas acciones. Lo que el placebo NO prueba es que la SELECCIÓN no valga: el universo ya está
+filtrado por el panel y no hay serie de precios de las que no eligió. Esa pregunta no se podía
+responder con los datos que había, y es la que decide si el algoritmo se puede afinar.
+
+### Lo único que se cambia: el grupo de control
+
+Cada día pasan los 9 requisitos del orden de **110** acciones (771 analizadas, 113 candidatas el
+29/10) y el panel guarda **10**. Las otras ~100 **se tiraban**. Ahora se guardan ticker, símbolo,
+cierre y nota en `docs/datos/<fecha>.json` → `control`.
+
+- **Cero llamadas nuevas a TradingView**: ya venían en el mismo scan.
+- ~4 KB al día en `docs/datos`, que **no se sirve** a los visitantes. No entra en `panel.json`.
+- **No cambia ninguna regla** ni aparece en la web. Hay una prueba de que una acción del control
+  nunca entra en el registro de entradas.
+- Con esto, en unos meses se podrá responder: **¿aporta algo la nota, o lo que funciona son los 9
+  requisitos y el orden dentro da igual?** Si la respuesta es que da igual, la mitad del algoritmo
+  (114 umbrales y 53 asignaciones de puntos) es decorativa y el sistema se simplifica.
+
+No se puede reconstruir hacia atrás: los ficheros antiguos solo guardaron el top-10. **Cada día de
+retraso era un día de control perdido**, y por eso se hace hoy y no en noviembre.
+
+6 pruebas nuevas en `filtros.test.py`, 5 mutaciones probadas y detectadas.
+
+**No se toca nada del algoritmo.** Con 33 entradas, una media que depende de una sola posición y un
+timing indistinguible del azar, cualquier ajuste sería ajustar al ruido. El acuerdo sigue en pie:
+150-200 entradas, primavera de 2027.

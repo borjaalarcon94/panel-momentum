@@ -371,5 +371,47 @@ finally:
     if _guardado is not None: _real.write_text(_guardado)
     elif _real.exists(): _real.unlink()
 
+
+# ─── EL GRUPO DE CONTROL ─────────────────────────────────────────────────────────────────────────
+# Cada dia pasan los 9 requisitos del orden de 110 acciones y el panel se queda con 10. Las otras
+# ~100 se tiraban, y sin ellas no hay forma de responder a si la NOTA aporta algo o lo que funciona
+# son los requisitos: medido solo contra el top no se puede saber, porque el top es el grupo elegido.
+# No cuesta ni una llamada mas (vienen en el mismo scan). Lo que se prueba aqui es que guarda
+# exactamente las NO elegidas y que no se cuela en el registro de entradas.
+print("\nGRUPO DE CONTROL")
+_cand = [{"ticker": "AAA", "simbolo": "NY:AAA", "precio": 10.0},
+         {"ticker": "BBB", "simbolo": "NY:BBB", "precio": 20.0},
+         {"ticker": "CCC", "simbolo": "NY:CCC", "precio": 30.0}]
+_ctl = b.control(_cand, {"AAA"}, {"BBB": {"total": 77}, "CCC": {}})
+comprueba("guarda solo las candidatas que el panel NO eligió", [x["t"] for x in _ctl], ["BBB", "CCC"])
+comprueba("con su cierre, para poder medirlas", [x["p"] for x in _ctl], [20.0, 30.0])
+comprueba("y su nota cuando la hay", [x["sc"] for x in _ctl], [77, None])
+comprueba("no guarda la fila entera, solo 4 campos", sorted(_ctl[0]), ["p", "s", "sc", "t"])
+comprueba("si el panel elige todas, el control queda vacío",
+          b.control(_cand, {"AAA", "BBB", "CCC"}, {}), [])
+
+# El control NO puede entrar en el registro de entradas: son acciones que el panel no recomendo, y
+# contarlas como entradas inflaria el registro con operaciones que nunca existieron.
+_tmp = {"2026-01-05": {"acciones": [{"ticker": "TOP", "simbolo": "NY:TOP", "precio": 5.0}],
+                       "control": [{"t": "CTL", "s": "NY:CTL", "p": 9.0, "sc": 90}],
+                       "mercado": [{"ticker": "SPY", "precio": 500}]}}
+_dir = b.DATOS
+_salvados = sorted(_dir.glob("2*.json"))
+import shutil as _sh, tempfile as _tf, os as _os
+_box = _tf.mkdtemp()
+try:
+    for _f in _salvados: _sh.move(str(_f), _box)
+    (_dir / "2026-01-05.json").write_text(_json.dumps(_tmp["2026-01-05"], ensure_ascii=False))
+    if _real.exists(): _real.unlink()
+    _reg = b.construye_entradas({"2026-01-05": {"acciones": [{"t": "TOP", "sc": 80}], "spy": 500}})
+    comprueba("una acción del grupo de control no entra en el registro",
+              sorted(v["t"] for v in _reg.values()), ["TOP"])
+finally:
+    (_dir / "2026-01-05.json").unlink(missing_ok=True)
+    for _f in sorted(_pl.Path(_box).glob("2*.json")): _sh.move(str(_f), str(_dir))
+    _os.rmdir(_box)
+    if _guardado is not None: _real.write_text(_guardado)
+    elif _real.exists(): _real.unlink()
+
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

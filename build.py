@@ -279,6 +279,25 @@ def construye_historico(todos):
     return historico
 
 
+def control(candidatas, elegidas, puntos):
+    """GRUPO DE CONTROL: las candidatas que pasaron los 9 requisitos y el panel NO eligio.
+
+       Cada dia pasan los filtros del orden de 110 acciones y el panel se queda con GUARDAR=10, las
+       de mas nota. Las otras ~100 se tiraban. Sin ellas no hay forma de responder a la unica
+       pregunta que decide si el algoritmo se puede afinar: **¿la nota aporta algo, o lo que funciona
+       son los 9 requisitos y el orden dentro da igual?** Medido contra el propio top no se puede
+       saber, porque el top es el grupo elegido: hace falta el grupo que no se eligio.
+
+       No cuesta NI UNA llamada mas a TradingView: estas acciones ya vienen en el mismo scan diario,
+       solo se estaban descartando. Se guarda lo minimo para medirlas (ticker, simbolo, cierre y
+       nota), no la fila entera: unos 4 KB al dia en docs/datos, que no se sirve a los visitantes.
+
+       No cambia ninguna regla ni entra en la web. Es solo el control que hoy no existe."""
+    return [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
+             "sc": (puntos.get(a["ticker"]) or {}).get("total")}
+            for a in candidatas if a["ticker"] not in elegidas]
+
+
 def construye_entradas(historico):
     """REGISTRO PERMANENTE de la primera aparicion de cada accion en el top.
 
@@ -437,7 +456,8 @@ def main():
     if acciones is not None:
         (DATOS / f"{hoy}.json").write_text(json.dumps(
             {"acciones": acciones, "enMarcha": en_marcha, "mercado": mercado, "referencia": ref,
-             "universo": len(universo), "candidatas": len(candidatas)},
+             "universo": len(universo), "candidatas": len(candidatas),
+             "control": control(candidatas, elegidas, puntos)},
             ensure_ascii=False))
     todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
     historico = construye_historico(todos)
