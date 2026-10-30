@@ -24,6 +24,20 @@ async function cargaPrecios() {
   } catch (e) { PRECIOS = {}; window.__EMAS__ = {}; }
   return PRECIOS;
 }
+
+/* REGISTRO PERMANENTE de la primera aparicion de cada accion (docs/entradas.json, lo escribe
+   build.py). Va aparte de panel.json porque panel.json se recorta a 90 sesiones y esto no se recorta
+   nunca: es justo lo que impide que el registro se re-feche solo cuando la ventana empiece a cortar.
+   Se descarga solo cuando se abre una pestaña que lo necesita, como los precios. */
+let ENTRADAS = null;
+async function cargaEntradas() {
+  if (ENTRADAS) return ENTRADAS;
+  try { ENTRADAS = await (await fetch('entradas.json', { cache: 'no-cache' })).json() || {}; }
+  catch (e) { ENTRADAS = {}; }   // sin el fichero la web sigue, con el registro de la ventana
+  window.__ENTRADAS__ = ENTRADAS;
+  return ENTRADAS;
+}
+window.cargaEntradas = cargaEntradas;
 /* Cierre de una accion un dia dado: primero la serie completa; si no, el registro del top, que solo
    la tiene los dias que estuvo dentro. */
 function cierre(f, clave) {

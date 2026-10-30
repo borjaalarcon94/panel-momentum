@@ -262,7 +262,6 @@ def construye_historico(todos):
        Se reconstruye entero desde docs/datos en cada build, asi que anadir un campo lo rellena
        tambien hacia atras sin tener que volver a pedir nada a la red."""
     historico = {}
-    historico = {}
     for f, d in todos.items():
         if not d["acciones"]:
             continue
@@ -278,6 +277,64 @@ def construye_historico(todos):
                                       "n": a.get("empresa")} for a in d["acciones"]],
                         "spy": next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)}
     return historico
+
+
+def construye_entradas(historico):
+    """REGISTRO PERMANENTE de la primera aparicion de cada accion en el top.
+
+       Por que existe: panel.json solo lleva las ultimas DIAS=90 sesiones. Cuando la ventana empiece
+       a recortar (con 18 sesiones el 29/10/2026, hacia el 19/01/2027) la pestaña Resultados dejaria
+       de ver el primer dia de las entradas antiguas y las RE-FECHARIA sola, a su aparicion mas
+       antigua de las que todavia quedasen dentro. Con los datos de hoy eso convertiria FIGS de
+       +43,9 % a +13,9 % sin que nada avisase: el registro se degradaria solo y en silencio.
+
+       No es un fichero que se va rellenando a mano y hay que rezar para que no se corrompa. Se
+       RECALCULA entero desde docs/datos, que no se recorta NUNCA, y ademas se FUSIONA con lo ya
+       guardado quedandose siempre con la fecha MAS ANTIGUA de las dos. Asi:
+         - si docs/datos esta completo, el fichero es correcto por construccion;
+         - si algun dia faltara un fichero de docs/datos, la fecha ya registrada sobrevive.
+       Nunca puede mover una entrada hacia adelante, que es el unico error que importa aqui.
+
+       La puntuacion de entrada se guarda la primera vez y se conserva: calcularla necesita los
+       fundamentales de aquel dia, que solo estan en su fichero de docs/datos."""
+    ruta_previa = WEB / "entradas.json"
+    previo = leer(ruta_previa) if ruta_previa.exists() else {}
+    reg = {}
+    for q in sorted(DATOS.glob("2*.json")):
+        f, d = q.stem, leer(q)
+        if not d or not d.get("acciones"):
+            continue
+        spy_f = next((m.get("precio") for m in d.get("mercado", []) if m["ticker"] == "SPY"), None)
+        for a in d["acciones"]:
+            k = a.get("simbolo") or a["ticker"]
+            if k not in reg:
+                reg[k] = {"t": a["ticker"], "s": a.get("simbolo"), "f": f, "p": a.get("precio"),
+                          "sc": next((x.get("sc") for x in historico.get(f, {}).get("acciones", [])
+                                      if x["t"] == a["ticker"]), None),
+                          "b": a.get("beta"), "n": a.get("empresa"), "spy": spy_f}
+            # Ultima vez que se la vio en el top, y su precio y el del indice ese dia. Sin esto, una
+            # accion que salga del top y acabe fuera de la ventana de 90 sesiones DESAPARECERIA del
+            # registro, que se quedaria solo con las que siguen dentro: supervivientes. Es un sesgo
+            # peor que el re-fechado, porque las que salen del top son justo las que han ido mal.
+            reg[k]["ult"] = f
+            reg[k]["pult"] = a.get("precio")
+            reg[k]["spyult"] = spy_f
+    # Fusion: la fecha mas antigua manda, y nunca se pierde una clave ya registrada.
+    for k, v in previo.items():
+        if k not in reg:
+            reg[k] = v
+            continue
+        if v.get("f") and v["f"] < reg[k]["f"]:         # fecha de entrada: la mas antigua manda
+            for c in ("f", "p", "sc", "b", "spy"):
+                if v.get(c) is not None:
+                    reg[k][c] = v[c]
+        if reg[k].get("sc") is None and v.get("sc") is not None and v.get("f") == reg[k]["f"]:
+            reg[k]["sc"] = v["sc"]                      # la nota ya calculada no se vuelve a perder
+        if v.get("ult") and v["ult"] > (reg[k].get("ult") or ""):   # ultima vista: la mas reciente
+            for c, o in (("ult", "ult"), ("pult", "pult"), ("spyult", "spyult")):
+                if v.get(o) is not None:
+                    reg[k][c] = v[o]
+    return reg
 
 
 def version_de():
@@ -318,6 +375,9 @@ def rehacer():
         return 1
     antes = panel.get("version")
     panel["historico"] = construye_historico(todos)
+    # El registro permanente se reescribe tambien aqui: --rehacer no toca la red y docs/datos ya
+    # tiene todo lo que hace falta, asi que no hay motivo para dejarlo viejo.
+    (WEB / "entradas.json").write_text(json.dumps(construye_entradas(panel["historico"]), ensure_ascii=False))
     panel["dias"] = sorted(todos)
     panel["criterios"] = {"precioMin": 2, "capMin": CAP_MIN, "capMax": CAP_MAX, "volumenMin": 300000,
                           "liquidezMin": LIQUIDEZ_MIN, "rsiMin": 55, "crecimientoMin": CRECIMIENTO_MIN,
@@ -381,6 +441,8 @@ def main():
             ensure_ascii=False))
     todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
     historico = construye_historico(todos)
+    # Primera aparicion de cada accion, fuera de la ventana de DIAS: ver construye_entradas().
+    (WEB / "entradas.json").write_text(json.dumps(construye_entradas(historico), ensure_ascii=False))
     # Estado de HOY de todas las acciones que han pasado por el top ultimamente: permite saber en el
     # seguimiento si siguen cumpliendo los requisitos aunque hayan salido del top.
     def simbolos_de(dias_atras):

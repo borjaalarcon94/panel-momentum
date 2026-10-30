@@ -16,12 +16,54 @@ function entradas() {
     if (!reg[k]) reg[k] = { ticker: a.t, entrada: sesionDe(f), dia: f, precio: a.p, score: a.sc, beta: a.b, spy: (HIST[f] || {}).spy, ultimo: f, precioUltimo: a.p };
     reg[k].ultimo = f; reg[k].precioUltimo = a.p;
   }));
+  /* LA FECHA DE ENTRADA MANDA DESDE EL REGISTRO PERMANENTE, no desde la ventana de 90 sesiones.
+     Sin esto, el dia en que la ventana empiece a recortar (hacia el 19/01/2027) cada entrada antigua
+     se RE-FECHARIA a su aparicion mas antigua de las que quedasen dentro, con su precio de ese dia:
+     FIGS pasaria de +43,9 % a +13,9 % y el registro se degradaria solo, sin avisar.
+     Solo puede mover una entrada hacia ATRAS. Si el registro no esta (fichero nuevo, fallo de red)
+     se queda lo de la ventana, que es exactamente lo que habia antes. */
+  /* Y una accion que desaparezca ENTERA de la ventana se caeria del registro, que se quedaria solo
+     con las que siguen dentro. Eso es sesgo de supervivencia, y es PEOR que el re-fechado: las que
+     salen del top son justo las que han ido mal. COHU (-21 %) y XMTR (-14 %) saldrian del registro y
+     la media subiria sola. Se reconstruyen desde el registro permanente con su ultimo precio visto. */
+  const perm = window.__ENTRADAS__ || {};
+  let refechadas = 0, rescatadas = 0;
+  Object.entries(perm).forEach(([k, v]) => {
+    if (!v || !v.f) return;
+    let r = reg[k];
+    if (!r) {
+      if (!v.pult) return;                // sin un precio con el que medirla no se puede anotar
+      r = reg[k] = { ticker: v.t, entrada: sesionDe(v.f), dia: v.f, precio: v.p, score: v.sc,
+        beta: v.b, spy: v.spy, ultimo: v.ult, precioUltimo: v.pult, fueraDeVentana: true };
+      rescatadas++;
+      return;
+    }
+    if (!(v.f < r.dia)) return;           // la ventana ya tenia la primera aparicion
+    refechadas++;
+    r.entrada = sesionDe(v.f); r.dia = v.f;
+    r.precio = v.p != null ? v.p : r.precio;
+    r.score = v.sc != null ? v.sc : r.score;
+    r.beta = v.b != null ? v.b : r.beta;
+    r.spy = v.spy != null ? v.spy : r.spy;
+  });
+  window.__PERMANENTE__ = { refechadas, rescatadas };
   return Object.entries(reg).map(([k, r]) => {
     const ahora = (ACT[k] || {}).precio ?? P[k] ?? null;
-    return { ...r, ahora, clave: k,
-      ret: ahora != null && r.precio ? (ahora / r.precio - 1) * 100 : null,
+    /* Una rescatada lleva tanto fuera del top que el panel ya no le pide el precio. No es que haya
+       dejado de cotizar: es que dejamos de seguirla. Se mide hasta su ultimo precio visto y se
+       marca, porque borrarla seria quedarse solo con las que siguen vivas. */
+    const cierre = ahora != null ? ahora : (r.fueraDeVentana ? r.precioUltimo : null);
+    /* EL INDICE SE MIDE HASTA EL MISMO DIA QUE EL RESULTADO. Si el resultado llega a hoy, el indice
+       tambien; si se mide hasta el ultimo dia que se la vio, el indice hasta ese dia. Al introducir
+       el rescate puse el resultado hasta hoy y el indice hasta su ultimo dia, que son dos ventanas
+       distintas: FEIM salia comparandose con un -0,71 % antes y un +0,55 % despues del recorte. Lo
+       encontro la comprobacion nueva de humo.test.js el 30/10/2026, el mismo dia de escribirlo. */
+    const spyFinal = ahora != null ? spyHoy : ((perm[k] || {}).spyult ?? spyHoy);
+    return { ...r, ahora: cierre, sinPrecioDeHoy: ahora == null && cierre != null, clave: k,
+      ret: cierre != null && r.precio ? (cierre / r.precio - 1) * 100 : null,
       retAlSalir: r.precioUltimo && r.precio ? (r.precioUltimo / r.precio - 1) * 100 : null,
-      sp: r.spy && spyHoy ? (spyHoy / r.spy - 1) * 100 : null, fuera: r.ultimo !== hoyF,
+      sp: r.spy && spyFinal ? (spyFinal / r.spy - 1) * 100 : null,
+      fuera: r.ultimo !== hoyF,
       sesiones: FH.filter(f => f > r.entrada && esSesion(f)).length };   // sesiones nuestras, no dias de calendario
     /* Se quedan tambien las que han perdido el precio: una accion puede desaparecer de la fuente de
        datos por una fusion, un cambio de simbolo o una exclusion de bolsa. Descartarlas en silencio
@@ -845,6 +887,9 @@ function registro(xs, enCartera) {
     /* Una que ha dejado de cotizar no tiene resultado, y la fila tiene que leerse asi: no como una
        fila a medio rellenar. Se queda por el sesgo de supervivencia, pero se explica sola. */
     if (a.ret == null) td.appendChild(el('div', 'name', 'dejó de cotizar el ' + fFecha(a.ultimo)));
+    /* Distinto de dejar de cotizar: esta sigue en bolsa, pero lleva tanto fuera del top que el panel
+       ya no le pide el precio. Decir "dejo de cotizar" de una empresa viva seria falso. */
+    else if (a.sinPrecioDeHoy) td.appendChild(el('div', 'name', 'salió del top el ' + fFecha(a.ultimo) + ' y ya no se sigue: medida hasta ese día'));
     else if (a.fuera) td.appendChild(el('div', 'name', 'ya no está en el top'));
     tr.appendChild(td);
     tr.appendChild(el('td', null, fFecha(a.entrada)));
@@ -979,6 +1024,7 @@ window.initResultados = function () {
 window.resultados = async function () {
   const R = $('rres'); R.replaceChildren();
   await cargaPrecios();
+  if (window.cargaEntradas) await window.cargaEntradas();
   const xs = entradas();
   if (!xs.length) {
     R.appendChild(el('div', 'empty', 'Todavía no hay historial. Cada acción que entra en el top queda anotada con su puntuación y su precio, y aquí se compara con lo que hizo después. Vuelve dentro de unas semanas.'));

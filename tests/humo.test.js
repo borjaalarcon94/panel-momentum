@@ -1655,7 +1655,14 @@ for (const f of orden) {
   const texto = (function leer(x) {
     return (x.textContent || '') + ' ' + (x.hijos || []).map(leer).join(' ');
   })(porId.rres);
-  !/Todav/.test(texto) ? ok('ya no dice "todavía no"') : mal('sigue bloqueada con 40 entradas maduras');
+  /* Antes se buscaba /Todav/ en TODA la pestaña. Dejo de valer el 30/10/2026: la pregunta del indice
+     responde "Todavia no se puede decir" cuando el margen cruza el cero, que es una respuesta valida
+     y no el candado. Se comprueba el candado en si, que es lo que este test quiere saber. */
+  !/¿Me puedo fiar ya de estos números\?\s*Todavía no/.test(texto)
+    ? ok('ya no dice "todavía no" en el candado')
+    : mal('sigue bloqueada con 40 entradas maduras');
+  /Sí, ya hay historial suficiente/.test(texto) ? ok('y dice que ya hay historial suficiente')
+    : mal('no dice que haya historial suficiente');
   /Sirve de algo la puntuaci/.test(texto) ? ok('responde si la puntuación discrimina') : mal('no responde a la puntuación');
   /mediana/.test(texto) ? ok('parte por la mediana, no por un 75 fijo que nadie baja') : mal('no usa la mediana');
   /* Buscaba el titulo literal "tres formas de operarlas" y se rompio al renombrarlo. Ahora mira la
@@ -1805,6 +1812,152 @@ for (const f of orden) {
     const sinVisitar = ocho.filter(t => !alcanzados[t]);
     sinVisitar.length ? mal('la rejilla no alcanza ' + sinVisitar.length + ' veredicto(s)', sinVisitar.join(', '))
                       : ok('la rejilla alcanza los 8 veredictos');
+  }
+
+  /* EL REGISTRO PERMANENTE SOBREVIVE AL RECORTE DE LA VENTANA.
+
+     panel.json solo lleva las ultimas DIAS=90 sesiones. Con 18 sesiones el 29/10/2026 todavia no
+     corta, pero hacia el 19/01/2027 empezara, y entonces pasarian DOS cosas, las dos en silencio:
+
+       1. RE-FECHADO. Una entrada cuya primera aparicion quede fuera de la ventana se re-fecharia a
+          su aparicion mas antigua de las que quedasen dentro, con el precio de ESE dia. FIGS pasaria
+          de +43,9 % a +13,9 % sin que nada avisase.
+       2. SUPERVIVENCIA. Una accion que desaparezca ENTERA de la ventana se caeria del registro. Y
+          las que desaparecen son las que salieron del top, o sea las que fueron mal: COHU (-21 %) y
+          XMTR (-14 %) se irian y la media subiria sola. Este es el peor de los dos.
+
+     Aqui se recorta la ventana a proposito y se comprueba que ni una cosa ni la otra pasan. Es la
+     unica prueba que puede fallar HOY por un fallo que solo se manifestaria en enero. */
+  console.log('\nEL REGISTRO PERMANENTE SOBREVIVE AL RECORTE DE LA VENTANA');
+  {
+    /* HIST y FH se declaran con let en app.js, asi que NO son propiedades del sandbox: solo se
+       alcanzan ejecutando codigo dentro del mismo contexto. */
+    const ev = c => vm.runInContext(c, ctx);
+    const HISTo = ev('JSON.stringify(HIST)'), FHo = ev('JSON.stringify(FH)');
+    /* Se restauran los datos REALES: el bloque de 40 entradas sinteticas de antes sobreescribio HIST
+       en las fechas 06/10 en adelante, y con eso las acciones de verdad solo quedaban en el 05/10.
+       Al recortar se iban TODAS y el camino del re-fechado (la que sigue dentro pero su primer dia
+       se ha ido) no se ejecutaba nunca: cuatro mutaciones pasaban sin que nada fallase. */
+    ev('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' +
+       JSON.stringify(panel.historico) + '); FH = ' + JSON.stringify([...panel.dias].sort().reverse()) + ';');
+    const antes = ventana.entradas();
+    const de = (xs, t) => xs.find(a => a.ticker === t);
+    const quedan = 6;                       // se tiran las 12 sesiones mas viejas de las 18
+    ev(`
+      const vivas = FH.slice(0, ${quedan});
+      Object.keys(HIST).forEach(f => { if (!vivas.includes(f)) delete HIST[f] });
+      FH = vivas;
+    `);
+    const despues = ventana.entradas();
+    /* Se captura AQUI: la pasada "sin registro" de abajo vuelve a llamar a entradas() y pone el
+       contador a cero. Leerlo despues daba siempre 0 y hacia la comprobacion inservible. */
+    const marcador = { ...(ventana.__PERMANENTE__ || {}) };
+
+    /* Sin el registro permanente, esto es lo que se perderia. Se comprueba que el escenario MUERDE:
+       si la ventana recortada siguiera conteniendo todo, la prueba no probaria nada. */
+    const sinPerm = (() => { const g = ventana.__ENTRADAS__; ventana.__ENTRADAS__ = {};
+      const r = ventana.entradas(); ventana.__ENTRADAS__ = g; return r })();
+    sinPerm.length < antes.length
+      ? ok('el escenario muerde: sin el registro se perderían ' + (antes.length - sinPerm.length) + ' entradas')
+      : mal('el escenario no recorta nada: la prueba no probaría nada');
+
+    despues.length === antes.length
+      ? ok('el registro conserva las ' + antes.length + ' entradas tras tirar 12 de las 18 sesiones')
+      : mal('el registro pasa de ' + antes.length + ' a ' + despues.length + ' entradas al recortar');
+
+    /* Solo se afirma sobre lo que el registro permanente PUEDE proteger: lo que tiene anotado. Este
+       bloque corre detras del escenario de 40 entradas sinteticas, que no estan en entradas.json y
+       por tanto se re-fechan con razon. Confundirlas con un fallo haria la prueba inservible. */
+    const perm = ventana.__ENTRADAS__ || {};
+    const anotada = a => !!perm[a.clave];
+    const prot = antes.filter(anotada);
+    prot.length >= 30 ? ok('el registro permanente cubre ' + prot.length + ' entradas reales')
+                      : mal('el registro permanente solo cubre ' + prot.length + ' entradas');
+
+    /* COMPROBACION INDEPENDIENTE del fichero, no del codigo que lo usa. Todo lo de arriba compara el
+       registro consigo mismo: si entradas.json guardase la ULTIMA aparicion en vez de la primera,
+       antes y despues coincidirian igual y nada fallaria. Aqui se contrasta contra el historico
+       completo, que es la verdad. */
+    {
+      const primeraEn = {}, ultimaEn = {}, precioEn = {}, spyEn = {};
+      [...panel.dias].sort().forEach(f => (panel.historico[f].acciones || []).forEach(x => {
+        const k = x.s || x.t;
+        if (!(k in primeraEn)) { primeraEn[k] = f; precioEn[k] = x.p; spyEn[k] = panel.historico[f].spy }
+        ultimaEn[k] = f;
+      }));
+      const malF = Object.keys(primeraEn).filter(k => perm[k] && perm[k].f !== primeraEn[k]);
+      malF.length ? mal(malF.length + ' fechas del fichero no son la primera aparición real',
+                        malF.slice(0, 4).map(k => k + ' ' + perm[k].f + ' en vez de ' + primeraEn[k]).join(', '))
+                  : ok('las ' + Object.keys(primeraEn).length + ' fechas del fichero son la primera aparición del histórico');
+      const malP = Object.keys(primeraEn).filter(k => perm[k] && perm[k].p != null && Math.abs(perm[k].p - precioEn[k]) > 1e-9);
+      malP.length ? mal(malP.length + ' precios del fichero no son el del día de entrada', malP.slice(0, 4).join(', '))
+                  : ok('los precios del fichero son los del día de entrada');
+      const malS = Object.keys(spyEn).filter(k => perm[k] && spyEn[k] != null && perm[k].spy !== spyEn[k]);
+      malS.length ? mal(malS.length + ' índices del fichero no son el del día de entrada', malS.slice(0, 4)
+                        .map(k => k + ' ' + perm[k].spy + ' en vez de ' + spyEn[k]).join(', '))
+                  : ok('los índices del fichero son los del día de entrada');
+      const malU = Object.keys(ultimaEn).filter(k => perm[k] && perm[k].ult !== ultimaEn[k]);
+      malU.length ? mal(malU.length + ' últimas vistas del fichero no coinciden con el histórico', malU.slice(0, 4).join(', '))
+                  : ok('las últimas vistas del fichero coinciden con el histórico');
+    }
+
+    const movidas = prot.filter(a => { const d = de(despues, a.ticker); return d && d.dia !== a.dia });
+    movidas.length ? mal(movidas.length + ' entradas se han re-fechado', movidas.map(a => a.ticker + ' ' + a.dia + '->' + de(despues, a.ticker).dia).slice(0, 5).join(', '))
+                   : ok('ninguna entrada se re-fecha');
+
+    const cambia = prot.filter(a => { const d = de(despues, a.ticker); return d && Math.abs((d.precio || 0) - (a.precio || 0)) > 1e-9 });
+    cambia.length ? mal(cambia.length + ' entradas cambian de precio de entrada', cambia.map(a => a.ticker).slice(0, 5).join(', '))
+                  : ok('ningún precio de entrada cambia');
+
+    /* Las perdedoras son las que importan: son las que el sesgo de supervivencia se lleva. */
+    const perdedoras = prot.filter(a => a.ret != null && a.ret < -10).map(a => a.ticker);
+    const siguen = perdedoras.filter(t => de(despues, t));
+    siguen.length === perdedoras.length
+      ? ok('las ' + perdedoras.length + ' que perdieron más del 10 % siguen en el registro (' + perdedoras.join(', ') + ')')
+      : mal('se han perdido perdedoras del registro', perdedoras.filter(t => !de(despues, t)).join(', '));
+
+    /* Dos cosas distintas, y mezclarlas escondia la segunda:
+       (a) ningun resultado YA MEDIBLE puede cambiar al recortar. Esto es lo que se degradaria solo.
+       (b) ninguno puede DEJAR de ser medible.
+       Que alguno pase de inmedible a medible SI puede pasar y no es un fallo: BLFS no tiene precio de
+       hoy, asi que mientras esta en la ventana queda fuera de las medias, y al caerse de ella se mide
+       hasta su ultimo precio visto, que es lo unico que de ella se sabe. */
+    const med = v => v.reduce((s, x) => s + x.ret, 0) / v.length;
+    const mA = prot.filter(a => a.ret != null);
+    const pareja = mA.map(a => [a, de(despues, a.ticker)]).filter(([, d]) => d);
+    const perdidas = pareja.filter(([, d]) => d.ret == null).map(([a]) => a.ticker);
+    perdidas.length ? mal(perdidas.length + ' entradas dejan de ser medibles al recortar', perdidas.join(', '))
+                    : ok('ninguna entrada medible deja de serlo');
+    const movSp = pareja.filter(([a, d]) => a.sp != null && d.sp != null && Math.abs(d.sp - a.sp) > 1e-6);
+    movSp.length ? mal(movSp.length + ' comparaciones con el índice cambian al recortar',
+                       movSp.map(([a, d]) => a.ticker + ' ' + a.sp.toFixed(2) + '->' + d.sp.toFixed(2)).slice(0, 4).join(', '))
+                 : ok('ninguna comparación con el índice cambia');
+    const cambian = pareja.filter(([a, d]) => d.ret != null && Math.abs(d.ret - a.ret) > 1e-6);
+    cambian.length ? mal(cambian.length + ' resultados cambian al recortar',
+                         cambian.map(([a, d]) => a.ticker + ' ' + a.ret.toFixed(1) + '->' + d.ret.toFixed(1)).slice(0, 5).join(', '))
+                   : ok('ninguno de los ' + pareja.length + ' resultados medibles cambia, ni un decimal');
+    const mD = pareja.map(([, d]) => d);
+    ok('media de las medibles en común: ' + med(mA).toFixed(2) + ' % antes, ' + med(mD).toFixed(2) + ' % después');
+    const mS = sinPerm.filter(a => a.ret != null && anotada(a));
+    console.log('      (sin el registro permanente quedarían ' + mS.length + ' de esas ' + mA.length + ')');
+
+    /* Una rescatada no puede decir "dejo de cotizar": sigue en bolsa, solo dejamos de seguirla. */
+    const resc = despues.filter(a => a.fueraDeVentana && anotada(a));
+    resc.length ? ok(resc.length + ' entradas rescatadas (salieron enteras de la ventana)')
+                : mal('ninguna rescatada: el escenario no llega a expulsar a nadie de la ventana');
+    /* El OTRO camino: sigue dentro de la ventana pero su primer dia se ha ido. Si este contador es
+       cero, la mitad del arreglo no se esta probando. */
+    const refe = marcador.refechadas || 0;
+    refe > 0 ? ok(refe + ' entradas re-fechadas hacia atrás (siguen dentro, su primer día no)')
+             : mal('ninguna re-fechada: el camino del re-fechado no se está probando');
+    resc.every(a => a.ret != null)
+      ? ok('todas las rescatadas tienen resultado medible')
+      : mal('alguna rescatada queda sin resultado', resc.filter(a => a.ret == null).map(a => a.ticker).join(', '));
+
+    /* Se deja el contexto como estaba: las comprobaciones que vengan detras usan los datos reales. */
+    ev('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' + HISTo + '); FH = ' + FHo + ';');
+    ev('FH.length') === JSON.parse(FHo).length ? ok('la ventana se restaura entera tras la prueba')
+      : mal('la ventana no se ha restaurado');
   }
 
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);

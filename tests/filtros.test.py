@@ -290,5 +290,86 @@ comprueba("la fecha de actualizacion tampoco se toca",
 comprueba("ni el regimen de mercado",
           'anterior.get("regimen") if (motivo and anterior.get("regimen"))' in _fuente, True)
 
+
+# ─── EL REGISTRO PERMANENTE NUNCA PIERDE NI MUEVE UNA ENTRADA ────────────────────────────────────
+# docs/entradas.json existe porque panel.json solo lleva 90 sesiones: cuando la ventana empiece a
+# recortar (hacia el 19/01/2027), sin este fichero cada entrada antigua se re-fecharia sola y las
+# que salieron del top desaparecerian del registro, dejando solo supervivientes.
+#
+# Se recalcula entero desde docs/datos en cada build Y se fusiona con lo ya guardado. La fusion es
+# la red de seguridad, y lo que garantiza es UNA cosa: el registro solo puede mejorar. Nunca mueve
+# una entrada hacia adelante ni pierde una clave. Eso es lo que se prueba aqui, porque es lo que
+# hace que el fichero sea de fiar aunque algun dia falte un dato o se cambie el codigo de arriba.
+print("\nEL REGISTRO PERMANENTE SOLO PUEDE MEJORAR")
+import json as _json, tempfile as _tmp, pathlib as _pl
+
+_real = b.WEB / "entradas.json"
+_guardado = _real.read_text() if _real.exists() else None
+try:
+    _hist = _json.loads((b.WEB / "panel.json").read_text())["historico"]
+
+    def _construye(previo):
+        """construye_entradas() partiendo del fichero que se le diga."""
+        if previo is None:
+            if _real.exists(): _real.unlink()
+        else:
+            _real.write_text(_json.dumps(previo, ensure_ascii=False))
+        return b.construye_entradas(_hist)
+
+    _limpio = _construye(None)
+    comprueba("sin fichero previo, se reconstruye entero desde docs/datos", len(_limpio) > 0, True)
+    # La nota del dia de entrada: es lo unico del registro que NO se puede recalcular mas tarde, porque
+    # necesita los fundamentales de aquel dia. Si el recalculo la deja a None, la pregunta de noviembre
+    # "¿sirve de algo la puntuacion?" se queda sin datos y no hay forma de recuperarla.
+    comprueba("el recálculo guarda la puntuación del día de entrada",
+              sum(1 for v in _limpio.values() if v.get("sc") is not None) == len(_limpio), True)
+    comprueba("y el precio y el índice de aquel día",
+              all(v.get("p") is not None and v.get("spy") is not None for v in _limpio.values()), True)
+
+    _k = next(k for k, v in _limpio.items() if v["t"] == "FIGS")
+
+    # 1 · una fecha mas antigua ya guardada MANDA, aunque docs/datos diga otra cosa.
+    _viejo = {**_limpio, _k: {**_limpio[_k], "f": "2020-01-02", "p": 1.23, "sc": 11, "spy": 300}}
+    _r = _construye(_viejo)
+    comprueba("una fecha de entrada más antigua ya guardada no se pierde", _r[_k]["f"], "2020-01-02")
+    comprueba("y arrastra su precio de entrada", _r[_k]["p"], 1.23)
+    comprueba("y su puntuación de entrada", _r[_k]["sc"], 11)
+    comprueba("y el índice de aquel día", _r[_k]["spy"], 300)
+
+    # 2 · una fecha mas RECIENTE guardada por error NO mueve la entrada hacia adelante.
+    _r = _construye({**_limpio, _k: {**_limpio[_k], "f": "2099-12-31", "p": 999.0}})
+    comprueba("una fecha más reciente NO mueve la entrada hacia adelante", _r[_k]["f"], _limpio[_k]["f"])
+    comprueba("ni le cambia el precio de entrada", _r[_k]["p"], _limpio[_k]["p"])
+
+    # 3 · una clave que ya no tiene respaldo en docs/datos sobrevive: es el caso que de verdad
+    #     protege el fichero, porque es el unico en que la informacion ya no esta en ningun otro
+    #     sitio. Si se perdiese, el registro se quedaria con supervivientes y la media subiria sola.
+    _f = {"t": "FANTASMA", "s": "NASDAQ:FANTASMA", "f": "2020-02-03", "p": 10.0,
+          "sc": 70, "b": 1.0, "n": "Fantasma", "spy": 300, "ult": "2020-03-04", "pult": 7.0, "spyult": 310}
+    _r = _construye({**_limpio, "NASDAQ:FANTASMA": _f})
+    comprueba("una entrada sin respaldo en docs/datos sobrevive", _r.get("NASDAQ:FANTASMA"), _f)
+    comprueba("y no se inventa ninguna otra", len(_r), len(_limpio) + 1)
+
+    # 4 · la ultima vez que se la vio solo puede avanzar, nunca retroceder.
+    _r = _construye({**_limpio, _k: {**_limpio[_k], "ult": "2020-01-01", "pult": 1.0}})
+    comprueba("una última vista más antigua no retrasa la del fichero", _r[_k]["ult"], _limpio[_k]["ult"])
+    _r = _construye({**_limpio, _k: {**_limpio[_k], "ult": "2099-12-31", "pult": 55.0}})
+    comprueba("una última vista más reciente sí se conserva", (_r[_k]["ult"], _r[_k]["pult"]), ("2099-12-31", 55.0))
+
+    # 5 · la primera aparicion del recalculo es la PRIMERA, no la ultima.
+    _prim = {}
+    for _d in sorted(_hist):
+        for _a in _hist[_d]["acciones"]:
+            _prim.setdefault(_a.get("s") or _a["t"], _d)
+    comprueba("el recálculo guarda la primera aparición de cada acción",
+              all(_limpio[kk]["f"] == vv for kk, vv in _prim.items() if kk in _limpio), True)
+    comprueba("y la última vista es la última, no la primera",
+              all(_limpio[kk]["ult"] >= _limpio[kk]["f"] for kk in _limpio), True)
+    comprueba("alguna acción ha estado más de un día (si no, la comprobación de arriba es vacía)",
+              any(_limpio[kk]["ult"] > _limpio[kk]["f"] for kk in _limpio), True)
+finally:
+    if _guardado is not None: _real.write_text(_guardado)
+    elif _real.exists(): _real.unlink()
+
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

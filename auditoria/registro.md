@@ -2241,3 +2241,48 @@ venta por **RSI < 45** y la de **≥2 requisitos roto** no se pueden medir retro
 (COHU, IOVA, OSCR) y a las tres les había saltado ya el stop antes, pero **no es comprobable que eso
 pase siempre**. Guardar el RSI de los 36 seguidos costaría 36 números al día, lo mismo que ya cuesta
 la EMA 50. Sin decidir: no cambia ninguna regla, solo permitiría medirla.
+
+## 30/10/2026 (2) · `docs/entradas.json`: el registro permanente de entradas
+
+El único pendiente con fecha de caducidad. `panel.json` solo lleva las últimas `DIAS = 90` sesiones,
+así que hacia el **19/01/2027** la ventana empezaría a recortar y pasarían dos cosas, las dos en
+silencio:
+
+1. **Re-fechado.** Una entrada cuya primera aparición quedase fuera se re-fecharía a su aparición
+   más antigua de las que siguieran dentro, **con el precio de ese día**. FIGS pasaría de +43,9 % a
+   +13,9 %.
+2. **Supervivencia.** Una acción que desapareciese **entera** de la ventana se caería del registro.
+   Y las que desaparecen son las que salieron del top, o sea las que fueron mal. Medido sobre el
+   escenario de prueba: **sin el fichero sobrevivirían 19 de 32 entradas**. Este es el peor de los
+   dos, y no estaba en el pendiente original.
+
+**Diseño.** No es un fichero que se rellena a mano. Se **recalcula entero** desde `docs/datos`, que
+no se recorta nunca, **y se fusiona** con lo ya guardado quedándose siempre con la fecha más
+antigua. Garantía: *el registro solo puede mejorar*. Nunca mueve una entrada hacia adelante ni
+pierde una clave, ni aunque algún día falte un fichero de `docs/datos`. Guarda por acción la primera
+aparición (fecha, precio, nota, beta, SPY) y la última vez vista (fecha, precio, SPY), que es lo que
+permite medir a las que ya no se siguen. **6,7 KB para 34 entradas**, descargado solo al abrir
+Resultados.
+
+La nota del día de entrada es el único campo que **no se puede recalcular después** (necesita los
+fundamentales de aquel día): se guarda la primera vez y se conserva. De ella depende la pregunta de
+noviembre «¿sirve de algo la puntuación?».
+
+**Fallo propio, encontrado por una prueba escrita el mismo día:** en las entradas rescatadas el
+resultado se medía hasta hoy y el índice hasta su último día visto. Dos ventanas distintas — el mismo
+error que había corregido esa mañana en `ganaDinero`. FEIM se comparaba con un −0,71 % antes del
+recorte y un +0,55 % después. Corregido alineando el índice al mismo cierre que el resultado.
+
+**Pruebas:** 20 nuevas repartidas en `humo.test.js` (recorta la ventana de verdad y comprueba que
+ninguno de los 32 resultados medibles cambia **ni un decimal**, que ninguna comparación con el índice
+se mueve, y que se ejercitan **los dos** caminos: 15 re-fechadas y 13 rescatadas) y
+`filtros.test.py` (las garantías de la fusión). **16 mutaciones probadas, las 16 detectadas.**
+
+Dos pruebas que ya existían resultaron ser flojas y se han apretado:
+- `humo.test.js` comprobaba `/Todav/` en **toda** la pestaña para ver si el candado se abría. Dejó de
+  valer: la pregunta del índice responde «Todavía no se puede decir» cuando el margen cruza el cero,
+  que es una respuesta válida. Ahora se comprueba el candado en sí.
+- El contador de re-fechadas se leía **después** de una segunda pasada que lo pone a cero: daba
+  siempre 0 y cuatro mutaciones pasaban sin que nada fallase. Encontrado al no detectarlas.
+
+Sigue pendiente, y es del usuario: **descargar la copia de seguridad de posiciones.**
