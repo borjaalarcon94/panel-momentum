@@ -93,7 +93,7 @@ let SECCIONES = [];
 window.parametros = function () {
   const R = $('rpar'); R.replaceChildren();
   SECCIONES = [];
-  const C = CRIT || {};
+  const C = CRIT || {}, Rg = (window.REGLAS || {}).R || {};
   const eur = v => cap(v);
 
   const barra = el('div', 'row');
@@ -167,6 +167,7 @@ window.parametros = function () {
   R.appendChild(tabla('5 · Cuándo vender una posición abierta',
     ['Regla', 'Detalle'], [
       ['Stop inicial', 'la EMA 50, sin arriesgar nunca más de un 15 % desde tu precio de compra'],
+      ['Tope de concentración', 'nunca más del ' + (Rg.topePosicion || 12) + ' % de la cartera en una sola posición, por encima de lo que diga tu riesgo por operación. El tamaño es riesgo ÷ distancia al stop, así que un stop muy pegado produce la posición MÁS GRANDE justo donde la salida es más aleatoria. Era el 25 % hasta el 30/10/2026: se bajó porque sobre 512 movimientos diarios de las seguidas el peor fue −35,4 % en una sesión (IOVA, por noticia), y eso con el 25 % dentro cuesta −8,85 % de la cartera en un día frente a −4,25 % con el 12 %. El stop no protege de un hueco. Anclado en el peor día observado, que es UN solo caso: es un juicio sobre la cola, no una calibración'],
       ['Sin stop válido', 'si el precio ya cotiza por debajo de su EMA 50, el stop calculado sale por encima del precio: entrar ahí sería entrar ya saltado. No es un stop, es la prueba de que la tendencia está rota, y el panel lo dice así en vez de mostrar una distancia positiva. Nunca se calcula tamaño de posición sobre un stop inválido'],
       ['El stop nunca baja', 'se guarda el valor más alto que ha alcanzado, aunque la EMA 50 retroceda'],
       ['Protección del coste', 'superado el 20 % de ganancia, el stop sube a tu precio de compra'],

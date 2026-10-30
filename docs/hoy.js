@@ -201,7 +201,7 @@ const tam=window.TAMANO(o.d);
 if(tam&&v.cls==='qok'){sb.appendChild(el('span','et','Comprar'));sb.appendChild(el('span','vl',n(tam.importe,0)));sb.appendChild(el('span','ds',n(tam.pct,1)+' % de tu cartera'));
 /* El tope del 25 % se aplicaba en silencio: el numero que veias no era el que salia de tu riesgo,
    era el maximo por concentracion. Ahora se dice. */
-if(tam.tope)sb.appendChild(el('span','ds','· tope: no más de un cuarto de la cartera en una sola'))}
+if(tam.tope)sb.appendChild(el('span','ds','· tope de concentración: no más del '+tam.max+' % en una sola'))}
 /* "Esperar un retroceso" sin decir hasta donde no sirve de nada. El punto exacto es EMA 50 x 1,15:
    ahi el tope del 15 % deja de morder y el stop vuelve a ser un nivel tecnico. */
 /* El precio de entrada sin tope lo dice el veredicto, arriba: en esta caja competia con la cifra

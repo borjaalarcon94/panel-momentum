@@ -2329,3 +2329,80 @@ retraso era un día de control perdido**, y por eso se hace hoy y no en noviembr
 **No se toca nada del algoritmo.** Con 33 entradas, una media que depende de una sola posición y un
 timing indistinguible del azar, cualquier ajuste sería ajustar al ruido. El acuerdo sigue en pie:
 150-200 entradas, primavera de 2027.
+
+## 30/10/2026 (4) · «Yo compro siempre las de mejor nota, júzgalo por esas»
+
+Objeción razonable de Borja y medible. **Medida: es justo la parte que los datos menos sostienen.**
+
+Resultado por puesto el día que entró (1 = mejor nota de ese día), protocolo del panel, 33 entradas:
+
+| Puestos | n | Resultado | S&P en su tramo | Diferencia |
+|---|---|---|---|---|
+| 1 | 1 | −3,17 % | −0,71 % | −2,47 pt |
+| 1-2 | 4 | **−5,12 %** | −0,18 % | −4,93 pt |
+| 1-3 | 7 | −0,16 % | −0,26 % | +0,09 pt |
+| 1-5 | 10 | +5,79 % | −0,38 % | +6,17 pt |
+| 6-10 | 23 | −0,43 % | −0,38 % | −0,06 pt |
+
+Por tramo de nota: **85+ → +1,81 %**, 80-85 → **−1,84 %**, **75-80 → +7,47 %**, <75 → −9,51 %. El
+mejor tramo es el de 75-80, no el de 85+. **Correlación nota-resultado: +0,057.**
+
+Margen de error (remuestreo por día de entrada, 5.000 veces): puestos 1-3 **+0,09 pt [−3,6; +5,0]**,
+puestos 1-5 **+6,17 pt [+0,6; +24,8]**, puestos 1-10 **+1,83 pt [−0,5; +5,3]**.
+
+Solo 1-5 excluye el cero, y **hay razones para no creérselo**: se probaron tres rangos al 95 % (cabe
+un falso positivo), y está rodeado de dos rangos no significativos a ambos lados (1-3 → +0,09 pt;
+6-10 → −0,06 pt). Un efecto real sería monótono: mejor nota, mejor resultado. Esto es un pico
+aislado entre n=10 y 5 días de entrada.
+
+Coincide con dos medidas independientes anteriores (25/10/2026): el rendimiento por tramo de nota ya
+salía desordenado, y más momentum reciente al entrar daba PEOR resultado. Y encaja con que
+`puntuacion.js` ya penaliza la sobreextensión: **las de nota más alta suelen ser las más estiradas.**
+
+**Qué se concluye:** no hay evidencia de que comprar las de mejor nota sea mejor, y lo poco que
+apunta algo apunta al contrario. Con n=1 y n=4 en los puestos de arriba, **tampoco se sostiene lo
+contrario**: lo honesto es que la nota todavía no se ha demostrado capaz de ordenar nada. Esa es
+exactamente la pregunta que el grupo de control añadido hoy permitirá responder.
+
+**No se cambia nada.** Que la nota no discrimine no autoriza a tocarla: autoriza a medirla.
+
+## 30/10/2026 (5) · Tope de concentración: del 25 % al 12 %
+
+Único cambio de regla del día, y **no es sobre rentabilidad, es sobre la cola**. Decidido por Borja
+tras ver los números; las otras tres opciones que le ofrecí (media posición si publica resultados en
+≤10 días, no dimensionar con stop < 2 días de rango) las dejó fuera.
+
+**Motivo medido el 30/10/2026.** El tamaño es *riesgo ÷ distancia al stop*, así que un stop muy
+pegado produce la posición **más grande** justo donde la salida es más aleatoria. De 32 seguidas con
+stop válido: **11 tenían el stop a menos de 2 días de rango** y 3 de esas llegaban al tope del 25 %,
+con el stop a **0,3-1,3 días** (SKWD 0,3 · DSP 0,8 · CRON 1,3). Y **21 de las seguidas publicaban
+resultados en los 7 días siguientes**: era la primera semana de noviembre.
+
+**De dónde sale el 12.** De la cola, no del centro. Sobre **512 movimientos diarios** de las
+seguidas (18 sesiones): peor día **−35,4 %** (IOVA el 29/10, por noticia, con resultados todavía a
+7 días), p0,5 −16,3 %, p1 −12,6 %, y un **0,59 %** de los días cayendo más del 15 %.
+
+| Posición | Lo que cuesta un hueco del 35,4 % |
+|---|---|
+| 25 % (antes) | **−8,85 %** de la cartera en un día |
+| 12 % (ahora) | −4,25 % |
+
+La ganancia acumulada es +1,5 % de media por entrada: con el 25 %, **un solo hueco se comía varios
+meses**. El stop no protege de un hueco: abre por debajo y ya está.
+
+Anclado en el **peor día observado** y no en el p1, a propósito: para una pregunta de riesgo de cola
+el p1 es el percentil equivocado, error que ya se cometió el 24/10/2026 con el p5 y hubo que
+retirar. **Aviso honesto: la cola está estimada sobre UN solo caso.** El 12 es un juicio anclado en
+la única cola observada, no una calibración.
+
+**Efecto hoy:** 10 de las 32 quedan en el tope (antes 3). Con 10.000 €, 1.200 € por posición.
+
+**Donde vive:** el umbral se ha movido a `reglas.js` → `R.topePosicion`. Estaba escrito a mano en
+`app.js` (`Math.min(..., 25)`) y descrito como «un cuarto de la cartera» en `hoy.js`: bajarlo exigía
+acordarse de tres sitios. Ahora `integridad.test.js` impide que nadie vuelva a poner el número ahí.
+Reflejado en la tabla 5 de Parámetros y en el §5.4 del documento para la otra app.
+
+6 mutaciones probadas y detectadas, incluida la de volver a escribir el 25 a mano en `app.js`.
+
+**Lo que NO se ha tocado:** ninguna señal, ningún peso, ningún umbral de entrada o salida. Esto
+cambia cuánto se mete, no qué se compra ni cuándo se vende.

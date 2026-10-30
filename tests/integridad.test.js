@@ -209,7 +209,11 @@ console.log('\nEL RECORRIDO VIVE EN UN SITIO Y TODO STOP MIRA EL MÁXIMO');
 }
 
 console.log('\nLAS REGLAS NO ESTÁN DUPLICADAS');
-const sospechosos = [['perdidaMaxima', /\b15\b.*p[eé]rdida|p[eé]rdida.*\b15\b/i], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/]];
+const sospechosos = [['perdidaMaxima', /\b15\b.*p[eé]rdida|p[eé]rdida.*\b15\b/i], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/],
+  /* El tope de concentracion estaba escrito a mano en app.js (Math.min(..., 25)) y descrito "como un
+     cuarto de la cartera" en hoy.js. Al bajarlo del 25 al 12 habia que tocar tres sitios y acordarse
+     de los tres: ahora vive en reglas.js y nadie mas puede poner un numero ahi. */
+  ['tope de posición', /Math\.min\([^)]*\*\s*100,\s*\d+\)/]];
 for (const [nombre, re] of sospechosos) {
   const donde = ficheros.filter(f => f !== 'reglas.js' && re.test(fuente[f]));
   donde.length ? mal('el umbral de ' + nombre + ' aparece fuera de reglas.js: ' + donde.join(', ')) : ok('el umbral de ' + nombre + ' solo vive en reglas.js');
@@ -234,6 +238,7 @@ console.log('\nEL DOCUMENTO PARA LA OTRA APP CUADRA CON EL CÓDIGO');
     ['rsiVenta', R.rsiVenta, [`rsi < ${R.rsiVenta}`, `\`< ${R.rsiVenta}\``]],
     ['avisoDevolucion', R.avisoDevolucion, [`limite * ${String(R.avisoDevolucion).replace('.', ',')}`]],
     ['lejosDeMaximo', R.lejosDeMaximo, [`(1 - ${R.lejosDeMaximo}/100)`, `- 1)*100 < -${R.lejosDeMaximo}`]],
+    ['topePosicion', R.topePosicion, [`* 100, ${R.topePosicion})`, `del **${R.topePosicion} %**`, `un tope del ${R.topePosicion} %`]],
     ['devolución 100→40', R.devolucion[0], [`alMenos(ganMax, ${R.devolucion[0].desde}):  devolver ${R.devolucion[0].limite}`]],
     ['devolución 30→50', R.devolucion[1], [`alMenos(ganMax,  ${R.devolucion[1].desde}):  devolver ${R.devolucion[1].limite}`]],
     ['precioMin', C.precioMin, [`> ${C.precioMin} $`]],

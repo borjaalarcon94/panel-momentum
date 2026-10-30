@@ -231,8 +231,9 @@ window.TAMANO = function (distanciaStop) {
   const c = window.CARTERA.leer();
   if (!c || !c.total || distanciaStop == null || distanciaStop >= 0) return null;
   const riesgo = c.riesgo || 1;
-  const pctCartera = Math.min(riesgo / Math.abs(distanciaStop) * 100, 25);   // nunca más de un cuarto en una sola
-  return { importe: c.total * pctCartera / 100, pct: pctCartera, riesgo, tope: pctCartera >= 25 };
+  const max = window.REGLAS.R.topePosicion;   // el umbral vive en reglas.js, con los demás
+  const pctCartera = Math.min(riesgo / Math.abs(distanciaStop) * 100, max);
+  return { importe: c.total * pctCartera / 100, pct: pctCartera, riesgo, tope: pctCartera >= max, max };
 };
 
 /* Margen del stop medido en dias de rango de la accion (ADR = recorrido medio diario).

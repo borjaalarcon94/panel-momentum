@@ -203,13 +203,25 @@ for (const f of orden) {
 
   /* El tope del 25 % se aplicaba en silencio: el importe que se mostraba no era el que salia del
      riesgo, era el maximo por concentracion, y no se decia. */
-  console.log('\nEL TOPE DEL 25 % DE LA CARTERA SE AVISA');
+  /* El tope se leia escrito a mano (25) en este test y en app.js. Al bajarlo al 12 % el 30/10/2026
+     habia que acordarse de tres sitios. Ahora el unico numero esta en reglas.js y esto lo sigue. */
+  const TOPE = ventana.REGLAS.R.topePosicion;
+  console.log('\nEL TOPE DE CONCENTRACIÓN DEL ' + TOPE + ' % SE APLICA Y SE AVISA');
   ventana.CARTERA.guardar({ total: 1500, riesgo: 1 });
   const TM = typeof ventana.TAMANO === 'function' ? ventana.TAMANO : () => null;
-  const tApretado = TM(-2.4), tHolgado = TM(-12.7);
-  tApretado && tApretado.tope ? ok('con el stop a 2,4 % el tamaño toca el tope y lo marca')
-    : mal('el tope del 25 % no se señala', JSON.stringify(tApretado));
-  tApretado && Math.abs(tApretado.pct - 25) < 1e-9 ? ok('y el porcentaje queda en 25, no en 42') : mal('el tope no acota');
+  /* Una distancia de stop que SIN tope daria mas del doble, para que el tope tenga que morder. */
+  const dApretado = -(1 / (TOPE * 2) * 100), tApretado = TM(dApretado), tHolgado = TM(-12.7);
+  tApretado && tApretado.tope ? ok('con el stop a ' + Math.abs(dApretado).toFixed(1) + ' % el tamaño toca el tope y lo marca')
+    : mal('el tope no se señala', JSON.stringify(tApretado));
+  tApretado && Math.abs(tApretado.pct - TOPE) < 1e-9
+    ? ok('y el porcentaje queda en ' + TOPE + ', no en ' + (TOPE * 2))
+    : mal('el tope no acota: sale ' + (tApretado ? tApretado.pct : '?') + ' en vez de ' + TOPE);
+  tApretado && tApretado.max === TOPE ? ok('y expone el tope aplicado, para que Hoy pueda decirlo')
+    : mal('no expone el tope aplicado');
+  /* Un hueco como el peor observado (-35,4 %) no puede costar mas de lo que el tope promete. */
+  Math.abs(TOPE * 35.4 / 100) <= 5
+    ? ok('un hueco del 35,4 % en la posición máxima cuesta ' + (TOPE * 35.4 / 100).toFixed(2) + ' % de la cartera')
+    : mal('con este tope un hueco del 35,4 % cuesta ' + (TOPE * 35.4 / 100).toFixed(2) + ' % de la cartera');
   tHolgado && !tHolgado.tope ? ok('con el stop a 12,7 % no hay tope (7,9 %)') : mal('marca tope donde no lo hay');
   const srcHoy = fs.readFileSync(path.join(dir, 'hoy.js'), 'utf8');
   /tam\.tope/.test(srcHoy) ? ok('la tarjeta de Hoy usa el aviso de tope') : mal('hoy.js calcula el tope y no lo muestra');

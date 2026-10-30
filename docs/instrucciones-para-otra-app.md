@@ -377,12 +377,20 @@ si suelo > techo - unDia:  no hay ventana de compra
 ```
 TAMANO(distanciaStop, totalCartera, riesgoPct):
     si distanciaStop es null o >= 0: null       # stop inválido: NO se dimensiona
-    pctCartera = min(riesgoPct / |distanciaStop| * 100, 25)
+    pctCartera = min(riesgoPct / |distanciaStop| * 100, 12)
     importe    = totalCartera * pctCartera / 100
 ```
 
-El tope del 25 % no es decorativo: el tamaño es *riesgo ÷ distancia al stop*, así que **un stop muy
-pegado produce la posición más grande justo donde la salida es más aleatoria**.
+El tope de concentración del **12 %** no es decorativo: el tamaño es *riesgo ÷ distancia al stop*,
+así que **un stop muy pegado produce la posición más grande justo donde la salida es más aleatoria**.
+
+De dónde sale el 12: de la cola, no del centro. Sobre 512 movimientos diarios de las acciones
+seguidas, el peor fue **−35,4 %** en una sesión (por noticia, no por resultados) y un 0,59 % de los
+días cayeron más del 15 %. Con un tope del 12 % un hueco así cuesta −4,25 % de la cartera; con el
+25 % anterior costaba −8,85 %. **El stop no protege de un hueco**: abre por debajo y ya está. Está
+anclado en el peor día observado y no en el p1 (−12,6 %), porque para una pregunta de riesgo de cola
+el p1 es el percentil equivocado. Aviso honesto: la cola está estimada sobre **un solo caso**, así
+que el 12 es un juicio anclado en la única cola observada, no una calibración.
 
 ### 5.5 Margen del stop en días de rango
 

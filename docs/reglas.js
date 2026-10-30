@@ -11,6 +11,22 @@
     devolucion: [{ desde: 100, limite: 40 }, { desde: 30, limite: 50 }],
     avisoDevolucion: 0.6,   // fracción del límite a la que se avisa (VIGILAR)
     lejosDeMaximo: 10,      // % por debajo del máximo de 52 semanas que convierte una compra en "esperar"
+    /* Tope de concentracion: % maximo de la cartera en una sola posicion. Era 25 hasta el
+       30/10/2026. El cambio no es una opinion sobre rentabilidad, es sobre la COLA: el tamaño se
+       calcula como riesgo / distancia al stop, asi que un stop MUY PEGADO produce la posicion MAS
+       GRANDE justo donde la salida es mas aleatoria. El 30/10/2026, de 32 seguidas con stop valido,
+       11 tenian el stop a menos de 2 dias de rango y 3 de esas llegaban al tope del 25 %, con el
+       stop a 0,3-1,3 dias de rango.
+       El numero sale de la cola, no del centro: sobre 512 movimientos diarios de las seguidas el
+       peor fue -35,4 % (IOVA el 29/10/2026, por noticia, con resultados todavia a 7 dias) y un
+       0,59 % de los dias cayeron mas del 15 %. Con un tope del 12 % un hueco asi cuesta -4,25 % de
+       la cartera; con el 25 % costaba -8,85 %, varios meses de la ganancia acumulada de golpe. El
+       stop NO protege de un hueco: abre por debajo y ya esta.
+       Se ancla en el peor dia observado y NO en el p1 (-12,6 %) a proposito: para una pregunta de
+       riesgo de cola el p1 es el percentil equivocado, error que ya se cometio el 24/10/2026 con el
+       p5 y hubo que retirar. Aviso honesto: la cola esta estimada sobre UN solo caso, asi que 12 es
+       un juicio anclado en la unica cola que hemos visto, no una calibracion. */
+    topePosicion: 12,
   };
   const num = v => (typeof v === 'number' && isFinite(v) ? v : null);
   /* Comparación con holgura: (120/100-1)*100 da 19,999999999999996 y un ">= 20" dejaba fuera
