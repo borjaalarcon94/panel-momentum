@@ -475,6 +475,11 @@ function bloqueOperando() {
        parece imposible: "si solo hay una en negativo". La clave es que NO todas partieron de lo
        mismo. Las que entraron tras una venta en perdida recibieron lo que quedo de ella: SLDE
        empezo con 16,46 de cada 100, no con 20, porque es lo que sobrevivio de COHU. */
+    /* LAS CANTIDADES NO SON EUROS. La simulacion arranca con una cartera de 100 y reparte 100/huecos
+       por posicion, asi que "20,00" son 20 DE CADA 100, o sea el 20 % de tu cartera, sea esta la que
+       sea. Se enseñaban con el simbolo €, que esta mal dos veces: no es dinero, y ademas el panel va
+       en DOLARES (el precio de la misma fila lleva $). Lo vio Borja el 31/10/2026 en la captura.
+       Se dicen como lo que son: partes de 100. */
     const tv = el('table', 'tabla'), hv = el('tr');
     ['Acción', 'Le tocaron', 'Valen hoy', 'Va'].forEach(x => hv.appendChild(el('th', null, x)));
     tv.appendChild(hv);
@@ -484,12 +489,14 @@ function bloqueOperando() {
       const td = el('td'); td.appendChild(el('b', null, x.ticker));
       td.appendChild(el('div', 'name', fFecha(x.desde) + ' · ' + n(x.compra) + ' $'));
       tr.appendChild(td);
-      tr.appendChild(el('td', null, n(coste, 2) + ' €'));
-      tr.appendChild(el('td', null, n(x.valor, 2) + ' €'));
+      tr.appendChild(el('td', null, n(coste, 2) + ' de 100'));
+      tr.appendChild(el('td', null, n(x.valor, 2) + ' de 100'));
       tr.appendChild(el('td', x.ret == null ? 'm' : x.ret >= 0 ? 'up' : 'down', x.ret == null ? '—' : pc(x.ret)));
       tv.appendChild(tr);
     });
     const w = el('div', 'tw'); w.appendChild(tv); s.appendChild(w);
+    s.appendChild(el('p', 'nota', 'La cartera de la simulación empieza en 100, así que «20,00 de 100» es el 20 % de tu dinero, sea el que sea. ' +
+      'Si tu cartera fuese de 5.000 $, cada 1 de aquí serían 50 $. Los precios de cada acción sí van en dólares, que es como los publica el panel.'));
     /* La fecha de compra NO es la de entrada al top, y verlas distintas en la misma pestaña
        despista: SLDE entro al top el 7 pero no se pudo comprar hasta el 14, cuando se vendio COHU
        y quedo hueco. En el registro de mas abajo sale con su fecha de entrada al top y otra
@@ -506,17 +513,17 @@ function bloqueOperando() {
     const cuadre = el('div', 'margen');
     cuadre.appendChild(el('b', null, '¿Por qué ' + pc(r.ret) + ' si las cinco van a ' + pc(media) + ' de media?'));
     const cc = el('div', 'm');
-    cc.appendChild(el('div', null, '100,00 € para empezar.'));
-    cc.appendChild(el('div', null, n(coste - 100, 2) + ' € se perdieron en las ' + r.cerradas.length +
+    cc.appendChild(el('div', null, 'Empiezas con 100 (toda tu cartera, sea la que sea).'));
+    cc.appendChild(el('div', null, n(coste - 100, 2) + ' se perdieron en las ' + r.cerradas.length +
       ' ventas cerradas (' + r.cerradas.map(x => x.ticker).join(', ') + '), así que solo quedaron ' +
-      n(coste, 2) + ' € invertidos.'));
-    cc.appendChild(el('div', null, '+' + n(valor - coste, 2) + ' € han ganado las ' + r.cartera.length +
-      ' vivas, pero sobre esos ' + n(coste, 2) + ' €, no sobre 100.'));
-    cc.appendChild(el('div', null, 'Total ' + n(valor + r.caja, 2) + ' € → ' + pc(r.ret) + '.'));
+      n(coste, 2) + ' invertidos.'));
+    cc.appendChild(el('div', null, '+' + n(valor - coste, 2) + ' han ganado las ' + r.cartera.length +
+      ' vivas, pero sobre esos ' + n(coste, 2) + ', no sobre 100.'));
+    cc.appendChild(el('div', null, 'Total ' + n(valor + r.caja, 2) + ' de 100 → ' + pc(r.ret) + '.'));
     const tarde2 = r.cartera.filter(x => x.ret != null && Math.abs(x.valor / (1 + x.ret / 100) - 100 / r.cartera.length) > 0.01);
     if (tarde2.length) cc.appendChild(el('div', null, 'Fíjate en la columna «le tocaron»: ' +
       tarde2.map(x => x.ticker).join(' y ') + ' no empeza' + (tarde2.length === 1 ? 'ron' : 'ron') +
-      ' con ' + n(100 / r.cartera.length, 2) + ' € como las demás, sino con lo que quedó de la posición que se vendió antes. ' +
+      ' con ' + n(100 / r.cartera.length, 2) + ' de 100 como las demás, sino con lo que quedó de la posición que se vendió antes. ' +
       'Por eso un +11 % suyo pesa menos que un +11 % de las otras.'));
     cuadre.appendChild(cc);
     /* El cuadre y la nota de fechas no se pintan aqui: se guardan y bajan al plegable del final,

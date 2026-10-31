@@ -2356,6 +2356,52 @@ for (const f of orden) {
     evS('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' + Hprev + '); FH = ' + Fprev + ';');
   }
 
+  /* LA CARTERA SIMULADA NO ESTÁ EN EUROS NI EN NINGUNA MONEDA.
+
+     Arranca con una cartera de 100 y reparte 100/huecos por posicion, asi que "20,00" son 20 DE
+     CADA 100: el 20 % de tu cartera, sea la que sea. Se enseñaba con el simbolo €, que esta mal dos
+     veces: no es dinero, y ademas el panel va en DOLARES — en la misma fila el precio de la accion
+     lleva $. Lo vio Borja el 31/10/2026 en una captura. */
+  console.log('\nLA CARTERA SIMULADA NO SE ENSEÑA EN EUROS');
+  {
+    const evE = c => vm.runInContext(c, ctx);
+    const Hp = evE('JSON.stringify(HIST)'), Fp = evE('JSON.stringify(FH)');
+    evE('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' +
+        JSON.stringify(panel.historico) + '); FH = ' + JSON.stringify([...panel.dias].sort().reverse()) + ';');
+    porId.per.value = 999;
+    await ventana.resultados();
+    const leerE = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerE).join(' ');
+    const txt = leerE(porId.rres).replace(/\s+/g, ' ');
+
+    !txt.includes('€') ? ok('no aparece ningún € en Resultados')
+      : mal('sigue habiendo euros en una simulación de base 100', (txt.match(/.{25}€.{15}/) || [''])[0]);
+    /de 100/.test(txt) ? ok('las cantidades se dicen como partes de 100')
+      : mal('las cantidades no dicen de qué son parte');
+    /el 20 % de tu dinero|% de tu dinero/.test(txt) ? ok('y se explica cómo escalarlo a tu cartera real')
+      : mal('no se explica qué significa "de 100"');
+    /* El precio de cada accion SI va en dolares, y tiene que seguir yendo. */
+    /* Acotado a la tabla de la cartera: buscando dolares en TODA la pestaña, la comprobacion pasaba
+       por otras cifras y quitar el precio de la fila no la hacia fallar. */
+    const bloqueCart = (txt.match(/Las \d+ que tendrías ahora mismo.{0,400}/) || [''])[0];
+    /· [\d.,]+ \$/.test(bloqueCart) ? ok('y cada fila sigue llevando su precio en dólares')
+      : mal('las filas de la cartera han perdido el precio en dólares', bloqueCart.slice(0, 120));
+
+    /* Y el cuadre tiene que seguir cuadrando: 100 + lo perdido + lo ganado = el total. */
+    const m = txt.match(/Empiezas con 100[^.]*\.([+-−][\d,]+) se perdieron[^.]*solo quedaron ([\d,]+) invertidos\.\+([\d,]+) han ganado[^.]*\.Total ([\d,]+) de 100/);
+    if (m) {
+      const num = z => parseFloat(z.replace('−', '-').replace(',', '.'));
+      const [, perd, inv, gan, tot] = m;
+      Math.abs((100 + num(perd)) - num(inv)) < 0.02
+        ? ok('el cuadre cuadra: 100 ' + perd + ' = ' + inv + ' invertidos')
+        : mal('100 más lo perdido no da lo invertido', `100 ${perd} != ${inv}`);
+      Math.abs((num(inv) + num(gan)) - num(tot)) < 0.5
+        ? ok('y lo invertido más lo ganado da el total (' + tot + ')')
+        : mal('lo invertido más lo ganado no da el total', `${inv} + ${gan} != ${tot}`);
+    } else mal('no se puede leer el cuadre de la cartera', (txt.match(/Empiezas con 100.{0,160}/) || ['(no)'])[0]);
+
+    evE('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' + Hp + '); FH = ' + Fp + ';');
+  }
+
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
   if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
 })();

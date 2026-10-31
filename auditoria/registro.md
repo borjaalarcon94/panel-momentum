@@ -2611,3 +2611,47 @@ porque los extremos vienen de 1 y 2 huecos de todas formas.
 
 Una comprobación propia hubo que acotarla: buscaba los extremos en **todo** el texto y los
 encontraba en la lista del plegable, así que pasaba aunque el aviso diese dos variantes cualesquiera.
+
+## 31/10/2026 (5) · La tabla de la cartera: los stops están bien, las unidades no
+
+Borja: *«¿esta tabla está bien? me extraña que no haya saltado el stop en las que siguen»*.
+
+### Los stops están bien, y dos están a punto
+
+Trazados por fuera con la serie diaria, a 30/10/2026:
+
+| | Compra | Hoy | Stop | Qué stop es | Falta caer |
+|---|---|---|---|---|---|
+| CDNA | 63,04 | 87,41 | **63,04** | su compra (llegó a +38,7 %, protegido) | −27,9 % |
+| HNGE | 97,86 | 114,32 | 99,35 | EMA 50, ya por encima de la compra | −13,1 % |
+| SLDE | 25,67 | 27,73 | 25,05 | EMA 50 | −9,7 % |
+| ZETA | 33,03 | 31,17 | 30,99 | EMA 50 | **−0,6 %** |
+| PAYS | 14,95 | 13,93 | 13,60 | EMA 50 | −2,4 % |
+
+La intuición de que «−6,8 % debería haber saltado» es natural y es la que conviene corregir: **el
+stop no está a −5 %**, es `max(EMA 50, compra × 0,85)`. El suelo está en −15 % y la EMA 50 va por
+debajo del precio, así que una caída del 6,8 % no lo acerca. ZETA está a **0,6 %**: le falta una
+sesión mala.
+
+### Fallo encontrado en esa misma captura: la cartera se enseñaba en EUROS
+
+La simulación arranca con una cartera de **100** y reparte 100/huecos por posición, así que ese
+«20,00 €» son **20 de cada 100**: el 20 % de la cartera, sea la que sea. Enseñarlo con € está mal
+dos veces:
+
+1. **No es dinero.** Es una parte de una cartera normalizada a 100. Con 5.000 $ reales, «20,00 €» es
+   1.000 $, no 20.
+2. **Y el panel va en dólares.** En la misma fila, el precio de la acción lleva `$`. Dos monedas
+   distintas en la misma línea, y la que lleva símbolo de dinero es la que no es dinero.
+
+Afectaba a la tabla («Le tocaron», «Valen hoy») y a todo el cuadre de debajo («100,00 € para
+empezar», «−4,66 € se perdieron…», «Total 105,33 €»). Ahora: **«20,00 de 100»**, «Empiezas con 100
+(toda tu cartera, sea la que sea)», «Total 105,33 de 100 → +5,3 %», y una nota que dice cómo
+escalarlo: *si tu cartera fuese de 5.000 $, cada 1 de aquí serían 50 $*. Los precios de cada acción
+siguen en dólares, que es como los publica el panel. **No queda ni un € en toda la web.**
+
+6 pruebas nuevas, que además comprueban que **el cuadre cuadra** (100 + lo perdido = lo invertido;
+lo invertido + lo ganado = el total). 5 mutaciones probadas y detectadas.
+
+Una comprobación propia hubo que acotarla: buscaba `$` en toda la pestaña y lo encontraba en otras
+cifras, así que quitar el precio de la fila no la hacía fallar.
