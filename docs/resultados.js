@@ -557,8 +557,19 @@ function bloqueOperando() {
     (r.cerradas.length === 1 ? ' venta cerrada' : ' ventas cerradas') +
     '; el resto son posiciones abiertas valoradas a precio de hoy, que puede cambiar mañana. ' +
     'Una rentabilidad media necesita decenas de operaciones completas.'));
-  if (otras.length) ac.appendChild(el('div', null, 'Y cambiar solo cuántas posiciones llevas mueve el resultado ' +
-    n(abanico, 1) + ' puntos. Si una decisión arbitraria mueve más que el resultado, el resultado no dice nada.'));
+  /* "Mueve el resultado 22,7 puntos" es abstracto; los dos extremos con su numero no lo son. Borja
+     miro la cifra grande el 31/10/2026 y pregunto si podia estar bien llevando tanto sobre el S&P:
+     el aviso estaba justo debajo del corte de su pantalla y, aun leyendolo, "22,7 puntos" no dice
+     tanto como "con 1 posicion habrias perdido un 6,8 % y con 2 habrias ganado un 15,9 %". La lista
+     entera sigue en el plegable de abajo; aqui van solo los dos extremos. */
+  if (otras.length) {
+    const ord = [...otras, { h: HUECOS, r }].sort((a, b) => a.r.ret - b.r.ret);
+    const lo = ord[0], hi = ord[ord.length - 1];
+    ac.appendChild(el('div', null, 'Y cambiar solo cuántas posiciones llevas mueve el resultado ' +
+      n(abanico, 1) + ' puntos: con ' + lo.h + (lo.h === 1 ? ' posición' : ' posiciones') + ' sale ' + pc(lo.r.ret) +
+      ' y con ' + hi.h + (hi.h === 1 ? ' posición' : ' posiciones') + ', ' + pc(hi.r.ret) +
+      '. Si una decisión arbitraria mueve más que el resultado, el resultado no dice nada.'));
+  }
   ac.appendChild(el('div', null, 'Sin comisiones ni diferencial. Las compras, al cierre del día siguiente, que es cuando verías la señal.'));
   av.appendChild(ac);
   d.appendChild(av);

@@ -2294,6 +2294,68 @@ for (const f of orden) {
     await ventana.seguimiento();
   }
 
+  /* LA CIFRA DE LA CARTERA DICE QUE DEPENDE DEL NUMERO DE POSICIONES.
+
+     El bloque de cabecera PROMETIA "mas abajo tienes lo que habria salido con otro numero de
+     posiciones" y ese bloque no existia. Y es el dato que hace falta para leer el +5,3 %: el 5 es
+     una eleccion nuestra, no un resultado medido, y moverlo cambia la cifra mas que ninguna regla
+     del sistema (con el registro del 31/10/2026, de -6,8 % con 1 hueco a +15,9 % con 2).
+     Sin esto, un sorteo entre diez se lee como "lo que rinde el panel".
+     Lo pregunto Borja: "me extraña llevar una rentabilidad tan elevada respecto al sp500". */
+  /* EL AVISO DE LA CARTERA DA LOS DOS EXTREMOS, NO SOLO "22,7 PUNTOS".
+
+     Borja miro el +5,3 % el 31/10/2026 y pregunto si podia estar bien llevando tanto sobre el S&P.
+     La cifra ERA correcta (reproducida aparte en Python, valor por valor). Lo que fallaba era que el
+     aviso decia "cambiar el numero de posiciones mueve el resultado 22,7 puntos", que es abstracto,
+     mientras que "con 1 posicion habrias perdido un 6,8 % y con 2 habrias ganado un 15,9 %" se
+     entiende sin pensar. La lista entera ya estaba en el plegable; esto solo sube los dos extremos.
+
+     Aqui se comprueba que los numeros del aviso son los de verdad, calculados con la misma funcion
+     que usa la pestaña: un aviso con cifras inventadas seria peor que no tenerlo. */
+  console.log('\nEL AVISO DE LA CARTERA DA LOS DOS EXTREMOS CON SU NÚMERO');
+  {
+    const evS = c => vm.runInContext(c, ctx);
+    const Hprev = evS('JSON.stringify(HIST)'), Fprev = evS('JSON.stringify(FH)');
+    evS('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' +
+        JSON.stringify(panel.historico) + '); FH = ' + JSON.stringify([...panel.dias].sort().reverse()) + ';');
+    porId.per.value = 999;
+    await ventana.resultados();
+    const leerR = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerR).join(' ');
+    const txt = leerR(porId.rres).replace(/\s+/g, ' ');
+
+    /* Los mismos huecos que usa el bloque: 1, 2, 3, 8, 10 y el propio 5. */
+    const v = JSON.parse(evS('JSON.stringify([1,2,3,5,8,10].map(h => { const r = operandoElPanel(h); return r ? r.ret : null }))'))
+      .filter(x => x != null);
+    const lo = Math.min(...v), hi = Math.max(...v), rango = hi - lo;
+    const pc1 = (x, m) => (x >= 0 ? '+' : (m || '-')) + Math.abs(x).toFixed(1).replace('.', ',') + ' %';
+    const dice = z => txt.includes(pc1(z, '-')) || txt.includes(pc1(z, '−'));
+
+    rango > 5 ? ok('el recorrido entre variantes es real: ' + rango.toFixed(1) + ' puntos')
+      : mal('todas las variantes dan casi lo mismo: el aviso no informaría de nada', JSON.stringify(v));
+    txt.includes('mueve el resultado ' + rango.toFixed(1).replace('.', ',') + ' puntos')
+      ? ok('y el aviso declara ese mismo recorrido, no otro')
+      : mal('el recorrido que declara el aviso no es el real',
+            (txt.match(/mueve el resultado [\d,]+ puntos/) || ['(no)'])[0] + ' vs ' + rango.toFixed(1));
+    /* Acotado a LA FRASE del aviso: buscando en todo el texto, los extremos aparecian igual en la
+       lista del plegable y la comprobacion pasaba aunque el aviso diese dos variantes cualesquiera. */
+    const frase = (txt.match(/mueve el resultado [\d,]+ puntos: con [^.]*\./) || [''])[0];
+    const enFrase = z => frase.includes(pc1(z, '-')) || frase.includes(pc1(z, '\u2212'));
+    frase && enFrase(lo) && enFrase(hi)
+      ? ok('y la frase da los dos extremos con su número (' + pc1(lo, '-') + ' y ' + pc1(hi, '-') + ')')
+      : mal('la frase del aviso no da los extremos', frase || '(no se encuentra la frase)');
+    /Esto todavía no es una rentabilidad/.test(txt) ? ok('y sigue diciendo que esto no es una rentabilidad')
+      : mal('ha desaparecido el aviso de que esto no es una rentabilidad');
+
+    /* Y la lista completa sigue donde estaba, con la de arriba marcada. */
+    /Con otro número de posiciones/.test(txt) ? ok('la lista completa sigue en el plegable del detalle')
+      : mal('ha desaparecido la lista con otros números de posiciones');
+    const faltan = v.filter(x => !dice(x));
+    faltan.length === 0 ? ok('con los ' + v.length + ' resultados escritos')
+      : mal('faltan resultados en la lista', faltan.map(x => pc1(x, '-')).join(', '));
+
+    evS('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' + Hprev + '); FH = ' + Fprev + ';');
+  }
+
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);
   if (fallos) { console.log(fallos + ' FALLOS'); process.exit(1) }
 })();

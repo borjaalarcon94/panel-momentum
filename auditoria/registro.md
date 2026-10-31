@@ -2566,3 +2566,48 @@ El recuento de «siguen siendo oportunidad» pasa de 16 a 18, que es lo correcto
 - Mi propia prueba definía «entran hoy» como «no estaban ayer», y eso **no** es lo que mira el
   código: SLDE reentró el 30/10 tras dos días fuera y **no** es nueva (su entrada sigue siendo el
   07/10). Con la definición mala, la prueba fallaba contra el código ya arreglado.
+
+## 31/10/2026 (4) · «¿Está bien el +5,3 % frente al S&P?»
+
+Pregunta de Borja al ver la cartera simulada: +5,3 % contra −3,0 % del índice, +8,3 pt.
+
+**La cifra es correcta.** Reimplementada desde cero en Python, con los mismos datos y las mismas
+reglas: **+5,33 %**, 2 ventas cerradas, peor momento −4,1 %, S&P −3,00 %. Las cuatro casillas
+coinciden. El −3,0 % del índice también: el 30/10 el SPY cayó un **1,77 %** en una sesión (769,36 →
+755,72), y de 06/10 a 30/10 sale −3,00 %. (Mi −0,4 % del día anterior era otra cosa: la media por
+entrada sobre la ventana de cada una.)
+
+**Y aun así tenía razón en extrañarse**, por tres motivos medidos:
+
+1. **El resultado depende del número de posiciones más que de ninguna regla.** Con las mismas
+   reglas y los mismos días: 1 → **−6,8 %**, 2 → **+15,9 %**, 3 → +6,9 %, 4 → +2,5 %, 5 → +5,3 %,
+   8 → +5,1 %, 10 → +0,8 %. **22,7 puntos de recorrido** por un parámetro que nadie ha validado.
+2. **Lo lleva una sola posición.** CDNA (+38,7 %) vale 27,7 de los 105,3 finales. PAYS (−6,8 %) y
+   ZETA (−5,6 %) están en rojo. Y con solo 2 ventas en 19 sesiones, esto es casi «compra 5 el primer
+   día y aguanta»: mide la suerte de la primera cesta.
+3. **Depende del día de arranque**: empezando el 13/10 en vez del 06/10 salen +13,9 pt en vez de
+   +8,3. El 8,3 es el **más bajo** de los seis arranques posibles, así que no está escogido al alza,
+   pero oscila 5,6 puntos por una elección arbitraria.
+
+**La beta NO lo explica.** Mediana 1,38: con el índice en −3,00 %, una cesta así «debería» haber
+hecho −4,13 % sin mérito. Hizo +5,33 %. Descontando la beta el exceso sale **+9,45 pt**, mayor que
+el bruto. Conviene decirlo aunque desinfle el argumento desinflador.
+
+### Lo que se cambia, y lo que NO se cambia
+
+**Error propio:** empecé añadiendo un aviso nuevo y una tabla de sensibilidad completa. **Las dos
+cosas ya existían**: el aviso «Esto todavía no es una rentabilidad… cambiar solo cuántas posiciones
+llevas mueve el resultado 22,7 puntos» está justo debajo de donde cortaba su captura, y la lista
+entera está en el plegable «Ver el detalle». Lo revertí: añadir un tercer sitio diciendo lo mismo es
+exactamente el ruido del que ya se ha quejado dos veces.
+
+**Único cambio:** el aviso decía «mueve el resultado 22,7 puntos», que es abstracto. Ahora añade los
+dos extremos con su número: *«con 1 posición sale −6,8 % y con 2 posiciones, +15,9 %»*. Una línea,
+sin bloque nuevo.
+
+6 pruebas nuevas que atan los números del aviso a los que calcula la propia pestaña. **7 mutaciones
+probadas, 6 detectadas**; la séptima (quitar el 5 del cálculo del rango) es neutra con estos datos,
+porque los extremos vienen de 1 y 2 huecos de todas formas.
+
+Una comprobación propia hubo que acotarla: buscaba los extremos en **todo** el texto y los
+encontraba en la lista del plegable, así que pasaba aunque el aviso diese dos variantes cualesquiera.
