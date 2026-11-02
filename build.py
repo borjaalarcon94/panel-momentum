@@ -298,6 +298,31 @@ def control(candidatas, elegidas, puntos):
             for a in candidatas if a["ticker"] not in elegidas]
 
 
+def serie_archivada():
+    dias_p, dias_e = {}, {}
+    # Dias con cierres pero SIN fichero de dia: el 21/10/2026 el build fallo y no se guardo el
+    # top, pero los precios si entraron en precios.json. No se puede crear un 2026-10-21.json
+    # porque sin "acciones" se colaria como sesion fantasma en panel["dias"], que es justo lo que
+    # vigila filtros.test.py. Van aparte, en un fichero que no entra en el glob de los dias.
+    extra_f = DATOS / "serie-extra.json"
+    if extra_f.exists():
+        for f, sg in (leer(extra_f) or {}).items():
+            dias_p[f] = {k: v[0] for k, v in sg.items() if v and v[0] is not None}
+            e = {k: v[1] for k, v in sg.items() if v and len(v) > 1 and v[1] is not None}
+            if e:
+                dias_e[f] = e
+    for q in sorted(DATOS.glob("2*.json")):
+        d = leer(q)
+        sg = d.get("seguidas") or {}
+        if not sg:
+            continue
+        dias_p[q.stem] = {k: v[0] for k, v in sg.items() if v and v[0] is not None}
+        e = {k: v[1] for k, v in sg.items() if v and len(v) > 1 and v[1] is not None}
+        if e:
+            dias_e[q.stem] = e
+    return dias_p, dias_e
+
+
 def construye_entradas(historico):
     """REGISTRO PERMANENTE de la primera aparicion de cada accion en el top.
 
@@ -514,13 +539,38 @@ def main():
     # debilita, que es cuando saltaria el stop. El dato ya lo pedimos (precios), solo faltaba guardarlo.
     # Va en su propio fichero, no en panel.json, porque solo lo necesita esa pestaña y panel.json se
     # descarga en cada visita. Se recorta a DIAS sesiones para que no crezca sin fin.
-    historicos_precios = {}
+    # EL ARCHIVO MANDA, NO precios.json.
+    # precios.json se recorta a DIAS=90 porque se descarga en el navegador. Hasta el 02/11/2026 era
+    # tambien la UNICA copia de esos cierres, asi que el dia que la ventana empezase a cortar (hacia
+    # el 19/01/2027) la serie diaria de las acciones antiguas desapareceria PARA SIEMPRE. Y es justo
+    # la que hace falta para la unica cosa que de verdad queremos hacer en primavera: volver a correr
+    # las reglas de salida sobre las entradas viejas y ver cual funciona mejor.
+    # No se podia reconstruir de ningun sitio: docs/datos solo guardaba el top del dia y las
+    # candidatas del control, y 23 de las 42 seguidas (COHU, IOVA, ZETA, PAYS, XMTR...) no estan en
+    # ninguno de los dos porque ya no cumplen los requisitos.
+    # Ahora cada cierre se archiva en docs/datos, que NO se recorta nunca y NO se sirve a nadie, y
+    # precios.json pasa a ser una vista derivada y recortada de ese archivo. Cuesta ~1 KB al dia.
+
+    if acciones is not None:
+        ruta_hoy = DATOS / f"{hoy}.json"
+        if ruta_hoy.exists():
+            d_hoy = leer(ruta_hoy)
+            d_hoy["seguidas"] = {s: [redondea(v), redondea((actual.get(s) or {}).get("ema50"))]
+                                 for s, v in precios.items()}
+            ruta_hoy.write_text(json.dumps(d_hoy, ensure_ascii=False))
+
+    historicos_precios, emas_archivo = serie_archivada()
     fp = WEB / "precios.json"
+    # Transicion: lo que ya estaba en precios.json y todavia no esta archivado no se pierde.
     if fp.exists():
         try:
-            historicos_precios = json.loads(fp.read_text()).get("dias", {})
+            viejo = json.loads(fp.read_text())
+            for f, v in (viejo.get("dias") or {}).items():
+                historicos_precios.setdefault(f, v)
+            for f, v in (viejo.get("emas") or {}).items():
+                emas_archivo.setdefault(f, v)
         except Exception:
-            historicos_precios = {}
+            pass
     # Junto al cierre se guarda la EMA 50 del dia. Motivo: el trinquete del stop ("el stop nunca
     # baja") solo subia los dias en que el usuario abria la app, porque se calculaba con el dato de
     # ese momento y se guardaba en su navegador. Si no mirabas en una semana, los escalones de esos
@@ -528,12 +578,7 @@ def main():
     # que el sistema decia. Con la EMA 50 diaria el trinquete se reconstruye entero desde la serie y
     # deja de depender de un habito. El dato ya se descarga (esta en CAMPOS_SEGUIMIENTO): solo se
     # guardaba. Cuesta unos 8 KB mas en un fichero que solo se descarga en dos pestañas.
-    historicas_emas = {}
-    if fp.exists():
-        try:
-            historicas_emas = json.loads(fp.read_text()).get("emas", {})
-        except Exception:
-            historicas_emas = {}
+    historicas_emas = emas_archivo
     if acciones is not None:   # en fin de semana o festivo no hay cierre nuevo que guardar
         historicos_precios[hoy] = {s: redondea(v) for s, v in precios.items()}
         historicas_emas[hoy] = {s: redondea(v.get("ema50")) for s, v in actual.items() if v.get("ema50")}

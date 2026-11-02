@@ -438,5 +438,75 @@ _hoy = {a.get("s") or a["t"] for a in _p["historico"][_ultimo]["acciones"]}
 _sin = sorted(_hoy - set(_p.get("actual") or {}))
 comprueba(f"las {len(_hoy)} del top de hoy tienen estado actual", _sin, [])
 
+
+# ─── LA SERIE DIARIA SOBREVIVE AL RECORTE DE precios.json ────────────────────────────────────────
+# precios.json se recorta a DIAS=90 porque se descarga en el navegador. Hasta el 02/11/2026 era
+# tambien la UNICA copia de esos cierres: el dia que la ventana empezase a cortar (hacia el
+# 19/01/2027) la serie diaria de las acciones antiguas desapareceria PARA SIEMPRE, y es justo la que
+# hace falta para volver a correr las reglas de salida sobre las entradas viejas.
+#
+# No se podia reconstruir de ningun sitio: docs/datos guardaba el top del dia y las candidatas del
+# control, y 23 de las 42 seguidas (COHU, IOVA, ZETA, PAYS, XMTR...) no estan en ninguno de los dos
+# porque ya no cumplen los requisitos. Ahora cada cierre se archiva en docs/datos, que no se recorta
+# nunca, y precios.json pasa a ser una vista derivada.
+print("\nLA SERIE DIARIA ESTA ARCHIVADA, NO SOLO EN precios.json")
+_pr = _json.loads((b.WEB / "precios.json").read_text())
+_ap, _ae = b.serie_archivada()
+
+comprueba("el archivo tiene al menos tantos días como precios.json",
+          len(_ap) >= len(_pr["dias"]), True)
+_distintos = [f for f in _pr["dias"] if _ap.get(f) != _pr["dias"][f]]
+comprueba("y reproduce todos sus cierres exactos", _distintos, [])
+_distintasE = [f for f in _pr.get("emas", {}) if _ae.get(f) != _pr["emas"][f]]
+comprueba("y todas sus EMA 50", _distintasE, [])
+
+# Lo que de verdad importa: las que YA NO estan en el top ni entre las candidatas. Son las que se
+# perderian, y son las que fueron mal: justo las que hay que poder medir.
+_ult = max(_ap)
+_hoy = b.leer(b.DATOS / f"{_ult}.json")
+_top = {a["ticker"] for a in _hoy.get("acciones", [])}
+_ctl = {a["t"] for a in _hoy.get("control", [])}
+_seg = {k.split(":")[-1] for k in _ap[_ult]}
+_solo = sorted(_seg - _top - _ctl)
+comprueba(f"hay seguidas que solo viven en el archivo ({len(_solo)} de {len(_seg)})", len(_solo) > 0, True)
+comprueba("y el archivo las tiene todas con su cierre",
+          all(any(k.endswith(":" + t) or k == t for k in _ap[_ult]) for t in _solo), True)
+
+# Un dia con cierres pero sin fichero de dia (el 21/10/2026, el build fallo) no puede perderse NI
+# colarse como sesion: sin "acciones" apareceria en panel["dias"] como una sesion que no existio.
+_panel = _json.loads((b.WEB / "panel.json").read_text())
+_huerfanos = [f for f in _ap if not (b.DATOS / f"{f}.json").exists()]
+if _huerfanos:
+    comprueba(f"los días huérfanos ({', '.join(_huerfanos)}) están archivados aparte", True, True)
+    comprueba("y no se cuelan como sesión en panel.json",
+              [f for f in _huerfanos if f in _panel["dias"]], [])
+else:
+    comprueba("no hay días huérfanos que preservar", True, True)
+
+# El archivo NO se recorta: tiene que haber tantos ficheros de dia como sesiones (o mas).
+_ficheros = sorted(b.DATOS.glob("2*.json"))
+comprueba("docs/datos no se recorta: hay un fichero por sesión al menos",
+          len(_ficheros) >= len(_panel["dias"]), True)
+# La PRIMERA sesion no lleva serie y es correcto: ese dia aun no habia nada seguido de antes, la
+# serie de cierres empieza al dia siguiente. Cualquier otro hueco si seria una perdida real.
+_primera = min(_panel["dias"])
+_sinSerie = [q.stem for q in _ficheros if q.stem != _primera and not (b.leer(q) or {}).get("seguidas")]
+comprueba(f"todos los días archivados llevan su serie, salvo la primera sesión ({_primera})", _sinSerie, [])
+# Cada entrada de la serie es [cierre, EMA 50]. Esto se comprueba por ESTRUCTURA porque el camino de
+# ESCRITURA solo corre en un build completo, que gasta llamadas a TradingView y no se puede lanzar
+# desde una prueba. Si un dia se dejara de archivar la EMA, se veria aqui al dia siguiente.
+_mal = []
+for _q in _ficheros:
+    for _k, _v in ((b.leer(_q) or {}).get("seguidas") or {}).items():
+        if not isinstance(_v, list) or len(_v) != 2:
+            _mal.append(f"{_q.stem}/{_k}")
+comprueba("cada cierre archivado va con su EMA 50 en pareja [precio, ema]", _mal[:3], [])
+_conEma = sum(1 for _q in _ficheros for _v in ((b.leer(_q) or {}).get("seguidas") or {}).values() if _v[1] is not None)
+_tot = sum(1 for _q in _ficheros for _v in ((b.leer(_q) or {}).get("seguidas") or {}).values())
+comprueba(f"y la mayoría llevan EMA de verdad ({_conEma} de {_tot})", _tot > 0 and _conEma > _tot * 0.8, True)
+
+comprueba("y la primera sesión es justo la que no la lleva",
+          not (b.leer(b.DATOS / f"{_primera}.json") or {}).get("seguidas"), True)
+
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

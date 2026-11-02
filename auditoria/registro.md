@@ -2835,3 +2835,47 @@ concentración**, en un entorno que ha castigado a su propio universo. Lo que si
 respaldo es la **nota**: la media por entrada es −2,02 % y elegir por nota quedó en el percentil 73
 del azar. Nada de esto autoriza a tocar el algoritmo con 36 entradas y un solo camino de mercado,
 pero sí obliga a corregir una afirmación mía que ya no se sostiene.
+
+## 02/11/2026 (4) · La serie diaria también se iba a perder en enero
+
+Borja: *«lo que va a haber es que pulir bien entradas y salidas cuando tengamos histórico fiable»*.
+De acuerdo con el plan. Pero «histórico fiable» tenía el mismo agujero que el registro de entradas,
+con la misma fecha.
+
+**`precios.json` se recorta a `DIAS = 90`** porque se descarga en el navegador. Y hasta hoy era
+**la única copia** de esos cierres. Hacia el **19/01/2027** la ventana empieza a cortar y con ella
+desaparece la serie diaria de las entradas antiguas — que es exactamente la que hace falta para lo
+único que queremos hacer en primavera: **volver a correr las reglas de salida sobre las entradas
+viejas y ver cuál funciona mejor.**
+
+**No se podía reconstruir de ningún sitio.** `docs/datos` guardaba el top del día y, desde ayer, las
+candidatas del control. Pero **23 de las 42 seguidas** (COHU, IOVA, ZETA, PAYS, XMTR, FEIM…) no
+están en ninguno de los dos, porque ya no cumplen los requisitos. Y son justo las que fueron mal:
+las que hay que poder medir.
+
+**Arreglo:** cada cierre y su EMA 50 se archivan en `docs/datos/<fecha>.json` → `seguidas`, que **no
+se recorta nunca** y **no se sirve** a los visitantes. `precios.json` pasa a ser una vista derivada y
+recortada del archivo. Coste: ~1 KB al día (`docs/datos` está en 340 KB).
+
+Migrados los 19 días que solo vivían en `precios.json`. **El archivo reproduce `precios.json` entero
+al céntimo**, cierres y EMA 50.
+
+**Día huérfano:** el 21/10/2026 el build falló y no se guardó el top, pero los precios sí entraron.
+No se puede crear un `2026-10-21.json` porque sin `acciones` se colaría como **sesión fantasma** en
+`panel["dias"]`, que es justo lo que vigila `filtros.test.py`. Va a `docs/datos/serie-extra.json`,
+fuera del glob de los días.
+
+11 pruebas nuevas. **8 mutaciones probadas, las 8 detectadas** (6 sobre el código, 2 sobre el
+archivo). **Alcance:** el camino de **escritura** solo corre en un build completo, que gasta llamadas
+a TradingView y no se puede lanzar desde una prueba. Se cubre por estructura —cada entrada tiene que
+ser `[cierre, ema]` y la mayoría con EMA real—, así que una escritura que dejara de archivar la EMA
+se vería **al día siguiente**, no en el momento.
+
+### Estado de lo que hará falta en primavera
+
+| Dato | ¿Se guarda para siempre? |
+|---|---|
+| Primera aparición de cada acción | ✅ `entradas.json` (31/10) |
+| Cierres diarios + EMA 50 de las seguidas | ✅ `docs/datos → seguidas` (hoy) |
+| Candidatas que el panel NO eligió | ✅ `docs/datos → control` (31/10) |
+| **RSI diario de las seguidas** | ❌ **no** — las reglas de venta por RSI y por requisitos no se podrán medir hacia atrás |
