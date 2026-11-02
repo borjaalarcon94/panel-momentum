@@ -52,7 +52,10 @@ ventana.confirm = () => true; ventana.prompt = () => '10';
 const ctx = vm.createContext(ventana);
 
 console.log('\nCARGA DE LA WEB');
-const orden = ['reglas.js', 'puntuacion.js', 'app.js', 'hoy.js', 'seguimiento.js', 'posiciones.js', 'resultados.js', 'parametros.js'];
+/* export.js entra aqui desde el 02/11/2026. Hasta entonces era el UNICO fichero de la web que
+   ninguna prueba ejecutaba: integridad.test.js lo leia como texto y nada mas. Y es el que genera el
+   PDF y el CSV que se descargan para enseñarselos a alguien. */
+const orden = ['reglas.js', 'puntuacion.js', 'app.js', 'hoy.js', 'seguimiento.js', 'posiciones.js', 'resultados.js', 'parametros.js', 'export.js'];
 for (const f of orden) {
   try { vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f }); ok(f + ' se carga sin errores') }
   catch (e) { mal(f + ' falla al cargar', e.message) }
@@ -2400,6 +2403,120 @@ for (const f of orden) {
     } else mal('no se puede leer el cuadre de la cartera', (txt.match(/Empiezas con 100.{0,160}/) || ['(no)'])[0]);
 
     evE('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' + Hp + '); FH = ' + Fp + ';');
+  }
+
+  /* EL PDF Y EL CSV QUE TE DESCARGAS.
+
+     export.js era, hasta el 02/11/2026, el UNICO fichero de la web que ninguna prueba ejecutaba:
+     integridad.test.js lo leia como texto y nada mas. Y es el que genera lo que te llevas para
+     enseñarselo a alguien o auditarlo con otra IA. Tres cosas que tenia:
+
+     1. El parrafo de criterios del PDF estaba ESCRITO A MANO ("RSI > 55, ingresos +20 %...").
+        Son los mismos numeros que viven en panel.json y en reglas.js, pero repetidos: cambiar un
+        umbral dejaba el PDF describiendo un sistema que ya no corre. Ahora se genera.
+     2. Ni el PDF ni el CSV llevaban el VEREDICTO ni el STOP. 33 columnas de datos y ninguna de
+        accion: justo las dos cosas que se usan para decidir.
+     3. Añadir una columna a la cabecera y olvidarla en las filas desplaza TODO el CSV en silencio.
+        Se comprueba que cuadran. */
+  console.log('\nEL PDF Y EL CSV LLEVAN LOS UMBRALES DE VERDAD');
+  {
+    const v = ventana.vista();
+    const txtC = ventana.criteriosTexto ? ventana.criteriosTexto(v) : (typeof vm.runInContext('typeof criteriosTexto', ctx) === 'string' ? vm.runInContext('criteriosTexto(window.vista())', ctx) : '');
+    const C = JSON.parse(fs.readFileSync(path.join(dir, 'panel.json'), 'utf8')).criterios;
+    const R = ventana.REGLAS.R;
+
+    const faltan = [];
+    if (!txtC.includes('precio > ' + C.precioMin + ' $')) faltan.push('precioMin');
+    if (!txtC.includes('RSI > ' + C.rsiMin)) faltan.push('rsiMin');
+    if (!txtC.includes('+' + C.crecimientoMin + ' % interanual')) faltan.push('crecimientoMin');
+    if (!txtC.includes('del ' + C.maxDesdeMaximo + ' % de su máximo')) faltan.push('maxDesdeMaximo');
+    if (!txtC.includes(Number(C.volumenMin).toLocaleString('es-ES'))) faltan.push('volumenMin');
+    faltan.length === 0 ? ok('el párrafo del PDF lleva los umbrales de panel.json, no unos escritos a mano')
+      : mal('el párrafo del PDF no refleja ' + faltan.join(', '));
+    /* Comprobar que pone "RSI > 55" no prueba que lo LEA: si estuviera escrito a mano diria lo mismo,
+       porque hoy el umbral ES 55. La prueba de que es derivado es CAMBIAR el umbral y ver si el texto
+       cambia. Sin esto, devolver el párrafo a mano pasaba sin que nada fallase. */
+    {
+      const antes = vm.runInContext('CRIT.rsiMin', ctx);
+      vm.runInContext('CRIT.rsiMin = 71; CRIT.crecimientoMin = 44;', ctx);
+      const otro = vm.runInContext('criteriosTexto(window.vista())', ctx);
+      vm.runInContext('CRIT.rsiMin = ' + antes + '; CRIT.crecimientoMin = ' + C.crecimientoMin + ';', ctx);
+      otro.includes('RSI > 71') && otro.includes('+44 % interanual')
+        ? ok('y los lee de verdad: al cambiar el umbral, el párrafo cambia')
+        : mal('el párrafo no sigue al umbral: está escrito a mano', otro.slice(0, 160));
+    }
+    txtC.includes('del ' + R.perdidaMaxima + ' % desde tu compra') && txtC.includes('el ' + R.gananciaProteger + ' % de ganancia')
+      && txtC.includes('por debajo de ' + R.rsiVenta)
+      ? ok('y también las reglas de salida de reglas.js (stop, protección y RSI de venta)')
+      : mal('el párrafo del PDF no describe las reglas de salida', txtC.slice(-240));
+
+    /* El veredicto del export tiene que ser el MISMO que el de la pestaña, no un cálculo aparte. */
+    ventana.pinta();
+    const leerL = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leerL).join(' ');
+    const enHoy = leerL(porId.lista);
+    const acc = v.filas.map(a => ({ t: a.ticker, ...ventana.accionDe(a) }));
+    acc.length ? ok('el export calcula veredicto y stop para las ' + acc.length + ' del listado')
+      : mal('el export no calcula nada');
+    /* Comparado POR ACCION, no "¿aparece esa palabra en la pestaña?": con la comparacion floja, un
+       export que dijera COMPRA para todas pasaba, porque COMPRA sale en la pestaña igualmente. */
+    /* Sobre TODAS las del día, no solo las del listado visible: en el arranque de prueba las pocas
+       visibles son todas COMPRA, asi que un export que dijera COMPRA siempre coincidia y la
+       comprobacion no comprobaba nada. Se exige ademas que haya mas de un veredicto distinto. */
+    const todasAcc = v.todas.map(a => ({ t: a.ticker, ...ventana.accionDe(a) }));
+    new Set(todasAcc.map(x => x.veredicto)).size >= 2
+      ? ok('hay ' + new Set(todasAcc.map(x => x.veredicto)).size + ' veredictos distintos entre las del día: la comparación no es vacía')
+      : mal('todas las acciones tienen el mismo veredicto: la comparación no probaría nada',
+            JSON.stringify([...new Set(todasAcc.map(x => x.veredicto))]));
+    const discrepan = v.todas.map(a => {
+      const esperado = ventana.VEREDICTO(a, { extendida: a.pt ? a.pt.extendida : false, sinSeguimiento: a.sinSeguimiento, flojea: !!a.flojea }).t;
+      const dado = (todasAcc.find(x => x.t === a.ticker) || {}).veredicto;
+      return dado === esperado ? null : a.ticker + ': export dice "' + dado + '" y la web "' + esperado + '"';
+    }).filter(Boolean);
+    discrepan.length === 0 ? ok('y el veredicto de cada acción es el mismo que el de la web')
+      : mal('el export y la web dan veredictos distintos', discrepan.join(' | '));
+    new Set(acc.map(x => x.veredicto)).size > 0 && enHoy.includes(acc[0].veredicto)
+      ? ok('y ese veredicto es el que se ve pintado en la pestaña') : mal('el veredicto no aparece en la pestaña');
+    /* Un stop inválido no puede salir como un número: es lo que no se puede usar para dimensionar. */
+    const malStop = acc.filter(x => x.stop !== '' && !(x.stop > 0));
+    malStop.length === 0 ? ok('y ningún stop sale como número sin serlo')
+      : mal('hay stops que no son números', malStop.map(x => x.t).join(', '));
+    /* Y tiene que PASAR los parametros externos, no ignorarlos: hoy ninguna accion esta extendida ni
+       flojea, asi que pasar false en vez del valor real no cambiaba nada y la mutacion sobrevivia. */
+    {
+      const base = v.todas[0];
+      const ext = ventana.accionDe({ ...base, pt: { ...(base.pt || {}), extendida: true } });
+      ext.veredicto === 'No comprar aquí' ? ok('y pasa «extendida» al veredicto (da «No comprar aquí»)')
+        : mal('el export ignora que la acción esté extendida', ext.veredicto);
+      const flo = ventana.accionDe({ ...base, pt: { ...(base.pt || {}), extendida: false }, flojea: true });
+      flo.veredicto === 'Vigilar' ? ok('y pasa «pierde fuerza» (da «Vigilar»)')
+        : mal('el export ignora que la acción pierda fuerza', flo.veredicto);
+    }
+
+    /* Un stop INVALIDO (precio ya por debajo de su EMA 50) tiene que salir vacio y con su aviso: es
+       el caso en que el numero no significa nada. Se construye, porque hoy puede no haber ninguno
+       en el top y entonces la comprobacion no comprobaria nada. */
+    {
+      const base = v.filas[0];
+      const roto = ventana.accionDe({ ...base, precio: base.ema50 * 0.9 });
+      roto.stop === '' ? ok('con el precio bajo su EMA 50, el export deja el stop vacío')
+        : mal('el export da un stop donde no hay stop válido', String(roto.stop));
+      /EMA 50/.test(roto.nota || '') ? ok('y lo explica en la columna de aviso')
+        : mal('no explica por qué no hay stop', JSON.stringify(roto.nota));
+    }
+
+    /* Cabecera y filas, misma longitud. */
+    const f = ventana.FILAS_CSV(v);
+    const desc = f.slice(1).filter(r => r.length !== f[0].length);
+    desc.length === 0 ? ok('las ' + (f.length - 1) + ' filas del CSV tienen las ' + f[0].length + ' columnas de la cabecera')
+      : mal(desc.length + ' filas del CSV no cuadran con la cabecera', f[0].length + ' vs ' + desc[0].length);
+    f[0].slice(0, 7).join('|') === 'Puesto|Ticker|Empresa|Veredicto|Stop $|Dist. al stop %|Aviso del stop'
+      ? ok('y el CSV empieza por lo que se usa para decidir, no por los datos')
+      : mal('el CSV no lleva veredicto y stop al principio', f[0].slice(0, 7).join('|'));
+    /* Y el valor bajo cada etiqueta es el que le toca: si se desplazan, "Veredicto" trae un número. */
+    const iv = f[0].indexOf('Veredicto');
+    f.slice(1).every(r => typeof r[iv] === 'string' && /[A-Za-zÁ-ú]/.test(r[iv]))
+      ? ok('y bajo «Veredicto» hay veredictos, no números de la columna de al lado')
+      : mal('las columnas del CSV están desplazadas', JSON.stringify(f[1].slice(0, 8)));
   }
 
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);

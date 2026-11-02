@@ -2655,3 +2655,101 @@ lo invertido + lo ganado = el total). 5 mutaciones probadas y detectadas.
 
 Una comprobación propia hubo que acotarla: buscaba `$` en toda la pestaña y lo encontraba en otras
 cifras, así que quitar el precio de la fila no la hacía fallar.
+
+## 31/10/2026 (6) · ¿Qué parte del sistema está funcionando?
+
+Borja: *«estoy viendo que manteniendo 5 acciones top y vendiendo las que saltan stop de momento
+supero al S&P 500»*. Es cierto como descripción. Medido qué parte lo produce.
+
+**Placebo del ranking** (3.000 sorteos): las mismas 5 plazas, las mismas reglas de salida, los
+mismos días, y la única diferencia es **a cuáles del top de ese día se entra**: por nota (lo que
+hace el panel) o **al azar**.
+
+| | Resultado |
+|---|---|
+| Eligiendo por nota (lo que hace el panel) | **+5,33 %** |
+| Al azar entre las del top: mediana | +2,17 % |
+| Al azar: p10 / p90 | −5,23 % / +8,30 % |
+| **El azar iguala o supera a la nota** | **27,1 % de las veces** (percentil 73) |
+| **El azar bate al S&P 500 (−3,00 %)** | **82 % de las veces** |
+
+**Conclusión: lo que bate al índice es ESTAR en el top, no el orden dentro.** Entrar al azar entre
+las diez del panel, con los mismos stops, ya bate al S&P el 82 % de las veces en este periodo. La
+nota aporta un percentil 73, que con 19 sesiones y un solo camino de mercado no se distingue del
+azar (27 % de solapamiento).
+
+Coincide con las otras tres medidas independientes: correlación nota-resultado **+0,057**; el tramo
+75-80 rinde más (+7,5 %) que el 85+ (+1,8 %); y comprar las de **mejor** puesto sale peor
+(puestos 1-2: −5,1 %).
+
+**Y la cartera solo llegó a tener 7 de las 36 anotadas** (CDNA, COHU, FEIM, HNGE, PAYS, SLDE, ZETA).
+El +5,3 % es lo que hizo esa septena, no lo que hace el sistema: la media por entrada con stops está
+hoy en **−0,4 %**.
+
+**Lo que el placebo NO prueba:** que la selección no valga. El universo del sorteo es el top del
+panel, así que esto mide el **orden dentro**, no el filtro de los 9 requisitos. Esa es justo la
+pregunta del grupo de control que empezó a guardarse ayer.
+
+**Lectura práctica, sin cambiar nada del algoritmo:**
+- Lo que hoy tiene respaldo es **el filtro + el stop**, no el ranking.
+- Por tanto, elegir cuáles de las que marcan COMPRA **no merece agonía**: el orden dentro no ha
+  demostrado nada, y lo poco que apunta algo apunta a que la número 1 es peor.
+- Si el orden da igual, el criterio útil para elegir es el que **sí** tiene mecánica detrás y ya
+  está en la pestaña Hoy: **margen del stop en días de rango** y **no repetir sector**.
+- Y el **tope de concentración del 12 %** pesa más en el resultado que cuál de las diez compres.
+
+**Aviso de alcance:** 19 sesiones, un solo camino de mercado y un índice que cayó un 3 %. El 82 % es
+«entre sorteos dentro de este periodo», no «a lo largo del tiempo». No autoriza a tocar nada.
+
+## 02/11/2026 · Barrido: `export.js`, el único fichero que ninguna prueba ejecutaba
+
+Hasta hoy `export.js` solo se **leía como texto** en `integridad.test.js`. Ninguna prueba lo cargaba
+ni lo ejecutaba. Y es el que genera el PDF y el CSV que te descargas para enseñárselos a alguien o
+auditarlos con otra IA. Tres hallazgos.
+
+### 1 · El párrafo de criterios del PDF estaba escrito a mano
+
+Literal: *«precio > 2 $, capitalización > 300 M $, volumen medio > 300.000, … RSI > 55, ingresos
++20 % interanual, a menos del 20 % de su máximo»*. Son los mismos números que viven en `panel.json`
+y en `reglas.js`, **pero repetidos**. Cambiar un umbral dejaba el PDF describiendo un sistema que ya
+no corre, y el PDF es justo el documento que sale del panel para que otro lo lea.
+
+Comprobado: poniendo `rsiMin = 60` y `crecimientoMin = 35`, fallan las suites **por el documento y
+por Parámetros, pero ninguna menciona el PDF**. Arreglando esos dos y olvidando `export.js`, el PDF
+mentiría en silencio.
+
+Ahora se genera de `CRIT` y de `REGLAS.R`, y los pesos de la puntuación salen de las propias partes
+calculadas. **Y de paso el párrafo ahora describe la salida**, que antes no mencionaba: el stop, la
+subida al precio de compra al superar el 20 % y las cuatro señales de venta. El PDF describía cómo
+se entra y no decía nada de cómo se sale.
+
+### 2 · Ni el PDF ni el CSV llevaban el veredicto ni el stop
+
+33 columnas de datos y **ninguna de acción**. Añadidas al principio del CSV: `Veredicto`, `Stop $`,
+`Dist. al stop %`, `Aviso del stop`; y `Veredicto` y `Stop` al PDF. Salen de `VEREDICTO` y `SALIDA`,
+las mismas que usa la web, no de un cálculo aparte. Un stop inválido sale **vacío** con su aviso, no
+como un número que no significa nada.
+
+### 3 · Añadir una columna podía desplazar todo el CSV en silencio
+
+Cabecera y filas se construían por separado. Olvidar una en las filas desplaza todas las columnas
+siguientes y el fichero abre igual, con cada dato bajo la etiqueta del de al lado. Las filas se han
+extraído a `FILAS_CSV(v)` para poder comprobar que cuadran (37 columnas).
+
+**`export.js` entra en el arranque de `humo.test.js`:** 16 pruebas nuevas. **10 mutaciones probadas,
+las 10 detectadas.**
+
+### Cinco comprobaciones propias que no comprobaban nada
+
+Las descubrí porque las mutaciones sobrevivían:
+
+1. Comprobar que el párrafo pone «RSI > 55» **no prueba que lo lea**: si estuviera a mano diría lo
+   mismo, porque hoy el umbral *es* 55. Ahora se **cambia el umbral** y se verifica que el texto lo
+   sigue.
+2. Igual con el crecimiento.
+3. «¿aparece ese veredicto en la pestaña?» pasaba con un export que dijera **COMPRA para todas**,
+   porque COMPRA aparece igualmente. Ahora se compara **por acción**.
+4. Esa comparación seguía siendo vacía porque las pocas visibles en el arranque son todas COMPRA:
+   ahora se hace sobre **todas** las del día y se exige que haya **más de un veredicto distinto**.
+5. Pasar `extendida`/`flojea` no se comprobaba: hoy ninguna acción las tiene, así que ignorarlas no
+   cambiaba nada. Ahora se **construyen** los dos casos.
