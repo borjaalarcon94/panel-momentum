@@ -2753,3 +2753,28 @@ Las descubrí porque las mutaciones sobrevivían:
    ahora se hace sobre **todas** las del día y se exige que haya **más de un veredicto distinto**.
 5. Pasar `extendida`/`flojea` no se comprobaba: hoy ninguna acción las tiene, así que ignorarlas no
    cambiaba nada. Ahora se **construyen** los dos casos.
+
+## 02/11/2026 (2) · «No se ha actualizado el screener» — iba tarde, y va tarde siempre
+
+A las 22:08 UTC del lunes 2, con el cron a las 21:30, no había datos nuevos. **No estaba roto:
+GitHub encola las tareas programadas.** Medido sobre las 15 ejecuciones guardadas:
+
+| Cron | Retraso observado |
+|---|---|
+| 21:30 UTC | +32, +34, +39, +41, +35 min |
+| 23:30 UTC | +22, +22, +26, +27, +26 min |
+| 07:00 UTC | +44, +54, +57, +56, +48 min |
+
+**Mínimo 22, mediana 35, máximo 57 minutos.** A las 22:08 llevábamos +38: la mediana.
+
+**El fallo real es de documentación, y es el que provocó la duda.** La tabla de Parámetros decía
+*«cada día laborable a las 21:30 UTC: 23:30 en horario de verano y 22:30 en invierno»*. Esa es la
+hora del cron, no la de llegada. Los datos del 30/10 entraron a las **23:06** hora de España; el
+panel prometía las 22:30. Mirar a las 22:40 y no ver nada nuevo es exactamente lo que pasó.
+
+Corregido: ahora dice la ventana real (22:52-23:27 hora de España, normalmente hacia las 23:05),
+nombra las **dos repescas** (23:30 y 07:00 UTC) y remite a «Última actualización», que sí da la hora
+exacta de los datos que estás viendo.
+
+**No se toca el cron.** Adelantarlo no sirve: el retraso es de la cola de GitHub, no del horario, y
+el presupuesto de 4 llamadas sigue atado a esas tres pasadas.
