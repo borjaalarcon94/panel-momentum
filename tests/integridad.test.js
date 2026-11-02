@@ -88,12 +88,25 @@ par.includes('RSI por debajo de ' + R.rsiVenta)
 par.includes('más de un ' + R.lejosDeMaximo + ' % de su máximo')
   ? ok('el ' + R.lejosDeMaximo + ' % de distancia al máximo coincide') : mal('la distancia al máximo no coincide');
 
-// La hora que anuncia la tabla tiene que ser la del cron
+/* Las horas que anuncia la tabla tienen que ser las del workflow, TODAS. Antes solo se comprobaba
+   la primera, asi que las dos repescas podian decir cualquier cosa o no existir. Y la tabla ahora
+   dice ademas que el cron llega tarde (GitHub encola las tareas programadas: entre 22 y 57 minutos
+   medidos el 02/11/2026), que es la diferencia entre "no se ha actualizado" y "todavia no ha
+   llegado". Si alguien quita ese aviso, la tabla vuelve a prometer una hora que no se cumple. */
 const cron = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'panel.yml'), 'utf8');
-const hora = (cron.match(/cron: "(\d+) (\d+)/) || []);
-hora[2] && par.includes('las ' + hora[2] + ':' + hora[1] + ' UTC')
-  ? ok('la hora de actualización de la tabla es la del cron (' + hora[2] + ':' + hora[1] + ' UTC)')
-  : mal('la hora de la tabla no es la del cron', hora.slice(1).join(':'));
+const horas = [...cron.matchAll(/cron: "(\d+) (\d+)/g)].map(m => m[2].padStart(2, '0') + ':' + m[1].padStart(2, '0'));
+const sinDecir = horas.filter(h => !par.includes(h + ' UTC'));
+horas.length >= 2 && sinDecir.length === 0
+  ? ok('la tabla anuncia las ' + horas.length + ' pasadas del workflow (' + horas.join(', ') + ' UTC)')
+  : mal('la tabla no anuncia todas las pasadas del workflow', 'faltan: ' + (sinDecir.join(', ') || '(solo hay ' + horas.length + ' crones)'));
+/* Acotado a la FILA de actualizacion: "retraso" y "tarde" aparecen en otras filas de la tabla
+   (una habla del retraso de un dia al publicar el top), asi que buscar en todo el texto pasaba
+   aunque el aviso se hubiera borrado. */
+const filaAct = ((par.match(/Actualización[\s\S]{0,600}/) || [''])[0]);
+/encola|llegó entre|minutos tarde/i.test(filaAct)
+  ? ok('y avisa de que las tareas programadas llegan con retraso')
+  : mal('la tabla promete una hora exacta que el cron no cumple: GitHub encola los programados',
+        filaAct.slice(0, 140));
 
 /* El compromiso de cuando se puede tocar el sistema esta escrito antes de tener datos, para no poder
    moverlo despues. Si alguien lo borra o le baja el liston, que falle una prueba. */

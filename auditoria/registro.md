@@ -2778,3 +2778,14 @@ exacta de los datos que estás viendo.
 
 **No se toca el cron.** Adelantarlo no sirve: el retraso es de la cola de GitHub, no del horario, y
 el presupuesto de 4 llamadas sigue atado a esas tres pasadas.
+
+**Nota del mismo día: publiqué con una prueba en rojo.** Al cambiar ese texto rompí
+`integridad.test.js`, que comprobaba que la tabla dijera «las 21:30 UTC», y mi redacción puso
+«(21:30 UTC)» sin el «las». Lancé la suite y el commit en la misma orden encadenada, así que el
+push salió igual. Corregido en 4 minutos, pero **la prueba estaba en rojo y aun así se publicó**:
+el encadenado tiene que ser `tests && commit`, no `registro && build && commit`.
+
+De paso, esa comprobación solo ataba **una** de las tres pasadas del workflow: las dos repescas
+podían decir cualquier cosa o desaparecer. Ahora se comprueban las tres contra `panel.yml`, y que la
+fila avise del retraso. 4 mutaciones probadas, 3 detectadas; la cuarta (cambiar «encola» por «lanza»
+dejando el resto) no cambia lo que la fila dice.

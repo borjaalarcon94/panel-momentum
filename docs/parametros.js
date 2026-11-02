@@ -194,7 +194,7 @@ window.parametros = function () {
          57 minutos, con mediana 35. Decir "22:30" y llegar a las 23:05 hace pensar que el screener
          esta roto cuando solo esta encolado, que es justo lo que paso ese dia. Se dice la ventana
          real, y ademas estan las dos repescas. */
-      ['Actualización', 'se lanza cada día laborable al cierre de Nueva York (21:30 UTC), pero GitHub encola las tareas programadas: en las últimas 15 ejecuciones llegó entre 22 y 57 minutos tarde, con 35 de mediana. En hora de España (invierno) eso es entre las 22:52 y las 23:27, normalmente hacia las 23:05. Si esa pasada falla hay dos repescas: a las 23:30 UTC y a las 7:00 UTC del día siguiente. La hora exacta en que llegaron los datos que estás viendo está arriba del todo, en «Última actualización»'],
+      ['Actualización', 'se lanza cada día laborable al cierre de Nueva York, a las 21:30 UTC, pero GitHub encola las tareas programadas: en las últimas 15 ejecuciones llegó entre 22 y 57 minutos tarde, con 35 de mediana. En hora de España (invierno) eso es entre las 22:52 y las 23:27, normalmente hacia las 23:05. Si esa pasada falla hay dos repescas: a las 23:30 UTC y a las 07:00 UTC del día siguiente. La hora exacta en que llegaron los datos que estás viendo está arriba del todo, en «Última actualización»'],
       ['Mercado', 'solo EE. UU.'],
       ['Frecuencia', 'una foto diaria: no hay precios intradía'],
       ['Tus posiciones', 'se guardan solo en este navegador, no en ningún servidor'],
