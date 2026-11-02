@@ -2789,3 +2789,49 @@ De paso, esa comprobación solo ataba **una** de las tres pasadas del workflow: 
 podían decir cualquier cosa o desaparecer. Ahora se comprueban las tres contra `panel.yml`, y que la
 fila avise del retraso. 4 mutaciones probadas, 3 detectadas; la cuarta (cambiar «encola» por «lanza»
 dejando el resto) no cambia lo que la fila dice.
+
+## 02/11/2026 (3) · ¿De dónde sale el +5,2 % con el mercado cayendo?
+
+Borja: *«por mucho que digas que es pronto, más del 5 % con el mercado cayendo tanto me parece una
+pasada»*. Tiene parte de razón y conviene decir cuál. Medido con el cierre del 2/11 (20 sesiones):
+
+### Lo que juega a favor, y no lo había comprobado
+
+| Del 05/10 al 02/11 | |
+|---|---|
+| S&P 500 | −2,93 % |
+| **Nasdaq 100** | **−9,93 %** |
+| Russell 2000 | −1,50 % |
+| **Las acciones del propio panel, comprando todas y aguantando** | **−4,92 %** |
+| Cartera simulada de 5 con stops | **+5,21 %** |
+
+**No es «el growth lo hizo bien este mes».** El Nasdaq cayó un 9,93 % y el universo del propio panel
+un 4,92 %, con 5 de 12 en positivo y la peor en −38,1 %. Comparar contra el S&P 500 no le está
+favoreciendo: contra su índice natural lo está haciendo **mucho mejor**, no peor. Y la beta de 1,38
+juega en contra: esa cesta «debería» haber caído más que el índice, no subido.
+
+### De dónde sale entonces
+
+| | Resultado |
+|---|---|
+| Universo del panel, comprar todo y aguantar | −4,92 % |
+| **Cada entrada por su cuenta, con los stops** | **−2,02 %** (36 entradas) |
+| Cartera de 5 posiciones, por nota, con stops | **+5,21 %** |
+
+**La media por entrada sigue siendo NEGATIVA.** El +5,21 % no sale de que el sistema acierte de
+media: sale de **concentrar en cinco** y de que CDNA (+36,2 %) esté entre ellas. Por eso 2 posiciones
+dan +16,3 % y 10 dan −0,8 %: mismas reglas, mismos días.
+
+### Lo que sí cambia respecto a lo que yo decía
+
+El 24/10 medí que **el stop costaba dinero** (+1,5 % con stops contra +2,3 % aguantando) y lo repetí
+varias veces. En un mes de caída se ha dado la vuelta: **+0,32 pt a favor**, y sobre todo cortó la
+peor entrada de **−37,9 % a −26,0 %**, con una entrada menos por debajo del −20 %. Las dos medidas
+son correctas y no se contradicen: un stop cuesta en subida y paga en bajada. Lo que no se puede es
+seguir diciendo «el stop cuesta dinero» como si fuese una conclusión general.
+
+**Conclusión honesta:** lo que está funcionando este mes es el **filtro + el stop + la
+concentración**, en un entorno que ha castigado a su propio universo. Lo que sigue sin tener
+respaldo es la **nota**: la media por entrada es −2,02 % y elegir por nota quedó en el percentil 73
+del azar. Nada de esto autoriza a tocar el algoritmo con 36 entradas y un solo camino de mercado,
+pero sí obliga a corregir una afirmación mía que ya no se sostiene.
