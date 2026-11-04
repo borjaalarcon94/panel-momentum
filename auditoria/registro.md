@@ -2925,3 +2925,30 @@ en invierno y en verano.
 Y una prueba antigua afirmaba el guardia viejo («un martes por la mañana no se guarda»). Esa
 afirmación describía el síntoma, no la causa: el martes fantasma del 07/10/2026 lo provocó
 **etiquetar mal el día**, no la hora. Reescrita para medir eso.
+
+### Recuperado el cierre del 3/11/2026
+
+Lanzado un build completo a las **05:47 UTC del 4/11**, con 8 horas de margen antes de que abriera
+Nueva York y con el arreglo de `sesion_objetivo()` ya puesto. Etiquetó la sesión como **2026-11-03**,
+que es la correcta.
+
+**Verificación independiente:** las EMA 50 del 3/11 que había calculado la otra app de Borja
+—vistas en una captura **antes** de recuperar nada— coinciden **las cuatro al céntimo**:
+
+| | Su otra app | Panel recuperado |
+|---|---|---|
+| PAYS | 13,69 | 13,69 |
+| HNGE | 100,64 | 100,64 |
+| FLYW | 18,34 | 18,34 |
+| HALO | 114,38 | 114,38 |
+
+21 sesiones, del 05/10 al 03/11. Único hueco de día laborable que queda: **2026-10-21**, de antes de
+que existiera este arreglo y ya no recuperable. 42 entradas registradas.
+
+**Coste:** una pasada completa, o sea el presupuesto de un día. Esta noche se gastará otra: dos días
+de presupuesto en uno, decidido por Borja a cambio de no dejar otro hueco permanente.
+
+**Una prueba propia con número mágico.** `humo.test.js` comparaba contra un **40 escrito a mano**
+(«la media no puede promediar más de 40 entradas»). Al pasar el registro de 39 a 41 con el día
+recuperado, se rompió. Un tope arbitrario caduca solo; ahora comprueba la **relación**: las que se
+promedian son las medibles menos las que entran hoy (39 = 41 − 2).

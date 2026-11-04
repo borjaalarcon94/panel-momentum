@@ -2275,11 +2275,21 @@ for (const f of orden) {
         ? ok('y la nota dice que quedan fuera de la media') : mal('no se dice que quedan fuera de la media');
 
       /* La media NO puede moverse por incluirlas: su 0 % no es un resultado. */
+      /* Esto comparaba contra un 40 escrito a mano y se rompio el 04/11/2026 al pasar el registro de
+         39 a 41 entradas: un numero magico que caduca solo. Lo que hay que comprobar es la RELACION,
+         no un tope: las que se promedian son las medibles MENOS las que entran hoy. */
       const med = (txt.match(/media con los stops([+-−][\d,]+) %/) || [])[1];
       const m = txt.match(/se suman las (\d+) y se divide/);
-      m && entranHoy.length && Number(m[1]) + entranHoy.length <= 40
-        ? ok('la media se calcula sobre ' + m[1] + ' entradas, sin contar las ' + entranHoy.length + ' de hoy' + (med ? ' (' + med + ' %)' : ''))
-        : mal('no se puede comprobar cuántas entran en la media', JSON.stringify(m && m[1]));
+      const filas = vm.runInContext('historial(999)', ctx);
+      const medibles = filas.filter(a => a.ret != null).length;
+      const nuevas = filas.filter(a => a.nuevaHoy).length;
+      m && Number(m[1]) === medibles - nuevas
+        ? ok('la media promedia ' + m[1] + ' = ' + medibles + ' medibles − ' + nuevas + ' que entran hoy' + (med ? ' (' + med + ' %)' : ''))
+        : mal('la media no cuadra con las medibles menos las de hoy',
+              'dice ' + (m && m[1]) + ', deberían ser ' + (medibles - nuevas));
+      nuevas === entranHoy.length
+        ? ok('y marca como nuevas exactamente las ' + nuevas + ' que entran hoy')
+        : mal('las marcadas como nuevas no son las que entran hoy', nuevas + ' vs ' + entranHoy.length);
 
       /* Y la promesa que estaba rota: comprada HOY, no puede desaparecer. */
       const t0 = entranHoy[0];
