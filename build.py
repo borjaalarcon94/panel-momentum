@@ -15,6 +15,9 @@ EN_MARCHA = 5         # cumplen todo pero estan muy extendidas: se guardan apart
 DIAS = 90             # dias del resumen ligero que usa el seguimiento
 SEGUIR_DIAS = 30      # dias cuyos datos frescos van en panel.json (lo que usa el seguimiento normal)
 CIERRE_UTC = 21        # hora UTC a partir de la cual el cierre de hoy ya existe (NY cierra a las 20:00)
+APERTURA_UTC = 13      # hora UTC a partir de la cual el mercado PUEDE estar abierto (NY abre a las
+                       # 14:30 en invierno y 13:30 en verano; se deja margen). Entre esta hora y
+                       # CIERRE_UTC el dato que devuelve TradingView es INTRADIA, no un cierre.
 SEGUIR_EXTRA = 90     # hasta aqui se siguen descargando datos, pero van en extra.json: la web solo lo
                       # descarga si tienes una posicion abierta que ya no esta en panel.json
 # Campos necesarios para recomprobar requisitos y repuntuar una accion seguida (el resto no se publica).
@@ -158,8 +161,12 @@ def sin_cierre_nuevo(hoy, ahora, anteriores, acciones, spy_hoy=None, spy_ayer=No
         return None
     if datetime.date.fromisoformat(hoy).weekday() >= 5:
         return "Fin de semana, no hay sesion"
-    if ahora.hour < CIERRE_UTC:
-        return f"Son las {ahora:%H:%M} UTC y Nueva York cierra a las 20:00, el cierre de hoy aun no existe"
+    # Aqui habia un  if ahora.hour < CIERRE_UTC: return "...el cierre de hoy aun no existe".
+    # Tenia sentido cuando "hoy" era la fecha del reloj: a mediodia pedir "el cierre de hoy" devolvia
+    # el de ayer con la fecha de hoy, y eso creaba dias fantasma. Con sesion_objetivo() el dia que se
+    # pide YA es el correcto a cualquier hora, asi que ese guardia solo servia para impedir las
+    # repescas: era justo lo que hacia inutil la de las 07:00. Las defensas contra el dia fantasma
+    # son las de abajo (el SPY identico y los mismos precios), que miran los DATOS y no la hora.
     # El SPY es la prueba mas limpia y no depende de que el top se parezca al de ayer: si el indice
     # cierra exactamente igual que la sesion anterior, no ha habido sesion. Asi se cazo el domingo
     # fantasma del 4 de octubre (769,64 identico al viernes). La comparacion ticker a ticker de abajo
@@ -248,6 +255,37 @@ def comprueba(universo, candidatas, acciones, mercado, ref):
 def leer(p):
     d = json.loads(p.read_text())
     return d if isinstance(d, dict) else {"acciones": d}
+
+
+def sesion_objetivo(ahora):
+    """De que sesion se puede tener cierre AHORA MISMO.
+
+    Antes el build usaba la fecha UTC del reloj:  hoy = utcnow().strftime("%Y-%m-%d").
+    GitHub encola los cron (medido el 02/11/2026: de 22 a 57 minutos), y el 03/11/2026 los encolo
+    MAS DE CUATRO HORAS: la pasada de las 21:30 del martes acabo corriendo a las 01:35 del miercoles.
+    A esa hora "hoy" ya era el dia 4, el build fue a buscar un cierre que todavia no existe, no
+    guardo nada, y EL CIERRE DEL MARTES SE PERDIO. No es recuperable sin volver a pedirlo.
+
+    Por lo mismo, la repesca de las 07:00 ("ultima red a primera hora del dia siguiente") NUNCA pudo
+    recuperar nada en su vida: a las 07:00 miraba el cierre de ESE dia, que obviamente no existe.
+    Su unico commit, el del 03/11/2026 a las 08:11, solo refresco precios.json.
+
+    Ahora la sesion sale del mercado, no del reloj: antes de la hora de cierre, el ultimo cierre
+    disponible es el del dia anterior; y si cae en fin de semana, el viernes.
+    """
+    # CON EL MERCADO ABIERTO NO HAY CIERRE DE NADIE. TradingView devuelve el precio de AHORA, que no
+    # es el cierre de hoy (aun no ha pasado) ni el de ayer (ya no se puede pedir). Guardarlo seria
+    # poner el precio intradia de hoy con la etiqueta de ayer: un dia corrompido, peor que un dia
+    # que falta. Este guardia sustituye al viejo "hora < CIERRE_UTC", que tapaba esto pero de paso
+    # inutilizaba las repescas de madrugada.
+    if APERTURA_UTC <= ahora.hour < CIERRE_UTC:
+        return None
+    d = ahora.date()
+    if ahora.hour < CIERRE_UTC:
+        d -= datetime.timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= datetime.timedelta(days=1)
+    return d.isoformat()
 
 
 def ya_esta_hecho(hoy):
@@ -439,11 +477,17 @@ def rehacer():
 def main():
     WEB.mkdir(exist_ok=True)
     DATOS.mkdir(parents=True, exist_ok=True)
-    hoy = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-    # Repesca: si ya hay cierre de hoy no se hace nada, y si no lo hay se construye entero. Sale
-    # ANTES de escanear, asi que en un dia normal cuesta cero llamadas.
+    # --rehacer va PRIMERO: republica con lo ya guardado y no mira el reloj ni el mercado para nada,
+    # asi que tiene que funcionar tambien con la bolsa abierta (un push de codigo a mediodia).
     if "--rehacer" in sys.argv:
         sys.exit(rehacer())
+    hoy = sesion_objetivo(datetime.datetime.utcnow())
+    if hoy is None:
+        print("El mercado puede estar abierto: el dato de ahora no es el cierre de ninguna sesión. "
+              "Nada que guardar.")
+        return 0
+    # Repesca: si ya hay cierre de hoy no se hace nada, y si no lo hay se construye entero. Sale
+    # ANTES de escanear, asi que en un dia normal cuesta cero llamadas.
     if "--solo-si-falta" in sys.argv:
         if ya_esta_hecho(hoy):
             print(f"El cierre de {hoy} ya esta guardado: nada que repescar.")

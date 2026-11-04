@@ -221,8 +221,49 @@ _recompuesto = _top[:4] + [{"ticker": "IOVA", "precio": 12.96}]
 
 comprueba("un martes despues del cierre si se guarda",
           b.sin_cierre_nuevo("2026-10-07", _noche, _otro, _top), None)
-comprueba("un martes por la manana no: el cierre de hoy aun no existe",
-          b.sin_cierre_nuevo("2026-10-07", _mañana, _otro, _top) is not None, True)
+# El martes fantasma del 07/10/2026 (dos commits, 08:24 y 08:40) lo causaba ETIQUETAR MAL EL DIA:
+# a las 08:24 se pedia "el cierre de hoy", TradingView devolvia el del lunes y se guardaba como
+# martes. El guardia de la hora lo tapaba, pero de paso inutilizaba las repescas: la de las 07:00
+# nunca pudo recuperar un cierre perdido, y por eso se perdio el del 03/11/2026.
+# Ahora la hora no decide nada: decide sesion_objetivo(), y a las 08:24 de un martes pide el LUNES,
+# que es el cierre que de verdad tiene. Eso es lo que se comprueba.
+comprueba("a las 08:24 de un martes se pide el lunes, no el martes",
+          b.sesion_objetivo(_mañana), "2026-10-06")
+# CON EL MERCADO ABIERTO no hay cierre de nadie: TradingView devuelve el precio de AHORA, que no es
+# el cierre de hoy (no ha pasado) ni el de ayer (ya no se puede pedir). Guardarlo seria poner un
+# precio intradia con la etiqueta de ayer: un dia CORROMPIDO, peor que un dia que falta. El guardia
+# viejo de la hora tapaba esto; al quitarlo para que las repescas funcionasen, abri ese agujero y
+# hubo que ponerle un guardia propio.
+comprueba("con el mercado abierto no se pide ninguna sesión",
+          [h for h in range(b.APERTURA_UTC, b.CIERRE_UTC)
+           if b.sesion_objetivo(_dt.datetime(2026, 11, 4, h, 0)) is not None], [])
+comprueba("antes de que abra (madrugada y mañana) sí, y es el día anterior",
+          [h for h in range(0, b.APERTURA_UTC)
+           if b.sesion_objetivo(_dt.datetime(2026, 11, 4, h, 0)) != "2026-11-03"], [])
+comprueba("y después del cierre, el de hoy",
+          [h for h in range(b.CIERRE_UTC, 24)
+           if b.sesion_objetivo(_dt.datetime(2026, 11, 4, h, 0)) != "2026-11-04"], [])
+comprueba("main() se planta si no hay sesión que pedir",
+          "if hoy is None:" in (R / "build.py").read_text(), True)
+# Las dos de arriba siguen a APERTURA_UTC, asi que pasarian con la constante puesta en cualquier
+# sitio. Estas son ABSOLUTAS: la bolsa de Nueva York opera de 14:30 a 21:00 UTC en invierno y de
+# 13:30 a 20:30 en verano, asi que a estas horas NUNCA puede haber un cierre que guardar.
+comprueba("a las horas en que Nueva York opera de verdad no se pide nada",
+          [h for h in (14, 15, 16, 17, 18, 19, 20)
+           if b.sesion_objetivo(_dt.datetime(2026, 11, 4, h, 0)) is not None], [])
+comprueba("y el horario de verano también queda cubierto (abre a las 13:30 UTC)",
+          b.sesion_objetivo(_dt.datetime(2026, 7, 8, 13, 0)) is None
+          and b.sesion_objetivo(_dt.datetime(2026, 7, 8, 20, 0)) is None, True)
+# --rehacer no mira ni el reloj ni el mercado: republica lo ya guardado. Tiene que seguir
+# funcionando con la bolsa abierta, que es cuando se sube un arreglo de codigo.
+_mainsrc = (R / "build.py").read_text()
+_i_reh = _mainsrc.index('if "--rehacer" in sys.argv', _mainsrc.index("def main("))
+_i_ses = _mainsrc.index("hoy = sesion_objetivo(", _mainsrc.index("def main("))
+comprueba("--rehacer se atiende ANTES de mirar qué sesión toca", _i_reh < _i_ses, True)
+
+comprueba("y a ninguna hora se pide un día cuyo cierre todavía no existe",
+          [h for h in range(24)
+           if b.sesion_objetivo(_dt.datetime(2026, 10, 7, h, 0)) == "2026-10-07" and h < b.CIERRE_UTC], [])
 comprueba("un domingo no, aunque sea de noche",
           b.sin_cierre_nuevo("2026-10-04", _noche, _otro, _top) is not None, True)
 comprueba("un sabado tampoco",
@@ -507,6 +548,60 @@ comprueba(f"y la mayoría llevan EMA de verdad ({_conEma} de {_tot})", _tot > 0 
 
 comprueba("y la primera sesión es justo la que no la lleva",
           not (b.leer(b.DATOS / f"{_primera}.json") or {}).get("seguidas"), True)
+
+
+# ─── QUE SESION SE PIDE: EL MERCADO, NO EL RELOJ ─────────────────────────────────────────────────
+# El 03/11/2026 se perdio un cierre entero. El cron de las 21:30 del martes no se disparo y las dos
+# pasadas que lo recuperaron corrieron a las 01:35 y 03:04 UTC del miercoles. El build usaba
+# hoy = utcnow().date(), asi que a esa hora pidio el cierre del dia 4 -que no existia todavia- y no
+# guardo nada. Por lo mismo, la repesca de las 07:00 ("ultima red a primera hora del dia siguiente")
+# NUNCA pudo recuperar nada: a las 07:00 miraba el cierre de ESE dia.
+print("\nLA SESION SE DEDUCE DEL MERCADO, NO DEL RELOJ")
+import datetime as _dt2
+def _ses(t): return b.sesion_objetivo(_dt2.datetime.strptime(t, "%Y-%m-%d %H:%M"))
+
+comprueba("a su hora (lun 21:35) pide el cierre del lunes", _ses("2026-11-02 21:35"), "2026-11-02")
+# EL CASO QUE FALLO: el cron del martes encolado hasta pasada la medianoche UTC.
+comprueba("el cron del martes corriendo a las 01:35 del miércoles pide el MARTES",
+          _ses("2026-11-04 01:35"), "2026-11-03")
+comprueba("y a las 03:04 del miércoles, también el martes", _ses("2026-11-04 03:04"), "2026-11-03")
+# La repesca de las 07:00, que hasta ahora no podia recuperar nada.
+comprueba("la repesca de las 07:00 del martes pide el cierre del LUNES",
+          _ses("2026-11-03 07:00"), "2026-11-02")
+comprueba("la del sábado a las 07:00 pide el viernes", _ses("2026-11-07 07:00"), "2026-11-06")
+comprueba("un domingo a mediodía también pide el viernes", _ses("2026-11-08 12:00"), "2026-11-06")
+comprueba("nunca devuelve un sábado o un domingo",
+          [t for t in ("2026-11-07 09:00", "2026-11-08 09:00", "2026-11-09 03:00", "2026-11-07 22:00")
+           if _dt2.date.fromisoformat(_ses(t)).weekday() >= 5], [])
+# Justo en la frontera de la hora de cierre.
+# Un minuto antes del cierre el mercado sigue abierto: no se pide nada. (Antes esto pedia el dia
+# anterior, que era lo que iba a corromper el dato con un precio intradia.)
+comprueba(f"un minuto antes del cierre ({b.CIERRE_UTC-1}:59 UTC) no se pide nada: la bolsa sigue abierta",
+          _ses(f"2026-11-04 {b.CIERRE_UTC-1:02d}:59"), None)
+comprueba(f"y a las {b.CIERRE_UTC}:00 en punto ya pide el de hoy",
+          _ses(f"2026-11-04 {b.CIERRE_UTC:02d}:00"), "2026-11-04")
+
+# main() no se puede ejecutar en una prueba (pide datos a TradingView), asi que la linea que elige
+# el dia se ata por codigo: si alguien vuelve a poner el reloj ahi, se pierde otro cierre y no lo
+# sabremos hasta que Borja lo vea en pantalla, como el 04/11/2026.
+_src = (R / "build.py").read_text()
+comprueba("main() deduce el día con sesion_objetivo()",
+          "hoy = sesion_objetivo(datetime.datetime.utcnow())" in _src, True)
+comprueba("y nadie vuelve a sacar el día del reloj",
+          [l.strip() for l in _src.splitlines()
+           if "utcnow()" in l and "strftime" in l and "%Y-%m-%d" in l and "actualizado" not in l
+           and not l.lstrip().startswith(("#", "Antes", '\"\"\"'))], [])
+
+# El guardia que impedia las repescas ya no esta, pero las defensas contra el dia fantasma SI: esas
+# miran los DATOS, no la hora, que es lo unico que distingue un festivo de un cron encolado.
+_mismas = [{"ticker": "A", "precio": 10.0}, {"ticker": "B", "precio": 20.0}, {"ticker": "C", "precio": 30.0}]
+comprueba("un día con los mismos precios que el anterior se sigue rechazando",
+          bool(b.sin_cierre_nuevo("2026-11-04", _dt2.datetime(2026, 11, 4, 22, 0), _mismas, _mismas)), True)
+comprueba("y el S&P cerrando idéntico también",
+          bool(b.sin_cierre_nuevo("2026-11-04", _dt2.datetime(2026, 11, 4, 22, 0), [], [], 500.0, 500.0)), True)
+comprueba("pero una sesión normal a las 02:00 UTC (cron encolado) YA NO se rechaza por la hora",
+          b.sin_cierre_nuevo("2026-11-03", _dt2.datetime(2026, 11, 4, 2, 0),
+                             [{"ticker": "A", "precio": 10.0}], [{"ticker": "A", "precio": 11.0}]), None)
 
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

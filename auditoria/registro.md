@@ -2879,3 +2879,49 @@ se vería **al día siguiente**, no en el momento.
 | Cierres diarios + EMA 50 de las seguidas | ✅ `docs/datos → seguidas` (hoy) |
 | Candidatas que el panel NO eligió | ✅ `docs/datos → control` (31/10) |
 | **RSI diario de las seguidas** | ❌ **no** — las reglas de venta por RSI y por requisitos no se podrán medir hacia atrás |
+
+## 04/11/2026 · El cierre del 3 se perdió: el build identificaba la sesión por el reloj
+
+Borja: *«otra vez con este error... creía que estaba solucionado definitivamente»*. No era el mismo
+error. El del día 2 era **retraso** (el cron llegó +45 min). Este es un **fallo de verdad**, y el día
+2 solo lo rozó.
+
+**Causa.** `build.py` hacía `hoy = datetime.datetime.utcnow().strftime("%Y-%m-%d")`: la sesión se
+deducía del **reloj UTC**. El martes 3 el cron de las 21:30 **no se disparó**, y las dos pasadas que
+lo recuperaron corrieron a las **01:35 y 03:04 UTC del miércoles**. A esa hora `hoy` ya era el día 4,
+el build pidió un cierre que todavía no existía, y no guardó nada. **El cierre del martes se perdió.**
+
+**Y algo peor, que llevaba desde el principio:** la repesca de las 07:00 (`0 7 * * 2-6`), documentada
+como *«última red: a primera hora del día siguiente»*, **nunca pudo recuperar nada en su vida**. A
+las 07:00 miraba el cierre de *ese* día, que obviamente no existe. Su único commit, el del 03/11 a
+las 08:11, solo refrescó `precios.json`. Había una red de seguridad que no era una red.
+
+**Arreglo.** `sesion_objetivo(ahora)`: la sesión sale del mercado, no del reloj. Antes de la hora de
+cierre, el último cierre disponible es el del día anterior; en fin de semana, el viernes.
+
+| Hora UTC | Sesión que se pide |
+|---|---|
+| 00:00 – 12:59 | el día anterior |
+| **13:00 – 20:59** | **nada: la bolsa puede estar abierta** |
+| 21:00 – 23:59 | el día de hoy |
+
+**Error propio, detectado y corregido en el acto.** Al quitar el guardia viejo (`hora < CIERRE_UTC`)
+abrí un agujero peor que el que arreglaba: con el mercado abierto, TradingView devuelve el precio
+**intradía**, y con la sesión apuntando a ayer se habría guardado el precio de hoy con la etiqueta de
+ayer — un día **corrompido**, que es peor que un día que falta. De ahí el `APERTURA_UTC = 13` y el
+tramo muerto. El guardia viejo tapaba esto, pero de paso era lo que inutilizaba las repescas.
+
+También se adelanta `--rehacer` a antes de mirar la sesión: republicar no depende del mercado, y un
+push de código a mediodía tiene que seguir funcionando.
+
+**Pruebas:** 20 nuevas en `filtros.test.py`, incluido el caso exacto que falló (cron del martes
+corriendo a las 01:35 del miércoles → pide el martes). **11 mutaciones probadas, las 11 detectadas.**
+
+Dos comprobaciones propias que no comprobaban nada, encontradas porque las mutaciones sobrevivían:
+las del mercado abierto usaban `range(APERTURA_UTC, CIERRE_UTC)`, así que **seguían a la constante**
+y pasaban con ella puesta en cualquier sitio. Ahora son absolutas, con las horas reales de Nueva York
+en invierno y en verano.
+
+Y una prueba antigua afirmaba el guardia viejo («un martes por la mañana no se guarda»). Esa
+afirmación describía el síntoma, no la causa: el martes fantasma del 07/10/2026 lo provocó
+**etiquetar mal el día**, no la hora. Reescrita para medir eso.
