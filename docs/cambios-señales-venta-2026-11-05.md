@@ -107,9 +107,25 @@ de ADR 1,5 % entra ya en el **+3,1 %**. Es automático, no hay un umbral que con
 
 En el caso del +40 % las dos reglas opinan, y **el trailing es más apretado**: la devolución dejaría
 caer hasta 120 $ (devolver la mitad del pico) y el trailing saca a 127,12 $. **Siete puntos más en
-el bolsillo.** Las dos se quedan vivas porque protegen en escenarios distintos: si el ADR de la
-acción se desploma, el trailing calculado sobre un ADR diminuto se pegaría demasiado al precio y es
-la devolución la que pone el límite sensato.
+el bolsillo.**
+
+**Las dos se quedan vivas, y el reparto entre ellas no es casual: la devolución manda en las
+acciones volátiles y el trailing en las tranquilas.** Un ADR grande aleja el trailing del máximo, y
+entonces el límite de devolución llega antes. El cruce es exacto:
+
+```
+la devolución manda si   adr > pico × límite / (2 × (100 + pico))
+```
+
+| Pico | Límite | La devolución manda si el ADR pasa de |
+|---|---|---|
+| +20 % | 50 % | 4,2 % |
+| +40 % | 50 % | 7,1 % |
+| +100 % | 40 % | 10,0 % |
+
+Con el ADR típico de aquí (4,6 %) eso significa que la devolución gobierna justo el escalón del
++20 % y el trailing se queda con todo lo de arriba. Implementa las dos y deja que gane la más
+apretada; no intentes elegir una.
 
 ---
 

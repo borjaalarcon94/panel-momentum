@@ -436,6 +436,53 @@ console.log('\nUNA AL +15 % Y UNA AL +40 %: QUE HACE EL SISTEMA');
   comprueba('y todavía no vende', vigila.motivos.length, 0);
 }
 
+/* QUIEN GESTIONA LA POSICION: EL TRAILING O LA REGLA DE DEVOLUCION.
+   Esto se fija porque el 05/11/2026 lo escribi al reves en tres sitios (Parametros y los dos
+   documentos para la otra app): dije que la devolucion protegia cuando el ADR se desploma. Es lo
+   contrario. Un ADR GRANDE aleja el trailing del maximo, asi que es ahi donde el limite de
+   devolucion llega antes; con un ADR pequeño el trailing se pega al maximo y manda siempre el.
+   El cruce sale de igualar los dos precios de salida:
+     devolucion  = maxP - pico * limite / 100       (sobre compra = 100)
+     trailing    = maxP * (1 - 2 * adr / 100)
+     la devolucion manda si   adr > pico * limite / (2 * (100 + pico))
+   Si alguien toca diasTrailing o los escalones, esta tabla cambia y hay que reescribir los tres
+   textos. Para eso esta aqui. */
+console.log('\nEL REPARTO ENTRE EL TRAILING Y LA DEVOLUCIÓN');
+{
+  const quien = (pico, adr) => {
+    const maxP = 100 + pico, lim = REGLAS.limiteDevolucion(pico);
+    if (lim == null) return 'sin regla';
+    const dev = maxP - pico * lim / 100;
+    const tr = REGLAS.stopDe({ precio: maxP, ema50: 50, adr }, 100, null, pico);
+    return dev > tr ? 'devolución' : 'trailing';
+  };
+  const cruce = pico => pico * REGLAS.limiteDevolucion(pico) / (2 * (100 + pico));
+  comprueba('con el ADR típico de aquí (4,6) la devolución gobierna el escalón del +20 %',
+    quien(20, 4.6), 'devolución');
+  comprueba('y el trailing todo lo de arriba (+30, +40, +60, +100)',
+    [30, 40, 60, 100].map(p => quien(p, 4.6)).join(','), 'trailing,trailing,trailing,trailing');
+  comprueba('en una acción tranquila (ADR 1,5) manda el trailing incluso al +150 %',
+    quien(150, 1.5), 'trailing');
+  comprueba('en una muy volátil (ADR 12) manda la devolución desde el +20 %',
+    [20, 40, 100].map(p => quien(p, 12)).join(','), 'devolución,devolución,devolución');
+  /* Los tres numeros que se imprimen en Parametros y en los documentos. */
+  comprueba('el cruce del +20 % está en ADR 4,2 %', Math.abs(cruce(20) - 4.1667) < 0.001, true);
+  comprueba('el del +40 %, en 7,1 %', Math.abs(cruce(40) - 7.1429) < 0.001, true);
+  comprueba('el del +100 %, en 10,0 %', Math.abs(cruce(100) - 10) < 0.001, true);
+  /* Y la formula del cruce es de verdad el punto donde cambia quien manda, no una aproximacion. */
+  const exacto = [20, 40, 60, 100, 150].every(p => {
+    const c = cruce(p);
+    return quien(p, c * 0.99) === 'trailing' && quien(p, c * 1.01) === 'devolución';
+  });
+  comprueba('la fórmula del cruce es exacta en los cinco picos', exacto, true);
+  /* NINGUNA de las dos sobra: cada una gana en alguna parte del espacio real. */
+  const picos = [20, 25, 30, 40, 60, 100, 150], adrs = [1, 1.5, 3, 4.6, 8, 12, 20];
+  const todos = [];
+  for (const p of picos) for (const a of adrs) todos.push(quien(p, a));
+  comprueba('el trailing gana en parte del espacio', todos.includes('trailing'), true);
+  comprueba('y la devolución en otra: ninguna regla sobra', todos.includes('devolución'), true);
+}
+
 console.log('\nAVISO: TIENES GANANCIA Y TODAVÍA NO HAY REGLA QUE LA PROTEJA');
 {
   const ev = (compra, hoy, max, adr) => REGLAS.evaluaPosicion({

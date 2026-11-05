@@ -188,51 +188,43 @@
          Por que no se arregla cambiando el umbral: bajar la devolucion al +20 % no mejora nada
          (-1,06 % -> -1,16 %) y bajarla al +15 % parece mejorar (-0,43 %) pero TODA la mejora es una
          sola accion, IOVA. Con 4 entradas por encima del +20 % no hay forma de calibrarlo. */
-      /* GANANCIA MAS PEQUEÑA QUE EL RUIDO. Con el escalon del +20 % ya no queda hueco entre la
-         proteccion del coste y la del beneficio, asi que este aviso cambia de sentido: ahora dice
-         lo que de verdad pasa por debajo de ese nivel. Una ganancia de +8 % en una accion que se
-         mueve un 4,6 % al dia son menos de dos dias de rango, y NO HAY regla capaz de protegerla:
-         por debajo de dos dias cualquier regla salta con el movimiento normal, y por encima
-         devuelve la ganancia entera antes de dispararse. No es un fallo del panel, es el tamaño de
-         la ganancia frente a su volatilidad, y conviene saberlo antes de contar ese dinero. */
-      /* El aviso cubre TODA la banda sin regla, no solo la parte de abajo. En la primera version
-         solo saltaba con ganMax < 2*ADR, y eso dejaba un hueco mudo entre ~9 % y 20 % para una
-         accion de ADR 4,6: ni regla de devolucion ni aviso. Lo encontro Borja el 05/11/2026
-         preguntando "¿y una que llevo un 15 %, como la protejo?". No la protegia nada y el panel
-         no lo decia.
-         Son dos situaciones distintas y el texto lo distingue:
-           - por debajo de 2 dias de rango: NO SE PUEDE proteger, cualquier regla seria ruido;
-           - de ahi al primer escalon: todavia no hay regla, y falta X para tenerla. */
-      /* AVISO SOLO CUANDO HAY ALGO QUE PROTEGER. La primera version avisaba con cualquier ganancia
-         por encima de cero, y con eso una posicion al +4 % salia como VIGILAR: todas las que van
-         en verde marcadas, que es ruido puro en pantalla.
-         La linea es la misma que usa el resto del panel: DOS DIAS DE RANGO de esa accion. Por
-         debajo de ahi la ganancia no es un movimiento, es el vaiven de un dia, y no hay nada que
-         proteger ni nada que decir. Por encima, la ganancia es real y el usuario tiene que saber
-         que todavia no hay regla que la cubra y cuanto le falta.
-         Ojo: esto hace el aviso PROPORCIONAL A LA VOLATILIDAD de cada accion. En una que se mueve
-         un 4,6 % al dia salta a partir del +9,2 %; en una tranquila de ADR 1,5, a partir del +3 %.
-         Es lo correcto: en la tranquila, un +8 % si es una ganancia que se puede perder. */
-      /* TIENES GANANCIA Y TU SALIDA SIGUE POR DEBAJO DE TU COMPRA.
-         La condicion ya no es un umbral: es el hecho. Con el trailing de beneficio puesto, el stop
-         sube por encima de la compra en cuanto la ganancia supera unos dias de rango, asi que la
-         pregunta "¿esta protegido?" se responde mirando el stop, no comparando porcentajes.
-         Antes esto era un umbral fijo y se desincronizo en cuanto cambio el trailing: avisaba desde
-         el +9,2 % cuando la proteccion empezaba en el +10,2 %, y seguia avisando por encima, donde
-         ya estaba protegido. Preguntarle al stop no se puede desincronizar. */
-      /* Con el trailing puesto, esto casi no salta nunca, y esta bien que sea asi: la banda que
-         antes describia ahora esta PROTEGIDA. Queda para dos casos de verdad:
-           - el sliver entre que la ganancia deja de ser ruido y el trailing llega a cubrirla;
-           - una accion SIN dato de ADR, donde el trailing no puede activarse y el usuario tendria
-             una ganancia desprotegida sin enterarse.
-         Sin el filtro del ruido volveria a marcar como VIGILAR cualquier posicion al +2 %, que es
-         justo lo que se arreglo hace un rato. */
+      /* AVISO: TIENES GANANCIA Y TU SALIDA SIGUE POR DEBAJO DE TU COMPRA.
+
+         Historia corta, porque este aviso cambio tres veces el 05/11/2026 y los comentarios de
+         cada version se quedaron apilados contradiciendose. Esta es la unica version vigente.
+
+         QUE DICE: hay una ganancia de verdad sobre la mesa y nada la esta protegiendo todavia.
+         No vende y no mueve el stop; solo lo dice.
+
+         LAS TRES CONDICIONES, y por que cada una:
+           - stop < compra          el hecho, no un umbral. Se le pregunta al stop en vez de
+                                    comparar porcentajes, porque un umbral fijo se desincronizo en
+                                    cuanto se metio el trailing: avisaba desde el +9,2 % cuando la
+                                    proteccion empezaba en el +10,2 %, y seguia avisando por
+                                    encima, donde la posicion ya estaba a salvo.
+           - ganMax >= 2 * adr      filtro de ruido. Sin el, una posicion al +4 % salia como
+                                    VIGILAR y TODAS las que van en verde quedaban marcadas.
+                                    Dos dias de rango es la misma vara que usa el resto del panel.
+                                    Es PROPORCIONAL: con ADR 4,6 pide +9,2 %; con ADR 1,5, +3 %.
+           - adr > 0                sin ADR no se puede saber si esa ganancia es un movimiento o
+                                    el vaiven de un dia.
+
+         LA FRANJA ES ESTRECHA Y ESO ES LO QUE SE QUIERE. El filtro de ruido y el arranque del
+         trailing salen del mismo numero (2 ADR), asi que el aviso solo cubre el punto o dos en los
+         que la ganancia ya es real pero el nivel del trailing todavia no alcanza tu compra: de
+         +9,2 % a +10,1 % con ADR 4,6. Antes del trailing cubria de +9 % a +20 %, un hueco que
+         encontro Borja preguntando "¿y una que llevo un 15 %, como la protejo?". Ya no hay hueco:
+         ahora esta PROTEGIDA, y por eso el aviso casi no salta.
+
+         EL AGUJERO QUE QUEDA, dicho claro: una accion SIN dato de ADR no tiene trailing (lo
+         necesita para medir la distancia) y tampoco tiene este aviso (lo exige para distinguir
+         ganancia de ruido). Entre el 0 % y el +20 % se queda sin nada, y en silencio. Hoy no
+         afecta a ninguna: las 220 del panel traen ADR > 0. No se tapa con un umbral fijo de
+         emergencia porque eso es exactamente el ruido que se quito: avisaria de cualquier +2 %.
+         Si alguna vez TradingView deja de mandar ADRP, esto es lo primero que hay que mirar. */
       const adrPos = num(datos.adr);
-      /* Se EXIGE el ADR. Sin el no se puede saber si esa ganancia es un movimiento o el vaiven de
-         un dia, y avisar "por si acaso" marcaba como VIGILAR cualquier posicion al +2 %: el mismo
-         ruido que ya se quito una vez. En la practica lo tienen las 42 seguidas. */
       if (ganMax > 0 && stop != null && stop < compra
-          && adrPos && alMenos(ganMax, R.diasTrailing * adrPos)) {
+          && adrPos > 0 && alMenos(ganMax, R.diasTrailing * adrPos)) {
         const adr = adrPos;
         /* "falta" son los puntos que le quedan para que el TRAILING entre, no para que salte el
            aviso. Hasta el 05/11/2026 medía lo segundo y valía exactamente 0 en todos los avisos

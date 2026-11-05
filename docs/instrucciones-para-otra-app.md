@@ -107,7 +107,12 @@ Leído en palabras: **el stop es el mayor de cinco candidatos.**
    donde la devolución todavía no entra. Con ADR 4,6 % empieza a mandar en el +10,2 %: una posición
    al +15 % deja el stop en +4,4 % en vez de en la EMA 50, así que ya no puede acabar en pérdida.
    Por encima del +20 % suele ser **más apretado** que la devolución (al +40 % saca a +27,1 % en vez
-   de a +20 %) y entonces manda él;
+   de a +20 %) y entonces manda él. El reparto no es casual: la devolución manda en las acciones
+   VOLÁTILES y el trailing en las tranquilas, porque un ADR grande aleja el trailing del máximo.
+   El cruce es `adr > pico × límite / (2 × (100 + pico))`: con un pico del +20 % la devolución manda
+   desde ADR 4,2 %, con +40 % desde 7,1 % y con +100 % desde 10 %. Con el ADR típico de aquí (4,6 %)
+   la devolución gobierna el escalón del +20 % y el trailing todo lo de arriba. Se implementan las
+   dos y gana la más apretada;
 5. **el stop más alto que ya alcanzó** (`stopPrevio`) — **el stop nunca baja**, ni aunque la
    EMA 50 retroceda.
 
