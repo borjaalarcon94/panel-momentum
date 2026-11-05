@@ -219,7 +219,8 @@
          EL AGUJERO QUE QUEDA, dicho claro: una accion SIN dato de ADR no tiene trailing (lo
          necesita para medir la distancia) y tampoco tiene este aviso (lo exige para distinguir
          ganancia de ruido). Entre el 0 % y el +20 % se queda sin nada, y en silencio. Hoy no
-         afecta a ninguna: las 220 del panel traen ADR > 0. No se tapa con un umbral fijo de
+         afecta a ninguna: las 44 en seguimiento traen ADR > 0 (220 son las filas del escaneo
+         de mercado, no las seguidas: no confundirlas). No se tapa con un umbral fijo de
          emergencia porque eso es exactamente el ruido que se quito: avisaria de cualquier +2 %.
          Si alguna vez TradingView deja de mandar ADRP, esto es lo primero que hay que mirar. */
       const adrPos = num(datos.adr);
