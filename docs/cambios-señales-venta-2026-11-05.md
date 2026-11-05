@@ -51,8 +51,21 @@ Por debajo de ahí la regla **salta con el ruido**. Estas acciones se mueven un 
 
 Es el mismo criterio con el que el panel juzga si un stop es un nivel o una moneda al aire.
 
-Bajarlo a +15 % o +10 % «mejoraba» más la media en el histórico, pero esa mejora venía **de dos
-acciones** (IOVA y TEAM): descontándolas, ninguna variante mejoraba nada.
+Bajarlo a +15 % «mejora» más la media en el histórico (+0,60 % frente a −0,08 %), y por eso hay que
+mirar de dónde sale esa mejora. Con el escalón en +15 % solo se mueven **dos entradas de 42**, y una
+de las dos RESTA:
+
+| | Con el escalón en +20 % | Con el escalón en +15 % | Aporta a la media |
+|---|---|---|---|
+| IOVA | −26,0 % | +6,7 % | **+0,78** |
+| RSKD | +13,1 % | +8,9 % | −0,10 |
+
+O sea: **toda la mejora es una sola acción.** Y bajarlo más no sigue mejorando: con el escalón en
++10 % se mueven cuatro (RSKD, OABI, IOVA y TEAM) y la media cae a +0,30 %, peor que a +15 %, porque
+ahí el escalón ya está dentro del ruido y empieza a cortar posiciones sanas.
+
+Elegir +15 % sería calibrar sobre una acción. Por eso el escalón se pone en +20 %, que es donde la
+regla deja de saltar con el movimiento normal, aunque en este histórico mida algo peor.
 
 ---
 
@@ -151,6 +164,8 @@ paraTrailing = (2 × adr) / (1 − 2 × adr / 100)     ← la ganancia en que el
 falta        = max(0, paraTrailing − ganMax)        ← lo que se le dice al usuario
 ```
 
+Significa: *tienes una ganancia real y todavía no hay ninguna regla que la proteja.*
+
 **Dos trampas que hay que evitar al implementarlo**, las dos encontradas en el panel el mismo día:
 
 - **`adr > 0`, no solo `adr`.** Un ADR negativo invierte la resta del trailing y coloca el stop por
@@ -158,8 +173,6 @@ falta        = max(0, paraTrailing − ganMax)        ← lo que se le dice al u
 - **`falta` no se mide contra el umbral del propio aviso (2 × adr).** Es la misma línea que lo
   dispara, así que vale 0 siempre y la frase que lo imprime nunca se ve. Se mide contra
   `paraTrailing`, que es la ganancia en la que el stop sube de verdad.
-
-Significa: *tienes una ganancia real y todavía no hay ninguna regla que la proteja.*
 
 **Con el trailing esta franja se ha quedado muy estrecha, y eso es exactamente lo que se quería.**
 Las dos líneas salen del mismo número (2 ADR), así que el aviso solo cubre el punto o dos en los que
@@ -190,8 +203,6 @@ ganancia. Con 0,6 puntos más (+10,1 %) el stop sube solo a terreno de beneficio
 - El escalón del +100 % → devolver 40 %. Igual.
 - Todos los avisos anteriores (EMA 21, resultados en ≤10 días, un requisito roto, devolviendo al
   60 % del límite). Iguales.
-
----
 
 ---
 
