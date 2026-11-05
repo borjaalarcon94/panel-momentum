@@ -3112,3 +3112,60 @@ detectadas.
 - Y dos comprobaciones que no comprobaban nada: una buscaba `comprueba(universo, candidatas, ...)`
   y mi mutador cayó en la **firma** de la función en vez de en la llamada; otra daba por buena una
   llamada **comentada**, porque buscaba la cadena a secas en vez de una línea de código.
+
+## 05/11/2026 (3) · «¿Cómo protegemos las ganancias por encima del +20 %?»
+
+Pregunta de Borja, y apunta exactamente al hueco que ya estaba identificado el 01/11. Medido con las
+42 entradas.
+
+### Lo que protege hoy una posición al +20 %
+
+| | Llegó a | Está en | Devuelto | Qué la protege |
+|---|---|---|---|---|
+| FIGS | +46,5 % | +46,5 % | 0,0 pt | devolución: vendería al +23 % |
+| CDNA | +26,7 % | +22,9 % | 3,7 pt | **solo el stop: lo mejor posible es salir a 0 %** |
+| HNGE | +22,9 % | +22,9 % | 0,0 pt | **solo el stop** |
+| CAI | +21,7 % | +11,9 % | 9,8 pt | **solo el stop** |
+
+**Tres de las cuatro que han pasado del +20 % están en el tramo sin regla.** CAI había devuelto 9,8
+puntos y el panel no decía nada.
+
+### Todas las correcciones probadas, y por qué no se adopta ninguna
+
+| Devolución desde | Media | Salidas por devolución |
+|---|---|---|
+| +30 % (actual) | −1,06 % | 0 |
+| +25 % | −1,06 % | 0 |
+| **+20 % (unir con el break-even)** | **−1,16 %** | 1 |
+| +15 % | **−0,43 %** | 3 |
+| +10 % | −0,25 % | 4 |
+
+Y apretar el stop por encima del +20 % (a un 8/10/12/15 % del pico) **no mueve nada**: de −1,16 % a
+−1,06 %, porque solo 4 entradas han pasado de ahí.
+
+El +15 % parece el ganador, pero **toda su mejora es IOVA**: habría salido a +6,7 % en vez de
+−26,0 %, o sea 33 puntos repartidos entre 39 entradas (+0,84 pt). Quitando IOVA no queda nada.
+Adoptarlo sería ajustar el umbral a una acción. Y la unión «elegante» con el break-even (+20 %),
+que es la que no requiere elegir ningún número nuevo, **empeora** la media.
+
+### Lo que sí se hace: decirlo
+
+Aviso nuevo `sin-red` en `reglas.js`: cuando la ganancia máxima está entre `gananciaProteger` (+20 %)
+y el primer escalón de devolución (+30 %) y se ha devuelto algo, el panel dice los puntos exactos y
+**que ninguna regla la va a vender**. No vende, no mueve el stop, no toca la nota — el mismo patrón
+que el aviso del margen del stop. Es decir en voz alta algo que el sistema hacía en silencio, y
+dejar la decisión donde le toca.
+
+13 pruebas nuevas en `reglas.test.js`, **6 mutaciones probadas y detectadas**, y el aviso reflejado
+en Parámetros y en el documento para la otra app.
+
+### TERCERA vez que meto pruebas detrás del resumen
+
+El bloque nuevo acabó **dentro del `if (fallos) { … }`** final de `reglas.test.js`. Las 12
+comprobaciones se ejecutaban y se veían en pantalla, pero **no contaban**: el total salía 107 en vez
+de 118, el proceso terminaba en verde y **tres mutaciones parecían no detectadas** cuando en realidad
+nadie las estaba mirando. Es la tercera vez que cometo este error exacto.
+
+Ya no depende de que me acuerde: `integridad.test.js` recorre todos los `*.test.js` y falla si hay
+una sola llamada a `comprueba`/`ok`/`mal` **después de la línea del resumen**. Probado contra la
+propia regresión.

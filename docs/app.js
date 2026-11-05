@@ -185,6 +185,9 @@ window.TEXTO_SENAL = function (m) {
     case 'rsi': return 'RSI ' + n(m.rsi, 0) + ': sin fuerza compradora';
     case 'devuelto': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(m.ganMax) + ' a ' + pc(m.gan) + ')';
     case 'devolviendo': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de su ganancia máxima (vendería al ' + m.limite + ' %)';
+    case 'sin-red': return 'ha devuelto ' + n(m.ganMax - m.gan, 1) + ' puntos desde su máximo (de ' + pc(m.ganMax) + ' a ' + pc(m.gan) +
+      ') y en este tramo NINGUNA regla la vende: el stop ya solo protege tu precio de compra y la devolución no entra hasta el ' +
+      m.desde + ' %. Si quieres asegurar parte, la decisión es tuya';
     case 'requisitos': return 'ya no cumple ' + m.fallos.length + ' requisitos: ' + m.fallos.map(f => f.t.toLowerCase()).join(', ');
     case 'un-requisito': return 'ha dejado de cumplir: ' + m.fallo.t.toLowerCase() + ' (' + m.fallo.v + ')';
     case 'capitalizacion': return 'su capitalización (' + m.valor + ') ha caído por debajo del mínimo: ya no entraría como nueva, pero eso solo no es motivo de venta';

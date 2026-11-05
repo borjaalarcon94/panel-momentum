@@ -49,8 +49,16 @@ comprueba('pierde el stop: vender',
   codigos(evalua({ datos: { precio: 84, ema50: 95, rsi: 60 }, compra: 100 })), ['stop']);
 comprueba('RSI por debajo de 45: vender',
   codigos(evalua({ datos: { precio: 110, ema50: 100, rsi: 40 }, compra: 100 })).includes('rsi'), true);
-comprueba('subió 25 % y devolvió la mitad: NO vende (ganancia pequeña)',
-  evalua({ datos: { precio: 112, ema50: 100, ema21: 108, rsi: 60 }, compra: 100, maxRegistrado: 125 }).estado, 'mantener');
+/* Hasta el 05/11/2026 esta comprobacion exigia 'mantener', y eso codificaba el SILENCIO: el sistema
+   no vendia y tampoco decia nada, aunque la posicion llevase 13 puntos devueltos desde su maximo.
+   Lo que importa sigue siendo que NO VENDE con una ganancia pequeña; que ademas avise es el arreglo,
+   no una regresion. Se comprueban las dos cosas por separado. */
+{
+  const ev25 = evalua({ datos: { precio: 112, ema50: 100, ema21: 108, rsi: 60 }, compra: 100, maxRegistrado: 125 });
+  comprueba('subió 25 % y devolvió la mitad: NO vende (ganancia pequeña)', ev25.motivos.length, 0);
+  comprueba('...pero ahora avisa de que está en el tramo sin red',
+    ev25.avisos.map(a => a.codigo).includes('sin-red'), true);
+}
 comprueba('subió 60 % y devolvió la mitad: vender',
   codigos(evalua({ datos: { precio: 130, ema50: 105, rsi: 60 }, compra: 100, maxRegistrado: 160 })).includes('devuelto'), true);
 comprueba('subió 120 % y devolvió el 45 %: vender',
@@ -358,6 +366,58 @@ console.log('\nRECORRIDO DE UNA ENTRADA');
   comprueba('un precio de compra inválido no revienta', [r8.ret, r8.vistos], [null, 0]);
   const r9 = REGLAS.recorrido(100, null, () => 50, () => null);
   comprueba('sin sesiones tampoco', [r9.ret, r9.vistos], [null, 0]);
+}
+
+/* EL TRAMO SIN RED: entre +20 % y +30 % ninguna regla asegura ganancia.
+
+   El stop ya solo protege el COSTE (sube al precio de compra al superar el 20 %) y la devolucion no
+   entra hasta el 30 %. Una posicion que llego a +29 % puede volver a 0 % sin que el sistema diga
+   una palabra. Lo pregunto Borja el 05/11/2026 y era cierto: 3 de sus 4 entradas por encima del
+   +20 % estaban ahi, y CAI habia devuelto 9,8 puntos en silencio.
+
+   El aviso NO vende, NO mueve el stop y NO cambia la nota: dice en voz alta algo que el sistema
+   hacia callado. Por eso se prueba que SOLO avisa, y que no se cuela donde ya hay regla. */
+console.log('\nEL AVISO DEL TRAMO SIN RED');
+{
+  const ev = (compra, hoy, max, extra) => REGLAS.evaluaPosicion({
+    datos: { precio: hoy, ema50: compra * 0.8, ema21: compra * 0.8, rsi: 60, ...(extra || {}) },
+    compra, maxRegistrado: max, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: max });
+  const codigos = x => x.avisos.map(a => a.codigo);
+
+  // En el tramo y devolviendo: avisa.
+  const dentro = ev(100, 115, 122);        // llego a +22 %, esta en +15 %
+  comprueba('en el tramo +20/+30 y devolviendo, avisa', codigos(dentro).includes('sin-red'), true);
+  comprueba('y no manda vender', dentro.estado, 'vigilar');
+  comprueba('y el stop no se mueve por el aviso', dentro.stop, 100);
+
+  // En el tramo pero SIN devolver nada: no molesta.
+  comprueba('en el tramo pero en maximos, no avisa',
+    codigos(ev(100, 122, 122)).includes('sin-red'), false);
+
+  // Por debajo del +20 %: el stop todavia protege con el suelo, no es el mismo caso.
+  comprueba('por debajo del +20 % no avisa (ahi manda el stop)',
+    codigos(ev(100, 110, 118)).includes('sin-red'), false);
+
+  // Por encima del +30 %: YA hay regla, el aviso que toca es el de siempre.
+  const arriba = ev(100, 118, 135);        // llego a +35 %, devuelto el 48,6 %
+  comprueba('por encima del +30 % no sale "sin-red"', codigos(arriba).includes('sin-red'), false);
+  comprueba('sale el aviso de devolución de siempre', codigos(arriba).includes('devolviendo'), true);
+
+  // Justo en las fronteras.
+  comprueba('justo en +' + R.gananciaProteger + ' % ya entra en el tramo',
+    codigos(ev(100, 115, 100 * (1 + R.gananciaProteger / 100))).includes('sin-red'), true);
+  const primerEscalon = R.devolucion[R.devolucion.length - 1].desde;
+  comprueba('y en +' + primerEscalon + ' % ya no, porque ahí empieza la devolución',
+    codigos(ev(100, 115, 100 * (1 + primerEscalon / 100))).includes('sin-red'), false);
+
+  // Si hay motivo de venta, los avisos se callan: el aviso no puede tapar un VENDER.
+  comprueba('con el stop perdido no hay avisos, hay venta',
+    ev(100, 95, 125, { ema50: 110 }).estado, 'vender');
+
+  // El aviso lleva los datos que el texto necesita (el texto vive en app.js y se prueba en humo).
+  const av = dentro.avisos.find(a => a.codigo === 'sin-red');
+  comprueba('el aviso lleva cuánto ha devuelto y desde dónde',
+    [av.ganMax > av.gan, av.devuelto > 0, av.desde === primerEscalon], [true, true, true]);
 }
 
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);

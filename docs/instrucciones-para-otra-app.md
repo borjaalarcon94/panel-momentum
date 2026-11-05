@@ -239,6 +239,10 @@ evaluaPosicion(datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasR
       un-requisito    si fallos == 1
       devolviendo     si limite != null y alMenos(devuelto, limite * 0,6)
       ema21           si ema21 != null y precio < ema21
+      sin-red         si limite == null y alMenos(ganMax, 20) y devuelto > 0
+                      -> el tramo entre +20 % y +30 % donde NINGUNA regla asegura ganancia:
+                         el stop ya solo protege el precio de compra y la devolución no entra
+                         todavía. No vende; solo avisa, con los puntos devueltos desde el máximo.
 
     estado = 'vender'   si hay motivos
              'vigilar'  si no, y hay avisos
@@ -256,6 +260,7 @@ evaluaPosicion(datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasR
 | Aviso de devolución | al **60 %** del límite | avisa antes de vender |
 | Aviso de EMA 21 | `precio < ema21` | primera señal de debilidad |
 | Aviso de resultados | **≤ 10 días** | puede abrir con un hueco que el stop no evita |
+| **Aviso del tramo sin red** | ganancia máxima entre **+20 %** y **+30 %**, y algo devuelto | ahí no hay regla que asegure ganancia: conviene saberlo |
 
 **Perder la EMA 50 no es una regla aparte.** El stop es `max(EMA 50, …)`, así que si el precio
 pierde la EMA 50 ya está por debajo del stop y lo coge la primera rama. En el panel había una rama

@@ -225,6 +225,29 @@ console.log('\nEL RECORRIDO VIVE EN UN SITIO Y TODO STOP MIRA EL MÁXIMO');
    Parametros y el documento para la otra app TIENEN que decirlas con los mismos numeros: son
    filtros de entrada, y alguien que reimplemente el sistema fuera sin ellos no sacaria el mismo
    listado. Igual que con los umbrales, aqui se atan. */
+/* NINGUNA COMPROBACION DESPUES DEL RESUMEN.
+
+   Tres veces he metido un bloque de pruebas DETRAS de la linea que imprime el total, o peor, dentro
+   del  if (fallos) { ... }  final. Cuando pasa, las comprobaciones se ejecutan y se ven en pantalla
+   pero NO cuentan: el total sale bajo, el proceso termina en verde y las mutaciones sobreviven. La
+   ultima vez fue hoy, 05/11/2026, con el aviso del tramo sin red: 12 comprobaciones fantasma y tres
+   mutaciones que parecian no detectadas.
+   Se acabo: esto lo mira una maquina. */
+console.log('\nNINGUNA PRUEBA QUEDA DETRÁS DEL RESUMEN');
+{
+  const dirT = path.join(__dirname);
+  for (const f of fs.readdirSync(dirT).filter(x => x.endsWith('.test.js'))) {
+    const t = fs.readFileSync(path.join(dirT, f), 'utf8');
+    const i = t.lastIndexOf('comprobaciones correctas');
+    if (i < 0) { ok(f + ': no imprime resumen, nada que comprobar'); continue; }
+    const cola = t.slice(i);
+    const huerfanas = (cola.match(/^\s*(comprueba|ok|mal)\(/gm) || []).length;
+    huerfanas === 0 ? ok(f + ': ninguna comprobación detrás del resumen')
+      : mal(f + ': ' + huerfanas + ' comprobaciones detrás del resumen no cuentan para el total',
+            cola.split('\n').find(l => /^\s*(comprueba|ok|mal)\(/.test(l)));
+  }
+}
+
 console.log('\nLAS REGLAS DE PROTECCIÓN ESTÁN DICHAS CON SUS NÚMEROS');
 {
   const bp = fs.readFileSync(path.join(__dirname, '..', 'build.py'), 'utf8');

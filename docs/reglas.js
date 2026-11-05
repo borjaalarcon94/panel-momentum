@@ -112,6 +112,20 @@
     if (!motivos.length) {
       if (fallos.length === 1) avisos.push({ codigo: 'un-requisito', fallo: fallos[0] });
       if (limite != null && alMenos(devuelto, limite * R.avisoDevolucion)) avisos.push({ codigo: 'devolviendo', devuelto, limite });
+      /* EL TRAMO SIN RED: entre gananciaProteger (+20 %) y el primer escalon de devolucion (+30 %)
+         NO HAY NINGUNA REGLA que asegure ganancia. El stop ya solo protege el COSTE -sube a tu
+         precio de compra- y la devolucion todavia no existe, asi que una posicion que llego a +29 %
+         puede volver a 0 % sin que el sistema diga una palabra.
+         Esto NO es una regla nueva: no vende, no cambia el stop, no toca la nota. Es decir en voz
+         alta algo que el sistema hacia en silencio, porque la decision en ese tramo es del usuario y
+         hasta ahora ni siquiera sabia que le tocaba a el.
+         Medido el 05/11/2026: 3 de las 4 entradas que han pasado del +20 % estan en este tramo
+         (CDNA, HNGE y CAI), y CAI ya habia devuelto 9,8 puntos sin que nada avisara.
+         Por que no se arregla cambiando el umbral: bajar la devolucion al +20 % no mejora nada
+         (-1,06 % -> -1,16 %) y bajarla al +15 % parece mejorar (-0,43 %) pero TODA la mejora es una
+         sola accion, IOVA. Con 4 entradas por encima del +20 % no hay forma de calibrarlo. */
+      if (limite == null && alMenos(ganMax, R.gananciaProteger) && devuelto > 0)
+        avisos.push({ codigo: 'sin-red', devuelto, ganMax, gan, desde: R.devolucion[R.devolucion.length - 1].desde });
       if (ema21 != null && precio < ema21) avisos.push({ codigo: 'ema21', ema21 });
     }
     return { estado: motivos.length ? 'vender' : avisos.length ? 'vigilar' : 'mantener',
