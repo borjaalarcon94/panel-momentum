@@ -116,6 +116,12 @@ Leído en palabras: **el stop es el mayor de cinco candidatos.**
 5. **el stop más alto que ya alcanzó** (`stopPrevio`) — **el stop nunca baja**, ni aunque la
    EMA 50 retroceda.
 
+**Trampa del candidato 4: `adr` tiene que ser > 0, no solo "existe".** Un ADR negativo invierte la
+resta y coloca el stop POR ENCIMA del máximo alcanzado y del precio de hoy, o sea una venta forzada
+a un precio que no existe. No debería llegar nunca ese dato, y por eso mismo no se nota si llega.
+Un ADR tan grande que `2 × adr ≥ 100` da un nivel negativo, y ahí la condición `nivel > ref` ya lo
+descarta sola.
+
 **Por qué el candidato 4 se mide en días de rango y no en un porcentaje fijo:** un 10 % es medio día
 en una acción que se mueve un 6 % diario y una semana en una que se mueve un 1,5 %. Un porcentaje
 fijo igual para las dos o salta solo o no protege nada. Y la condición `nivel > ref` no es un

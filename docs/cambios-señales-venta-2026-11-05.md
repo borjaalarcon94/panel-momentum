@@ -75,7 +75,7 @@ stop = max(EMA 50, compra × 0,85, compra si ganMax ≥ 20 %, stop de ayer, nive
 pero el nivel SOLO cuenta si nivel > tu precio de compra
 ```
 
-Tres cosas que hay que respetar al implementarlo:
+Cinco cosas que hay que respetar al implementarlo:
 
 1. **La distancia se mide en días de rango de ESA acción (ADR), no en un porcentaje fijo.** Un 10 %
    es medio día en una acción que se mueve un 6 % diario y una semana en una que se mueve un 1,5 %.
@@ -85,6 +85,17 @@ Tres cosas que hay que respetar al implementarlo:
 3. **Solo se aplica si el nivel queda por encima de tu precio de compra.** Es la condición que evita
    apretar un stop que todavía no asegura nada: si 2 ADR por debajo del máximo sigue estando en
    pérdida, manda la EMA 50 como siempre.
+4. **`ganMax` es la ganancia MÁXIMA que llegó a tener la posición, no la de hoy.** Esto es lo más
+   fácil de implementar mal y lo que más duele: si usas la ganancia actual, el nivel del trailing
+   BAJA cuando baja el precio y la regla queda inservible — el stop persigue al precio hacia abajo
+   en vez de quedarse donde estaba. `ganMax` solo sube, nunca baja. Si tu app recalcula el stop
+   desde cero cada vez que se abre, tiene que recorrer el histórico de cierres o guardar `ganMax`
+   persistido. Este mismo fallo ya se cometió en el panel con la protección del coste.
+5. **El stop nunca baja.** El valor que se guarda es el más alto que ha alcanzado (`stopPrevio`), y
+   el trailing es un candidato más dentro de ese máximo, no un sustituto. Consecuencia que conviene
+   saber: como el nivel se calcula con el ADR de hoy, si la volatilidad de la acción se dispara, un
+   nivel guardado cuando estaba tranquila se queda relativamente pegado al precio. Es el precio de
+   no bajar nunca un stop, y bajarlos es como se pierde dinero.
 
 ### Qué protege, con números
 
