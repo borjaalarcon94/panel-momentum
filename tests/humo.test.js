@@ -2067,11 +2067,21 @@ for (const f of orden) {
     const m = txt.match(/el del panel estaría en ([\d.]+),(\d+) \$/);
     m ? ok('y dice dónde tendría el suyo el panel: ' + m[1] + ',' + m[2] + ' $')
       : mal('no dice dónde tendría su stop el panel');
-    /* Y ese numero es la EMA 50, no el trinquete: es el stop de verdad del sistema. */
+    /* Y ese numero es EL QUE CALCULA reglas.js, no el trinquete. Hasta el 05/11/2026 aqui se
+       comparaba contra la EMA 50 a pelo, porque entonces la EMA era siempre el stop del sistema en
+       este escenario. Con el trailing ya no: una posicion en ganancia tiene el stop a dos dias de
+       rango del maximo, por encima de la EMA. Se compara contra la funcion para que la prueba siga
+       diciendo lo mismo ("lo que pinta la tarjeta = lo que manda la regla") cuando la regla cambie. */
     const servido = m ? parseFloat(m[1].replace('.', '') + '.' + m[2]) : null;
-    servido != null && Math.abs(servido - d.ema50) < 0.02
-      ? ok('y es el stop real del sistema (la EMA 50), no solo el trinquete')
-      : mal('el stop del sistema que muestra no es el que calcula reglas.js', servido + ' vs EMA 50 ' + (d.ema50 || 0).toFixed(2));
+    const gmSis = (d.precio / (d.ema50 * 0.9) - 1) * 100;
+    const debe = ventana.REGLAS.stopDe(d, +(d.ema50 * 0.9).toFixed(2), null, gmSis);
+    servido != null && debe != null && Math.abs(servido - debe) < 0.02
+      ? ok('y es el stop real del sistema (' + debe.toFixed(2) + ' $), no solo el trinquete')
+      : mal('el stop del sistema que muestra no es el que calcula reglas.js',
+            servido + ' vs reglas.js ' + (debe || 0).toFixed(2));
+    debe > d.ema50
+      ? ok('que aquí es el trailing, por encima de la EMA 50 (' + d.ema50.toFixed(2) + ' $)')
+      : ok('que aquí coincide con la EMA 50 (sin ganancia suficiente para el trailing)');
     /por encima del tuyo/.test(txt) ? ok('y avisa de que queda por encima del tuyo')
       : mal('no avisa de que el stop del panel queda por encima del tuyo');
     almacen['posiciones-v1'] = previo || '[]';
@@ -2099,10 +2109,18 @@ for (const f of orden) {
     alto > d.ema50 ? ok('el escenario muerde: el stop propio (' + alto + ') está por encima de la EMA 50 (' + d.ema50.toFixed(2) + ')')
                    : mal('el stop propio no queda por encima: la prueba no probaría nada');
     await ventana.posiciones();
+    /* El valor esperado se pide a reglas.js en vez de fijar la EMA 50: con el trailing (05/11/2026)
+       el stop del sistema de una posicion en ganancia esta por encima de la EMA. Lo que se prueba
+       es lo mismo de siempre: que el trinquete guarda EL DEL SISTEMA y no el tuyo. */
+    const gmSis = (d.precio / +(d.ema50 * 0.9).toFixed(2) - 1) * 100;
+    const delSistema = ventana.REGLAS.stopDe(d, +(d.ema50 * 0.9).toFixed(2), null, gmSis);
     const guardado = JSON.parse(almacen['posiciones-v1'])[0].stopMax;
-    Math.abs(guardado - d.ema50) < 0.02
+    Math.abs(guardado - delSistema) < 0.02
       ? ok('el trinquete guarda el stop del sistema (' + guardado.toFixed(2) + '), no el tuyo')
-      : mal('el trinquete ha guardado ' + guardado + ' en vez de la EMA 50 ' + d.ema50.toFixed(2));
+      : mal('el trinquete ha guardado ' + guardado + ' en vez del del sistema ' + (delSistema || 0).toFixed(2));
+    Math.abs(guardado - alto) > 0.02
+      ? ok('y desde luego no es el tuyo (' + alto + ')')
+      : mal('el trinquete ha guardado TU stop: la posición se vendería ' + (alto - delSistema).toFixed(2) + ' $ antes');
 
     /* Y la prueba que de verdad importa: al quitar tu stop, el del panel vuelve a su sitio. */
     const sinMio = JSON.parse(almacen['posiciones-v1']); delete sinMio[0].stopPropio;
@@ -2112,9 +2130,10 @@ for (const f of orden) {
     const txt = leerP(porId.rpos).replace(/\s+/g, ' ');
     const m = txt.match(/Stop\s*([\d.]+),(\d+) \$/);
     const nivel = m ? parseFloat(m[1].replace('.', '') + '.' + m[2]) : null;
-    nivel != null && Math.abs(nivel - d.ema50) < 0.02
-      ? ok('al quitar tu stop, el del panel vuelve a la EMA 50 (' + nivel + ')')
-      : mal('al quitar tu stop el panel se queda con el tuyo', 'muestra ' + nivel + ', la EMA 50 es ' + d.ema50.toFixed(2));
+    nivel != null && Math.abs(nivel - delSistema) < 0.02
+      ? ok('al quitar tu stop, el del panel vuelve al suyo (' + nivel + ')')
+      : mal('al quitar tu stop el panel se queda con el tuyo',
+            'muestra ' + nivel + ', el del sistema es ' + (delSistema || 0).toFixed(2));
 
     /* Y el trinquete sigue siendo un trinquete: se le mete un valor mas alto a mano y no puede
        bajar al repintar, aunque la EMA 50 de hoy sea menor. Sin esto, sustituir el Math.max por una

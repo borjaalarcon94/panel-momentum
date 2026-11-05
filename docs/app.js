@@ -185,11 +185,10 @@ window.TEXTO_SENAL = function (m) {
     case 'rsi': return 'RSI ' + n(m.rsi, 0) + ': sin fuerza compradora';
     case 'devuelto': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(m.ganMax) + ' a ' + pc(m.gan) + ')';
     case 'devolviendo': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de su ganancia máxima (vendería al ' + m.limite + ' %)';
-    case 'ganancia-corta': return 'ha llegado a ' + pc(m.ganMax) + ' (' + n(m.dias, 1) +
-      ' días de su movimiento normal) y todavía NO hay regla que proteja ese beneficio: la devolución entra ' +
-      'a partir del ' + m.desde + ' %, le faltan ' + n(m.faltan, 1) + ' puntos. Hasta entonces solo está el stop, que ' +
-      (m.ganMax >= 20 ? 'ya protege tu precio de compra' : 'todavía está por debajo de tu precio de compra') +
-      '. Si quieres asegurar parte, la decisión es tuya';
+    case 'ganancia-corta': return 'ha llegado a ' + pc(m.ganMax) + ' pero tu salida sigue en ' + n(m.stop) +
+      ' $, por DEBAJO de tu precio de compra: si se da la vuelta ahora, no te llevas nada de esa ganancia. ' +
+      (m.falta > 0 ? 'Le faltan ' + n(m.falta, 1) + ' puntos para que el stop suba a terreno de beneficio.'
+                   : 'El stop subirá en cuanto lo haga su EMA 50.')
     case 'requisitos': return 'ya no cumple ' + m.fallos.length + ' requisitos: ' + m.fallos.map(f => f.t.toLowerCase()).join(', ');
     case 'un-requisito': return 'ha dejado de cumplir: ' + m.fallo.t.toLowerCase() + ' (' + m.fallo.v + ')';
     case 'capitalizacion': return 'su capitalización (' + m.valor + ') ha caído por debajo del mínimo: ya no entraría como nueva, pero eso solo no es motivo de venta';

@@ -30,6 +30,38 @@
        primera ganancia realizada del sistema. No toca a FIGS (+46,5 %), CDNA ni HNGE. */
     devolucion: [{ desde: 100, limite: 40 }, { desde: 30, limite: 50 }, { desde: 20, limite: 50 }],
     avisoDevolucion: 0.6,   // fracción del límite a la que se avisa (VIGILAR)
+    /* TRAILING DE BENEFICIO, en dias de rango de la propia accion. Añadido el 05/11/2026.
+
+       Resuelve el tramo del que se quejaba Borja: entre que la ganancia deja de ser ruido y el
+       primer escalon de devolucion (+20 %) no habia NADA, asi que una posicion al +15 % podia
+       volver a cero sin que el sistema dijera una palabra.
+
+       En vez de un porcentaje fijo del pico, se mide en DIAS DE RANGO (ADR) de esa accion, que es
+       la vara que usa el resto del panel: por debajo de dos dias cualquier nivel es ruido. Con eso
+       el umbral se adapta solo: en una accion que se mueve un 4,6 % al dia empieza a proteger desde
+       el +10 %, y en una tranquila de ADR 1,5 desde el +3,2 %.
+
+       SOLO SE APLICA SI EL NIVEL QUEDA POR ENCIMA DE TU PRECIO DE COMPRA. Sin esa condicion el
+       "trailing de beneficio" seria un trailing de perdida: con un pico del +5 % y dos dias de
+       rango de 9 puntos, el nivel caeria a -4 % y te sacaria en rojo. Fue el error de mi primera
+       medicion, que dio cero ganancias realizadas y casi me hace descartar la idea entera.
+
+       Medido sobre las 42 entradas: NO CAMBIA NI UN NUMERO del historico (misma media, misma
+       mediana, mismas cerradas, mismo peor caso). Eso es lo que lo hace seguro: no puede estar
+       ajustado al pasado porque en el pasado no se ha disparado ni una vez. Cierra un agujero
+       estructural sin tocar nada de lo medido. */
+    /* Por que 2 y no 3 o 4: porque "2 dias de rango" ES el estandar del panel para que un nivel
+       no sea ruido (MARGEN_STOP marca "apretado" por debajo de 2). Y por el trinquete, este
+       trailing equivale exactamente a "2 dias por debajo del precio, sin bajar nunca": en el
+       momento en que se fija esta justo en el estandar.
+       Dudé al ver que hoy deja 5 de 31 posiciones con el stop a menos de UN dia de margen (SLDE a
+       0,2 dias, CAI a 0,6). Pero eso no es que vayan a saltar al azar: es que ya han devuelto casi
+       toda su subida. CAI llego al +21,7 % y esta en +11,9 %. Estar a un dia de la salida ahi es
+       exactamente lo que se busca, que es no devolver el resto.
+       Con K=3 o K=4 el historico sale IDENTICO (no se puede elegir por resultado), pero la
+       proteccion empezaria en el +16 % o el +22 % en vez de en el +10 %, que es justo el tramo que
+       Borja pidio cubrir. */
+    diasTrailing: 2,
     lejosDeMaximo: 10,      // % por debajo del máximo de 52 semanas que convierte una compra en "esperar"
     /* Tope de concentracion: % maximo de la cartera en una sola posicion. Era 25 hasta el
        30/10/2026. El cambio no es una opinion sobre rentabilidad, es sobre la COLA: el tamaño se
@@ -76,7 +108,15 @@
     const gan = num(compra) && precio ? (precio / compra - 1) * 100 : 0;
     const pico = num(ganMax) != null ? Math.max(num(ganMax), gan) : gan;
     const suelo = ref * (1 - R.perdidaMaxima / 100);
-    const base = alMenos(pico, R.gananciaProteger) ? Math.max(ema50 || 0, ref) : Math.max(ema50 || 0, suelo);
+    let base = alMenos(pico, R.gananciaProteger) ? Math.max(ema50 || 0, ref) : Math.max(ema50 || 0, suelo);
+    /* Trailing de beneficio: K dias de rango por debajo del maximo alcanzado, y solo si ese nivel
+       asegura ganancia. maxPrecio se deduce del pico: no hace falta pasarlo aparte. */
+    const adr = num(datos && datos.adr);
+    if (adr && num(ganMax) != null && ganMax > 0) {
+        const maxPrecio = ref * (1 + ganMax / 100);
+        const nivel = maxPrecio * (1 - R.diasTrailing * adr / 100);
+        if (nivel > ref) base = Math.max(base, nivel);
+    }
     return Math.max(base, num(stopPrevio) || 0) || null;
   }
 
@@ -169,11 +209,30 @@
          Ojo: esto hace el aviso PROPORCIONAL A LA VOLATILIDAD de cada accion. En una que se mueve
          un 4,6 % al dia salta a partir del +9,2 %; en una tranquila de ADR 1,5, a partir del +3 %.
          Es lo correcto: en la tranquila, un +8 % si es una ganancia que se puede perder. */
-      const adr = num(datos.adr);
-      if (limite == null && adr && alMenos(ganMax, 2 * adr)) {
-        const desde = R.devolucion[R.devolucion.length - 1].desde;
-        avisos.push({ codigo: 'ganancia-corta', ganMax, gan, adr, dias: ganMax / adr,
-                      desde, faltan: desde - ganMax });
+      /* TIENES GANANCIA Y TU SALIDA SIGUE POR DEBAJO DE TU COMPRA.
+         La condicion ya no es un umbral: es el hecho. Con el trailing de beneficio puesto, el stop
+         sube por encima de la compra en cuanto la ganancia supera unos dias de rango, asi que la
+         pregunta "¿esta protegido?" se responde mirando el stop, no comparando porcentajes.
+         Antes esto era un umbral fijo y se desincronizo en cuanto cambio el trailing: avisaba desde
+         el +9,2 % cuando la proteccion empezaba en el +10,2 %, y seguia avisando por encima, donde
+         ya estaba protegido. Preguntarle al stop no se puede desincronizar. */
+      /* Con el trailing puesto, esto casi no salta nunca, y esta bien que sea asi: la banda que
+         antes describia ahora esta PROTEGIDA. Queda para dos casos de verdad:
+           - el sliver entre que la ganancia deja de ser ruido y el trailing llega a cubrirla;
+           - una accion SIN dato de ADR, donde el trailing no puede activarse y el usuario tendria
+             una ganancia desprotegida sin enterarse.
+         Sin el filtro del ruido volveria a marcar como VIGILAR cualquier posicion al +2 %, que es
+         justo lo que se arreglo hace un rato. */
+      const adrPos = num(datos.adr);
+      /* Se EXIGE el ADR. Sin el no se puede saber si esa ganancia es un movimiento o el vaiven de
+         un dia, y avisar "por si acaso" marcaba como VIGILAR cualquier posicion al +2 %: el mismo
+         ruido que ya se quito una vez. En la practica lo tienen las 42 seguidas. */
+      if (ganMax > 0 && stop != null && stop < compra
+          && adrPos && alMenos(ganMax, R.diasTrailing * adrPos)) {
+        const adr = adrPos;
+        avisos.push({ codigo: 'ganancia-corta', ganMax, gan, adr, stop,
+                      dias: adr ? ganMax / adr : null,
+                      falta: adr ? Math.max(0, R.diasTrailing * adr - ganMax) : null });
       }
       if (ema21 != null && precio < ema21) avisos.push({ codigo: 'ema21', ema21 });
     }

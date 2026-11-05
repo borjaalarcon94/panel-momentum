@@ -391,25 +391,49 @@ console.log('\nUNA AL +15 % Y UNA AL +40 %: QUE HACE EL SISTEMA');
     datos: { precio: 100 * (1 + pico / 100), ema50, ema21: ema50, rsi: 60, adr: 4.6 },
     compra: 100, maxRegistrado: 100 * (1 + pico / 100), stopPrevio: 0, dias: 20, requisitos: [],
     maxSerie: 100 * (1 + pico / 100) });
+  /* AL +15 %: no hay regla de beneficio (empieza en +20), pero el trailing SI protege. Dos dias de
+     rango por debajo de 115 son 104,42, y eso esta por encima de los 100 que pagaste: el stop se
+     va ahi y la posicion ya no puede acabar en perdida. Es el cambio del 05/11/2026; antes de el
+     esta misma posicion tenia el stop en 88 y podia devolver los 15 puntos enteros mas un 12 %. */
   const q = caso(15, 88);
   comprueba('al +15 % NO hay regla de beneficio', REGLAS.limiteDevolucion(15), null);
-  comprueba('y el stop sigue por debajo de tu compra (88 $)', q.stop, 88);
-  comprueba('pero el panel avisa de que faltan 5 puntos para tenerla',
-    q.avisos.some(a => a.codigo === 'ganancia-corta' && Math.abs(a.faltan - 5) < 0.01), true);
+  comprueba('pero el trailing deja el stop EN GANANCIA, no en los 88 $ de la EMA', q.stop > 100, true);
+  comprueba('y lo deja a dos días de rango del máximo (104,42 $)',
+    Math.abs(q.stop - 104.42) < 0.01, true);
+  comprueba('ya no avisa de ganancia sin proteger: está protegida',
+    q.avisos.some(a => a.codigo === 'ganancia-corta'), false);
 
+  /* AL +40 % manda el trailing, que es MAS APRETADO que la regla de beneficio: esta dejaria caer
+     hasta 120 $ (devolver la mitad) y el trailing saca a 127,12 $. Siete puntos mas en el bolsillo.
+     Las dos siguen vivas porque la de beneficio protege cuando el ADR se desploma y el trailing,
+     calculado sobre un ADR ya pequeño, se pegaria demasiado al precio. */
   const c = caso(40, 95);
-  comprueba('al +40 % el stop ya protege tu precio de compra', c.stop, 100);
+  comprueba('al +40 % el stop queda muy por encima de tu compra', c.stop > 100, true);
+  comprueba('y manda el trailing (127,12 $), no la EMA ni el suelo',
+    Math.abs(c.stop - 127.12) < 0.01, true);
   comprueba('y la regla de beneficio deja devolver la mitad', REGLAS.limiteDevolucion(40), 50);
-  /* Vende cuando ha devuelto el 50 % de 40 puntos: se sale con +20 %, a 120 $. */
+  comprueba('el trailing es el MAS APRETADO de los dos: 127,12 $ contra los 120 $ de la regla',
+    c.stop > 120, true);
+  /* Las dos reglas mandan vender a 119,9 $; la de beneficio sola habria esperado hasta ahi. */
   const vende = REGLAS.evaluaPosicion({ datos: { precio: 119.9, ema50: 95, ema21: 95, rsi: 60, adr: 4.6 },
     compra: 100, maxRegistrado: 140, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: 140 });
   comprueba('a 119,9 $ (+19,9 %) manda vender', codigos(vende).includes('devuelto'), true);
   comprueba('y te vas con ganancia, no con pérdida', vende.gan > 0, true);
+  /* A 125 $ la regla de beneficio todavia aguantaria, y el trailing ya no: sale con +25 % en vez
+     de esperar a que devuelva otros cinco puntos. Esto es exactamente lo que se gano el 05/11. */
   const aguanta = REGLAS.evaluaPosicion({ datos: { precio: 125, ema50: 95, ema21: 95, rsi: 60, adr: 4.6 },
     compra: 100, maxRegistrado: 140, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: 140 });
-  comprueba('a 125 $ (+25 %) todavía no vende', codigos(aguanta).includes('devuelto'), false);
-  comprueba('pero ya avisa de que está devolviendo',
-    aguanta.avisos.some(a => a.codigo === 'devolviendo'), true);
+  comprueba('a 125 $ (+25 %) la regla de beneficio aún no vendería',
+    codigos(aguanta).includes('devuelto'), false);
+  comprueba('pero el trailing SÍ vende, y se va con +25 % en mano',
+    codigos(aguanta).includes('stop'), true);
+  comprueba('y la posición queda cerrada, no en vigilar', aguanta.estado, 'vender');
+  /* Por encima del stop sigue mandando el aviso de que esta devolviendo. */
+  const vigila = REGLAS.evaluaPosicion({ datos: { precio: 127.5, ema50: 95, ema21: 95, rsi: 60, adr: 4.6 },
+    compra: 100, maxRegistrado: 140, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: 140 });
+  comprueba('a 127,5 $, justo encima del stop, avisa de que está devolviendo',
+    vigila.avisos.some(a => a.codigo === 'devolviendo'), true);
+  comprueba('y todavía no vende', vigila.motivos.length, 0);
 }
 
 console.log('\nAVISO: TIENES GANANCIA Y TODAVÍA NO HAY REGLA QUE LA PROTEJA');
@@ -426,13 +450,23 @@ console.log('\nAVISO: TIENES GANANCIA Y TODAVÍA NO HAY REGLA QUE LA PROTEJA');
   comprueba('al +4 % con ADR 4,6 no avisa: son menos de dos días de rango', tiene(ev(100, 104, 104, 4.6)), false);
   comprueba('y la posición sigue en MANTENER', ev(100, 104, 104, 4.6).estado, 'mantener');
   comprueba('al +10 % (2,2 días) sí avisa', tiene(ev(100, 110, 110, 4.6)), true);
-  comprueba('al +15 % también, y dice que faltan 5 puntos',
-    Math.abs(ev(100, 115, 115, 4.6).avisos.find(a => a.codigo === 'ganancia-corta').faltan - 5) < 0.01, true);
-  comprueba('y no vende', ev(100, 115, 115, 4.6).motivos.length, 0);
+  comprueba('y no vende', ev(100, 110, 110, 4.6).motivos.length, 0);
 
-  /* Es PROPORCIONAL a la volatilidad: en una accion tranquila un +4 % ya es una ganancia real. */
-  comprueba('en una acción tranquila (ADR 1,5) el +4 % sí avisa', tiene(ev(100, 104, 104, 1.5)), true);
-  comprueba('pero el +2 % no', tiene(ev(100, 102, 102, 1.5)), false);
+  /* LA FRANJA DEL AVISO ES ESTRECHA A PROPOSITO, y desde el trailing lo es mucho mas. El aviso dice
+     una cosa concreta: "tienes una ganancia de verdad (dos dias de rango) y NADA la protege". En
+     cuanto el trailing puede subir el stop por encima de tu compra deja de ser cierto, y el aviso
+     calla. Las dos lineas salen del mismo numero, 2 ADR, asi que la franja es de un punto o dos.
+     No es codigo muerto: es el borde exacto, y si alguien mueve una de las dos lineas sin la otra
+     estas comprobaciones lo cazan. */
+  comprueba('al +15 % ya NO avisa, porque el trailing lo protege', tiene(ev(100, 115, 115, 4.6)), false);
+  comprueba('y el stop de ese +15 % está en ganancia', ev(100, 115, 115, 4.6).stop > 100, true);
+
+  /* Es PROPORCIONAL a la volatilidad: en una accion tranquila un +4 % ya es una ganancia real, y
+     ahi el trailing llega antes todavia, asi que la protege sin pasar por el aviso. */
+  comprueba('en una acción tranquila (ADR 1,5) el +4 % ya está protegido',
+    ev(100, 104, 104, 1.5).stop > 100, true);
+  comprueba('y el +2 % ni avisa ni se protege: es ruido', tiene(ev(100, 102, 102, 1.5)), false);
+  comprueba('ese +2 % deja el stop donde estaba', ev(100, 102, 102, 1.5).stop, 85);
 
   comprueba('por encima del primer escalón no avisa: ahí ya hay regla', tiene(ev(100, 120, 122, 4.6)), false);
   /* Caso que distingue las dos condiciones del codigo: accion tan volatil que un pico del +22 %
@@ -441,15 +475,27 @@ console.log('\nAVISO: TIENES GANANCIA Y TODAVÍA NO HAY REGLA QUE LA PROTEJA');
   comprueba('sin ADR no se inventa el aviso', tiene(ev(100, 115, 115, null)), false);
   comprueba('y sin ganancia tampoco', tiene(ev(100, 98, 100, 4.6)), false);
 
-  /* NINGUNA BANDA MUDA entre dos dias de rango y el primer escalon: ese hueco (de ~9 % a 20 % con
-     ADR 4,6) existio unas horas el 05/11/2026 y lo encontro Borja preguntando por una al +15 %. */
+  /* NINGUNA BANDA DESPROTEGIDA entre dos dias de rango y el primer escalon: ese hueco (de ~9 % a
+     20 % con ADR 4,6) existio unas horas el 05/11/2026 y lo encontro Borja preguntando por una al
+     +15 %. Una ganancia real esta ATENDIDA si pasa cualquiera de estas tres cosas: hay regla de
+     beneficio, el stop esta por encima de lo que pagaste, o el panel avisa de que no hay ninguna
+     de las dos. Lo que no puede pasar nunca es ninguna de las tres. */
   {
     const mudas = [];
     for (let gm = 1; gm < 60; gm++) {
       const x = ev(100, 100 * (1 + gm / 100), 100 * (1 + gm / 100), 4.6);
-      if (REGLAS.limiteDevolucion(gm) == null && gm >= 2 * 4.6 && !tiene(x)) mudas.push(gm);
+      const atendida = REGLAS.limiteDevolucion(gm) != null || x.stop > 100 || tiene(x);
+      if (gm >= 2 * 4.6 && !atendida) mudas.push(gm);
     }
-    comprueba('ninguna ganancia real se queda sin regla Y sin aviso', mudas, []);
+    comprueba('ninguna ganancia real se queda sin regla, sin stop Y sin aviso', mudas, []);
+    /* Y la mitad del hueco que antes solo se avisaba ahora se PROTEGE de verdad. */
+    const protegidas = [];
+    for (let gm = 10; gm <= 19; gm++) {
+      const x = ev(100, 100 * (1 + gm / 100), 100 * (1 + gm / 100), 4.6);
+      if (x.stop > 100) protegidas.push(gm);
+    }
+    comprueba('del +11 % al +19 % el stop ya está en ganancia, no solo avisado',
+      protegidas, [11, 12, 13, 14, 15, 16, 17, 18, 19]);
   }
 }
 
