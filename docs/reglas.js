@@ -7,8 +7,28 @@
     perdidaMaxima: 15,      // % máximo que se arriesga desde el precio de compra
     gananciaProteger: 20,   // % de ganancia a partir del cual el stop sube al precio de compra
     rsiVenta: 45,           // por debajo de aquí, se acabaron los compradores
-    // Cuánto se le permite devolver de la ganancia máxima, según lo que haya llegado a ganar
-    devolucion: [{ desde: 100, limite: 40 }, { desde: 30, limite: 50 }],
+    /* Cuanto se le permite devolver de la ganancia maxima, segun lo que haya llegado a ganar.
+       ESCALON DE +20 % AÑADIDO EL 05/11/2026. Motivo medido, y no es un ajuste al pasado:
+
+       En 42 entradas el sistema habia cerrado 15 operaciones, LAS 15 EN PERDIDA, y cero por
+       devolucion. Nunca habia realizado una ganancia. La causa: el primer escalon estaba en +30 %
+       y solo 1 de 39 entradas (3 %) llega ahi. El pico mediano es +5,5 %. Era una regla de beneficio
+       calibrada para ganancias que este sistema casi nunca produce.
+
+       Por que +20 % y no +10 % o +15 %, que "mejoraban" mas la media: porque por debajo de ahi la
+       regla salta con el RUIDO. Estas acciones se mueven un 4,6 % al dia (ADR mediano), asi que dos
+       dias de movimiento normal son 9,3 puntos. Devolver el 50 % de un pico del +20 % son 10 puntos:
+       2,2 dias de rango, justo por encima del ruido. Con el pico en +15 % serian 7,5 puntos (1,6
+       dias) y con +10 %, 5 puntos (1,1 dias): saltaria sola sin que nada se hubiera roto. Es la
+       misma vara con la que el panel juzga si un stop es un nivel o una moneda al aire.
+
+       Y las que "mejoraban" mas la media lo hacian por DOS acciones (IOVA y TEAM): descontandolas,
+       ninguna mejoraba. Esta no se elige por el resultado, se elige porque es el escalon mas bajo
+       que no es ruido y porque cierra el hueco que habia entre la proteccion del coste (+20 %) y la
+       primera proteccion de beneficio (+30 %).
+       Efecto medido: CAI pasa de seguir abierta devolviendo 9,8 puntos a cerrarse en +8,1 %, la
+       primera ganancia realizada del sistema. No toca a FIGS (+46,5 %), CDNA ni HNGE. */
+    devolucion: [{ desde: 100, limite: 40 }, { desde: 30, limite: 50 }, { desde: 20, limite: 50 }],
     avisoDevolucion: 0.6,   // fracción del límite a la que se avisa (VIGILAR)
     lejosDeMaximo: 10,      // % por debajo del máximo de 52 semanas que convierte una compra en "esperar"
     /* Tope de concentracion: % maximo de la cartera en una sola posicion. Era 25 hasta el
@@ -124,8 +144,17 @@
          Por que no se arregla cambiando el umbral: bajar la devolucion al +20 % no mejora nada
          (-1,06 % -> -1,16 %) y bajarla al +15 % parece mejorar (-0,43 %) pero TODA la mejora es una
          sola accion, IOVA. Con 4 entradas por encima del +20 % no hay forma de calibrarlo. */
-      if (limite == null && alMenos(ganMax, R.gananciaProteger) && devuelto > 0)
-        avisos.push({ codigo: 'sin-red', devuelto, ganMax, gan, desde: R.devolucion[R.devolucion.length - 1].desde });
+      /* GANANCIA MAS PEQUEÑA QUE EL RUIDO. Con el escalon del +20 % ya no queda hueco entre la
+         proteccion del coste y la del beneficio, asi que este aviso cambia de sentido: ahora dice
+         lo que de verdad pasa por debajo de ese nivel. Una ganancia de +8 % en una accion que se
+         mueve un 4,6 % al dia son menos de dos dias de rango, y NO HAY regla capaz de protegerla:
+         por debajo de dos dias cualquier regla salta con el movimiento normal, y por encima
+         devuelve la ganancia entera antes de dispararse. No es un fallo del panel, es el tamaño de
+         la ganancia frente a su volatilidad, y conviene saberlo antes de contar ese dinero. */
+      const adr = num(datos.adr);
+      if (limite == null && ganMax > 0 && adr && ganMax < 2 * adr)
+        avisos.push({ codigo: 'ganancia-corta', ganMax, gan, adr, dias: ganMax / adr,
+                      desde: R.devolucion[R.devolucion.length - 1].desde });
       if (ema21 != null && precio < ema21) avisos.push({ codigo: 'ema21', ema21 });
     }
     return { estado: motivos.length ? 'vender' : avisos.length ? 'vigilar' : 'mantener',

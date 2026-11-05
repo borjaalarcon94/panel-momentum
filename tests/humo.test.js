@@ -1384,9 +1384,15 @@ for (const f of orden) {
   const lim = (maxVisto, compra) => ventana.REGLAS.limiteDevolucion((maxVisto / compra - 1) * 100);
   lim(26, 10) === 40 ? ok('con medio 10 $ y máximo 26 $ (+160 %) el límite es devolver el 40 %') : mal('el límite con 10 $ no cuadra', String(lim(26, 10)));
   lim(26, 20) === 50 ? ok('con medio 20 $ (+30 %) pasa a ser el 50 %') : mal('el límite con 20 $ no cuadra', String(lim(26, 20)));
-  lim(26, 21) === null
-    ? ok('y con medio 21 $ (+23,8 %) la regla deja de aplicarse: manda solo el stop')
-    : mal('la regla de devolución no se desactiva', String(lim(26, 21)));
+  /* El umbral mas bajo es +20 % desde el 05/11/2026 (antes +30 %), asi que hace falta subir mas el
+     precio medio para desactivarla: con 22 $ el maximo de 26 $ es solo un +18,2 %. El efecto que
+     esta prueba vigila -promediar al alza puede dejarte sin regla de beneficio- sigue igual. */
+  lim(26, 22) === null
+    ? ok('y con medio 22 $ (+18,2 %) la regla deja de aplicarse: manda solo el stop')
+    : mal('la regla de devolución no se desactiva', String(lim(26, 22)));
+  lim(26, 21) === 50
+    ? ok('con 21 $ (+23,8 %) todavía protege, gracias al escalón del 20 %')
+    : mal('el escalón del 20 % no está protegiendo', String(lim(26, 21)));
 
   const apSrc = fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8');
   /Tu stop'/.test(apSrc) && /stopDe\(r\.a \|\| \{ precio: r\.ahora \}, np\.precio/.test(apSrc)
@@ -2527,6 +2533,50 @@ for (const f of orden) {
     f.slice(1).every(r => typeof r[iv] === 'string' && /[A-Za-zÁ-ú]/.test(r[iv]))
       ? ok('y bajo «Veredicto» hay veredictos, no números de la columna de al lado')
       : mal('las columnas del CSV están desplazadas', JSON.stringify(f[1].slice(0, 8)));
+  }
+
+  /* LA TABLA DE PARÁMETROS LEE LOS UMBRALES, NO LOS TIENE ESCRITOS.
+
+     integridad.test.js comprobaba esto leyendo el CODIGO FUENTE y buscando o el literal o la
+     derivacion. Tenia un agujero: buscaba en todo el fichero, asi que una linea derivada tapaba
+     otra escrita a mano. El 05/11/2026 aparecieron asi cuatro umbrales a mano que llevaban meses
+     ahi ("sin arriesgar nunca mas de un 15 %", "la EMA 50 queda a menos de un 15 %", "superado el
+     20 % de ganancia", "RSI por debajo de 45").
+     La prueba que no se puede enganar es esta: CAMBIAR el umbral y ver si el texto lo sigue. */
+  console.log('\nLA TABLA DE PARÁMETROS SIGUE A LOS UMBRALES DE reglas.js');
+  {
+    const R0 = ventana.REGLAS.R;
+    const render = () => { ventana.parametros();
+      return (function leerP(x) { return (x.textContent || '') + ' ' + (x.hijos || []).map(leerP).join(' ') })(porId.rpar); };
+    const antes = render();
+    const originales = { perdidaMaxima: R0.perdidaMaxima, gananciaProteger: R0.gananciaProteger,
+                         rsiVenta: R0.rsiVenta, lejosDeMaximo: R0.lejosDeMaximo };
+    /* Con "¿aparece el 77?" no basta: un umbral sale en VARIAS filas y bastaba con que una siguiera
+       derivada para que la comprobacion pasara con las demas a mano. Se miran TODAS las apariciones:
+       cada frase que habla de ese umbral tiene que llevar el valor nuevo, ninguna el viejo. */
+    const frases = {
+      perdidaMaxima: [/arriesgar nunca más de un (\d+) %/g, /EMA 50 queda a (?:menos|más) de(?:l)? (?:un )?(\d+) %/g,
+                      /ha caído un (\d+) % o más desde su máximo/g],
+      gananciaProteger: [/superado el (\d+) % de ganancia/g],
+      rsiVenta: [/RSI por debajo de (\d+)/g],
+      lejosDeMaximo: [/más de un (\d+) % de su máximo de 52 semanas/g],
+    };
+    for (const [k, v] of Object.entries(originales)) {
+      R0[k] = 77;
+      const t = render();
+      R0[k] = v;
+      const vistos = [];
+      for (const re of frases[k]) for (const m of t.matchAll(re)) vistos.push(m[1]);
+      const viejos = vistos.filter(x => x !== '77');
+      vistos.length === 0
+        ? mal('no se encuentra ninguna frase de ' + k + ' en la tabla: la prueba no comprueba nada')
+        : viejos.length === 0
+          ? ok('las ' + vistos.length + ' menciones de ' + k + ' siguen a reglas.js (' + v + ' → 77)')
+          : mal(viejos.length + ' de ' + vistos.length + ' menciones de ' + k + ' están escritas a mano',
+                'siguen diciendo ' + viejos.join(', '));
+    }
+    render();
+    antes.length > 500 ? ok('y la tabla se vuelve a pintar entera al restaurar') : mal('la tabla no se restaura');
   }
 
   console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);

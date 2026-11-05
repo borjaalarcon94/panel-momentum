@@ -22,7 +22,12 @@ const codigos = r => r.motivos.map(m => m.codigo);
 
 console.log('\nLÍMITE DE DEVOLUCIÓN SEGÚN LO GANADO');
 comprueba('con +10 % no se aplica (manda el stop)', REGLAS.limiteDevolucion(10), null);
-comprueba('con +29 % tampoco', REGLAS.limiteDevolucion(29), null);
+/* Desde el 05/11/2026 hay un escalon en +20 %: con +29 % SI hay limite. El motivo, en reglas.js:
+   el primero estaba en +30 % y solo 1 de 39 entradas llegaba ahi, asi que el sistema habia cerrado
+   15 operaciones, las 15 en perdida, y ninguna por devolucion. */
+comprueba('con +19 % tampoco (sigue mandando el stop)', REGLAS.limiteDevolucion(19), null);
+comprueba('pero con +20 % ya hay límite', REGLAS.limiteDevolucion(20), 50);
+comprueba('y con +29 % también', REGLAS.limiteDevolucion(29), 50);
 comprueba('con +30 % se vende al devolver la mitad', REGLAS.limiteDevolucion(30), 50);
 comprueba('con +99 %, la mitad', REGLAS.limiteDevolucion(99), 50);
 comprueba('con +100 % se protege más: 40 %', REGLAS.limiteDevolucion(100), 40);
@@ -53,11 +58,15 @@ comprueba('RSI por debajo de 45: vender',
    no vendia y tampoco decia nada, aunque la posicion llevase 13 puntos devueltos desde su maximo.
    Lo que importa sigue siendo que NO VENDE con una ganancia pequeña; que ademas avise es el arreglo,
    no una regresion. Se comprueban las dos cosas por separado. */
+/* Antes esta comprobacion exigia que NO vendiera: era el agujero. Subir un 25 % y devolver la
+   mitad son 12,5 puntos, casi tres dias de rango de estas acciones: no es ruido, es que se ha dado
+   la vuelta. Desde el escalon del +20 % se vende, y es la primera toma de beneficio del sistema. */
 {
   const ev25 = evalua({ datos: { precio: 112, ema50: 100, ema21: 108, rsi: 60 }, compra: 100, maxRegistrado: 125 });
-  comprueba('subió 25 % y devolvió la mitad: NO vende (ganancia pequeña)', ev25.motivos.length, 0);
-  comprueba('...pero ahora avisa de que está en el tramo sin red',
-    ev25.avisos.map(a => a.codigo).includes('sin-red'), true);
+  comprueba('subió 25 % y devolvió la mitad: AHORA SÍ vende', codigos(ev25).includes('devuelto'), true);
+  comprueba('y lo hace en ganancia, no en pérdida', ev25.gan > 0, true);
+  const ev19 = evalua({ datos: { precio: 109, ema50: 100, ema21: 108, rsi: 60 }, compra: 100, maxRegistrado: 119 });
+  comprueba('pero con un pico de +19 % no vende: ahí la devolución sería ruido', codigos(ev19).includes('devuelto'), false);
 }
 comprueba('subió 60 % y devolvió la mitad: vender',
   codigos(evalua({ datos: { precio: 130, ema50: 105, rsi: 60 }, compra: 100, maxRegistrado: 160 })).includes('devuelto'), true);
@@ -368,56 +377,37 @@ console.log('\nRECORRIDO DE UNA ENTRADA');
   comprueba('sin sesiones tampoco', [r9.ret, r9.vistos], [null, 0]);
 }
 
-/* EL TRAMO SIN RED: entre +20 % y +30 % ninguna regla asegura ganancia.
+/* AVISO DE GANANCIA MAS PEQUEÑA QUE EL RUIDO.
 
-   El stop ya solo protege el COSTE (sube al precio de compra al superar el 20 %) y la devolucion no
-   entra hasta el 30 %. Una posicion que llego a +29 % puede volver a 0 % sin que el sistema diga
-   una palabra. Lo pregunto Borja el 05/11/2026 y era cierto: 3 de sus 4 entradas por encima del
-   +20 % estaban ahi, y CAI habia devuelto 9,8 puntos en silencio.
-
-   El aviso NO vende, NO mueve el stop y NO cambia la nota: dice en voz alta algo que el sistema
-   hacia callado. Por eso se prueba que SOLO avisa, y que no se cuela donde ya hay regla. */
-console.log('\nEL AVISO DEL TRAMO SIN RED');
+   Con el escalon del +20 % ya no hay hueco entre la proteccion del coste y la del beneficio. Lo que
+   queda por debajo es otra cosa, y es el hallazgo del 05/11/2026: estas acciones se mueven un 4,6 %
+   al dia y el pico mediano de una entrada es +5,5 %, o sea 1,2 dias de movimiento. Una ganancia asi
+   NO SE PUEDE proteger: por debajo de dos dias de rango cualquier regla salta sola, y por encima la
+   devuelve entera antes de dispararse. El aviso lo dice; no vende ni mueve el stop. */
+console.log('\nAVISO DE GANANCIA MÁS PEQUEÑA QUE EL RUIDO');
 {
-  const ev = (compra, hoy, max, extra) => REGLAS.evaluaPosicion({
-    datos: { precio: hoy, ema50: compra * 0.8, ema21: compra * 0.8, rsi: 60, ...(extra || {}) },
+  const ev = (compra, hoy, max, adr) => REGLAS.evaluaPosicion({
+    datos: { precio: hoy, ema50: compra * 0.8, ema21: compra * 0.8, rsi: 60, adr },
     compra, maxRegistrado: max, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: max });
-  const codigos = x => x.avisos.map(a => a.codigo);
+  const cods = x => x.avisos.map(a => a.codigo);
 
-  // En el tramo y devolviendo: avisa.
-  const dentro = ev(100, 115, 122);        // llego a +22 %, esta en +15 %
-  comprueba('en el tramo +20/+30 y devolviendo, avisa', codigos(dentro).includes('sin-red'), true);
-  comprueba('y no manda vender', dentro.estado, 'vigilar');
-  comprueba('y el stop no se mueve por el aviso', dentro.stop, 100);
+  const corta = ev(100, 108, 108, 4.6);     // pico +8 %, ADR 4,6 -> 1,7 dias
+  comprueba('ganancia de 1,7 días de rango: avisa', cods(corta).includes('ganancia-corta'), true);
+  comprueba('y no vende', corta.motivos.length, 0);
+  comprueba('el aviso dice cuántos días de rango es', Math.abs(corta.avisos.find(a => a.codigo === 'ganancia-corta').dias - 8 / 4.6) < 0.01, true);
 
-  // En el tramo pero SIN devolver nada: no molesta.
-  comprueba('en el tramo pero en maximos, no avisa',
-    codigos(ev(100, 122, 122)).includes('sin-red'), false);
-
-  // Por debajo del +20 %: el stop todavia protege con el suelo, no es el mismo caso.
-  comprueba('por debajo del +20 % no avisa (ahi manda el stop)',
-    codigos(ev(100, 110, 118)).includes('sin-red'), false);
-
-  // Por encima del +30 %: YA hay regla, el aviso que toca es el de siempre.
-  const arriba = ev(100, 118, 135);        // llego a +35 %, devuelto el 48,6 %
-  comprueba('por encima del +30 % no sale "sin-red"', codigos(arriba).includes('sin-red'), false);
-  comprueba('sale el aviso de devolución de siempre', codigos(arriba).includes('devolviendo'), true);
-
-  // Justo en las fronteras.
-  comprueba('justo en +' + R.gananciaProteger + ' % ya entra en el tramo',
-    codigos(ev(100, 115, 100 * (1 + R.gananciaProteger / 100))).includes('sin-red'), true);
-  const primerEscalon = R.devolucion[R.devolucion.length - 1].desde;
-  comprueba('y en +' + primerEscalon + ' % ya no, porque ahí empieza la devolución',
-    codigos(ev(100, 115, 100 * (1 + primerEscalon / 100))).includes('sin-red'), false);
-
-  // Si hay motivo de venta, los avisos se callan: el aviso no puede tapar un VENDER.
-  comprueba('con el stop perdido no hay avisos, hay venta',
-    ev(100, 95, 125, { ema50: 110 }).estado, 'vender');
-
-  // El aviso lleva los datos que el texto necesita (el texto vive en app.js y se prueba en humo).
-  const av = dentro.avisos.find(a => a.codigo === 'sin-red');
-  comprueba('el aviso lleva cuánto ha devuelto y desde dónde',
-    [av.ganMax > av.gan, av.devuelto > 0, av.desde === primerEscalon], [true, true, true]);
+  comprueba('con la misma ganancia pero una acción tranquila (ADR 1,5) NO avisa: ahí sí se puede proteger',
+    cods(ev(100, 108, 108, 1.5)).includes('ganancia-corta'), false);
+  comprueba('por encima del +20 % tampoco avisa: ahí ya hay regla de devolución',
+    cods(ev(100, 120, 122, 4.6)).includes('ganancia-corta'), false);
+  /* El caso que distingue las DOS condiciones: una accion tan volatil (ADR 12 %) que un pico del
+     +22 % sigue siendo menos de dos dias de rango... pero que YA tiene regla de devolucion. Ahi no
+     se avisa, porque el aviso es para cuando no hay regla. Sin este caso, quitar el "limite == null"
+     del codigo pasaba sin que nada fallase. */
+  comprueba('ni siquiera en una acción tan volátil que el +22 % sean 1,8 días: ahí ya hay regla',
+    cods(ev(100, 120, 122, 12)).includes('ganancia-corta'), false);
+  comprueba('sin ADR no se inventa el aviso', cods(ev(100, 108, 108, null)).includes('ganancia-corta'), false);
+  comprueba('y sin ganancia tampoco', cods(ev(100, 98, 100, 4.6)).includes('ganancia-corta'), false);
 }
 
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);

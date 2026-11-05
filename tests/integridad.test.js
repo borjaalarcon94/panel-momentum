@@ -79,14 +79,23 @@ tope && par.includes('limitada a −' + tope + ' puntos')
 // Los umbrales de venta de la tabla tienen que salir de reglas.js
 const R = {};
 for (const m of reg.matchAll(/(perdidaMaxima|gananciaProteger|rsiVenta|lejosDeMaximo):\s*(\d+)/g)) R[m[1]] = m[2];
-par.includes('más de un ' + R.perdidaMaxima + ' % desde tu precio de compra')
-  ? ok('el ' + R.perdidaMaxima + ' % de pérdida máxima coincide con reglas.js') : mal('la pérdida máxima de la tabla no es la de reglas.js');
-par.includes('superado el ' + R.gananciaProteger + ' % de ganancia')
-  ? ok('el ' + R.gananciaProteger + ' % de protección del coste coincide') : mal('la protección del coste no coincide');
-par.includes('RSI por debajo de ' + R.rsiVenta)
-  ? ok('el RSI de venta (' + R.rsiVenta + ') coincide') : mal('el RSI de venta no coincide');
-par.includes('más de un ' + R.lejosDeMaximo + ' % de su máximo')
-  ? ok('el ' + R.lejosDeMaximo + ' % de distancia al máximo coincide') : mal('la distancia al máximo no coincide');
+/* Estas cuatro comprobaciones leian el LITERAL en el codigo fuente de parametros.js. El 05/11/2026,
+   al derivarlos todos de reglas.js, se cayeron: el literal ya no esta. Derivar es una garantia MAS
+   fuerte que coincidir -no puede divergir nunca-, asi que se acepta cualquiera de las dos formas, y
+   se exige que al menos una se cumpla. Lo que no se acepta es un numero distinto escrito a mano. */
+const dice = (clave, frase) => {
+  const v = R[clave];
+  const derivado = new RegExp("Rg\\." + clave + "\\s*\\|\\|\\s*" + v).test(par);
+  return derivado || par.includes(frase.replace('{v}', v));
+};
+dice('perdidaMaxima', 'más de un {v} % desde tu precio de compra')
+  ? ok('el ' + R.perdidaMaxima + ' % de pérdida máxima sale de reglas.js') : mal('la pérdida máxima de la tabla no es la de reglas.js');
+dice('gananciaProteger', 'superado el {v} % de ganancia')
+  ? ok('el ' + R.gananciaProteger + ' de protección del coste sale de reglas.js') : mal('protección del coste no coincide');
+dice('rsiVenta', 'RSI por debajo de {v}')
+  ? ok('el ' + R.rsiVenta + ' de RSI de venta sale de reglas.js') : mal('RSI de venta no coincide');
+dice('lejosDeMaximo', 'más de un {v} % de su máximo')
+  ? ok('el ' + R.lejosDeMaximo + ' de distancia al máximo sale de reglas.js') : mal('distancia al máximo no coincide');
 
 /* Las horas que anuncia la tabla tienen que ser las del workflow, TODAS. Antes solo se comprobaba
    la primera, asi que las dos repescas podian decir cualquier cosa o no existir. Y la tabla ahora
@@ -271,7 +280,24 @@ console.log('\nLAS REGLAS DE PROTECCIÓN ESTÁN DICHAS CON SUS NÚMEROS');
 }
 
 console.log('\nLAS REGLAS NO ESTÁN DUPLICADAS');
-const sospechosos = [['perdidaMaxima', /\b15\b.*p[eé]rdida|p[eé]rdida.*\b15\b/i], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/],
+/* El patron de perdidaMaxima buscaba un "15" cerca de la palabra "perdida" EN CUALQUIER FORMA, y el
+   05/11/2026 dio un falso positivo con una frase que hablaba de "15 operaciones, las 15 en perdida"
+   -el numero de operaciones, no el umbral-. Un test que salta con el texto correcto se acaba
+   ignorando, que es peor que no tenerlo. Ahora exige el 15 CON su simbolo de porcentaje, que es la
+   unica forma en que un umbral duplicado puede aparecer. */
+/* Y buscar "15 %" cerca de "perdida" tampoco bastaba: el texto real del stop decia "un 15 % desde
+   tu precio de compra", sin la palabra perdida en 40 caracteres, y llevaba meses escrito a mano sin
+   que nada lo viera. Ahora se busca el VALOR del umbral junto a un %, en cualquier contexto, que es
+   la unica forma de que un umbral duplicado pase inadvertido. */
+/* Un "15 %" a secas no sirve: en parametros.js hay otros umbrales que valen 15 (margen bruto,
+   dilucion) y comentarios que lo mencionan. El patron va a las FRASES que significan este umbral
+   concreto. Es heuristico y se queda corto por construccion: la red de verdad son las
+   comprobaciones de mas arriba, que leen el valor de reglas.js y exigen que aparezca en el texto.
+   Aun asi, este patron encontro el 05/11/2026 tres duplicados escritos a mano que llevaban meses
+   ahi: "sin arriesgar nunca mas de un 15 %", "la EMA 50 queda a menos de un 15 %" y "ha caido un
+   15 % o mas desde su maximo". */
+const faltaDeriv = new RegExp('(arriesgar|EMA 50 queda a (menos|más) de|ha caído un)[^\'"]{0,30}' + R.perdidaMaxima + '\\s*%');
+const sospechosos = [['perdidaMaxima', faltaDeriv], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/],
   /* El tope de concentracion estaba escrito a mano en app.js (Math.min(..., 25)) y descrito "como un
      cuarto de la cartera" en hoy.js. Al bajarlo del 25 al 12 habia que tocar tres sitios y acordarse
      de los tres: ahora vive en reglas.js y nadie mas puede poner un numero ahi. */

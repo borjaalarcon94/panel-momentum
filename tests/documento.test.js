@@ -52,7 +52,9 @@ t('ganMax 150 -> 40 %', RG.limiteDevolucion(150)===40);
 t('ganMax exactamente 100 -> 40 %', RG.limiteDevolucion(100)===40);
 t('ganMax 99 -> 50 %', RG.limiteDevolucion(99)===50);
 t('ganMax exactamente 30 -> 50 %', RG.limiteDevolucion(30)===50);
-t('ganMax 29 -> null (manda solo el stop)', RG.limiteDevolucion(29)===null);
+t('ganMax exactamente 20 -> 50 % (escalon del 05/11/2026)', RG.limiteDevolucion(20)===50);
+t('ganMax 29 -> 50 %', RG.limiteDevolucion(29)===50);
+t('ganMax 19 -> null (manda solo el stop)', RG.limiteDevolucion(19)===null);
 
 console.log('\n§3.3 motivos se ACUMULAN y los avisos se callan si hay motivos');
 let ev=RG.evaluaPosicion({datos:{precio:60,ema50:70,ema21:65,rsi:30},compra:100,maxRegistrado:200,

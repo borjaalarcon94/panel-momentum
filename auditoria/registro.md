@@ -3169,3 +3169,67 @@ nadie las estaba mirando. Es la tercera vez que cometo este error exacto.
 Ya no depende de que me acuerde: `integridad.test.js` recorre todos los `*.test.js` y falla si hay
 una sola llamada a `comprueba`/`ok`/`mal` **después de la línea del resumen**. Probado contra la
 propia regresión.
+
+## 05/11/2026 (4) · «Cero ganancias realizadas»: el escalón del +20 %
+
+Borja: *«¿cómo puede ser que haya acciones con casi un 50 % de upside y sigamos sin sacar beneficio?
+Eso hay que pulirlo ya.»* Tenía razón, y el dato es contundente.
+
+### El hecho
+
+**15 operaciones cerradas. 15 pérdidas. Cero ganancias realizadas en 42 entradas.** Media de las
+cerradas: **−15,03 %**. Cero salidas por devolución. Y 197 puntos de beneficio flotando en 19
+posiciones abiertas.
+
+### La causa, medida
+
+La devolución empezaba en el **+30 %**, y de 39 entradas con recorrido **solo 1 (3 %) llega ahí**.
+Pico mediano: **+5,5 %**; p75 +12,3 %; p90 +22,3 %. Era una regla de beneficio calibrada para
+ganancias que este sistema casi nunca produce. De las 8 ganadoras abiertas, **7 no tenían ninguna
+regla de beneficio**: solo el stop, que como mucho las saca a su precio de compra.
+
+### Por qué +20 % y no +10 ni +15, que «mejoran» más
+
+Porque por debajo del +20 % **la regla salta con el ruido**. ADR mediano de las seguidas: **4,6 % al
+día**, o sea 9,3 puntos en dos sesiones. Devolver la mitad de un pico del +20 % son 10 puntos:
+**2,2 días de rango**. Con el pico en +15 % serían 1,6 días, y con +10 %, 1,1: saltaría sola sin que
+nada se hubiera roto. Es la misma vara con la que el panel juzga si un stop es un nivel o una moneda
+al aire.
+
+Y porque las variantes más bajas «mejoran» la media **por dos acciones**: descontando IOVA y TEAM,
+ninguna mejora. Esta no se elige por el resultado: se elige por ser el escalón más bajo que no es
+ruido, y porque cierra el hueco entre la protección del coste (+20 %) y la del beneficio (+30 %).
+
+**Efecto medido:** CAI pasa de seguir abierta devolviendo 9,8 puntos a cerrarse en **+8,1 %** — la
+primera ganancia realizada del sistema. Media −1,06 % → −1,16 %. No toca a FIGS (+46,5 %), CDNA ni
+HNGE. Lo digo claro: **esto no mejora la rentabilidad medida; hace que el sistema realice ganancias
+en vez de solo pérdidas, al coste de 0,1 pt.** Con 39 entradas no se puede demostrar más.
+
+### Lo que descubrí y NO se puede arreglar
+
+Probé también una regla por días de rango (el candidato que estaba anotado desde octubre): **cero
+ganancias realizadas en todas sus variantes.** La razón es el hallazgo de fondo:
+
+> El pico típico de una entrada es **+5,5 %** y la acción se mueve **4,6 % al día**: la ganancia
+> típica son **1,2 días de movimiento normal**. Eso **no se puede proteger**: por debajo de dos días
+> cualquier regla salta sola, y por encima devuelve la ganancia entera antes de dispararse.
+
+Solo 13 de 39 entradas superan ese umbral de dos días. No es un fallo de las reglas de venta: es el
+tamaño de las ganancias frente a su volatilidad. El aviso `ganancia-corta` lo dice con los días
+exactos en vez de callarse.
+
+### Cuatro umbrales escritos a mano, descubiertos de rebote
+
+Al tocar el texto saltó un falso positivo del test de duplicados, y al apretar el patrón aparecieron
+**cuatro umbrales escritos a mano en Parámetros** que llevaban meses ahí sin que nada los viera:
+«sin arriesgar nunca más de un 15 %», «la EMA 50 queda a menos de un 15 %», «superado el 20 % de
+ganancia» y «RSI por debajo de 45». Derivados todos.
+
+**Y la comprobación que los vigilaba tenía un agujero**: leía el código fuente y buscaba *o* el
+literal *o* la derivación **en todo el fichero**, así que una línea derivada tapaba a otra a mano.
+Sustituida por la única prueba que no se puede engañar: **cambiar el umbral a 77 y exigir que las
+24 menciones de perdidaMaxima, las 12 de rsiVenta, las 6 de gananciaProteger y las 6 de
+lejosDeMaximo lo sigan**. Ninguna puede quedarse atrás.
+
+**Pruebas:** 20 nuevas. **18 mutaciones probadas, las 18 detectadas**, incluidas las cuatro de
+«volver a escribir el umbral a mano en una sola fila».

@@ -192,8 +192,22 @@ día el motivo registrado es `stop`.
 limiteDevolucion(ganMax):
     si alMenos(ganMax, 100):  devolver 40      # ha doblado: se le permite devolver el 40 %
     si alMenos(ganMax,  30):  devolver 50      # entre +30 % y +100 %: la mitad
-    si no:                    devolver null    # por debajo de +30 % manda SOLO el stop
+    si alMenos(ganMax,  20):  devolver 50      # desde el 05/11/2026 (ver abajo)
+    si no:                    devolver null    # por debajo de +20 % manda SOLO el stop
 ```
+
+**El escalón del +20 % y por qué está ahí.** Hasta el 05/11/2026 el primero estaba en +30 %, y el
+resultado medido sobre 42 entradas fue que el sistema había cerrado **15 operaciones, las 15 en
+pérdida, y ninguna por devolución**: nunca había realizado una ganancia. La causa es que solo 1 de
+39 entradas (3 %) llega al +30 %, con un pico mediano de **+5,5 %**. Era una regla de beneficio
+calibrada para ganancias que el sistema casi nunca produce.
+
+Y por qué **+20 % y no más abajo**, aunque bajarlo más «mejore» la media: porque por debajo de ahí
+la regla salta con el **ruido**. Estas acciones se mueven un **4,6 % al día** (ADR mediano), así que
+dos días de movimiento normal son 9,3 puntos. Devolver el 50 % de un pico del +20 % son 10 puntos:
+2,2 días de rango, justo por encima del ruido. Con el pico en +15 % serían 7,5 puntos (1,6 días) y
+con +10 %, 5 puntos (1,1 días) — saltaría sola sin que nada se hubiera roto. Es la misma vara con la
+que el panel juzga si un stop es un nivel o una moneda al aire.
 
 ### 3.2 La ganancia máxima alcanzada
 
@@ -239,10 +253,9 @@ evaluaPosicion(datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasR
       un-requisito    si fallos == 1
       devolviendo     si limite != null y alMenos(devuelto, limite * 0,6)
       ema21           si ema21 != null y precio < ema21
-      sin-red         si limite == null y alMenos(ganMax, 20) y devuelto > 0
-                      -> el tramo entre +20 % y +30 % donde NINGUNA regla asegura ganancia:
-                         el stop ya solo protege el precio de compra y la devolución no entra
-                         todavía. No vende; solo avisa, con los puntos devueltos desde el máximo.
+      ganancia-corta  si limite == null y ganMax > 0 y adr y ganMax < 2 * adr
+                      -> la ganancia es más pequeña que dos días del movimiento normal de esa
+                         acción, así que NINGUNA regla puede protegerla. No vende; solo avisa.
 
     estado = 'vender'   si hay motivos
              'vigilar'  si no, y hay avisos
@@ -260,7 +273,7 @@ evaluaPosicion(datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasR
 | Aviso de devolución | al **60 %** del límite | avisa antes de vender |
 | Aviso de EMA 21 | `precio < ema21` | primera señal de debilidad |
 | Aviso de resultados | **≤ 10 días** | puede abrir con un hueco que el stop no evita |
-| **Aviso del tramo sin red** | ganancia máxima entre **+20 %** y **+30 %**, y algo devuelto | ahí no hay regla que asegure ganancia: conviene saberlo |
+| **Aviso de ganancia corta** | ganancia máxima **menor que 2 × ADR** y por debajo del primer escalón | una ganancia más pequeña que dos días de su propio movimiento **no se puede proteger**: por debajo de dos días de rango cualquier regla salta sola, y por encima la devuelve entera antes de dispararse |
 
 **Perder la EMA 50 no es una regla aparte.** El stop es `max(EMA 50, …)`, así que si el precio
 pierde la EMA 50 ya está por debajo del stop y lo coge la primera rama. En el panel había una rama
