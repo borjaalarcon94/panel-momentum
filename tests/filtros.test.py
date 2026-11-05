@@ -362,6 +362,13 @@ try:
     # La nota del dia de entrada: es lo unico del registro que NO se puede recalcular mas tarde, porque
     # necesita los fundamentales de aquel dia. Si el recalculo la deja a None, la pregunta de noviembre
     # "¿sirve de algo la puntuacion?" se queda sin datos y no hay forma de recuperarla.
+    # El SECTOR de cada entrada. Preguntas como "¿las biotecnologicas van peor?" (Borja, 04/11/2026)
+    # no se pueden contestar sin el, y rebuscarlo en docs/datos solo funciona mientras ese dia siga
+    # archivado. Se guarda una vez, el dia que la accion entra.
+    comprueba("el recálculo guarda el sector de cada entrada",
+              sum(1 for v in _limpio.values() if v.get("sec")) == len(_limpio), True)
+    comprueba("y la industria", sum(1 for v in _limpio.values() if v.get("ind")) == len(_limpio), True)
+
     comprueba("el recálculo guarda la puntuación del día de entrada",
               sum(1 for v in _limpio.values() if v.get("sc") is not None) == len(_limpio), True)
     comprueba("y el precio y el índice de aquel día",

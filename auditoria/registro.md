@@ -2952,3 +2952,59 @@ de presupuesto en uno, decidido por Borja a cambio de no dejar otro hueco perman
 («la media no puede promediar más de 40 entradas»). Al pasar el registro de 39 a 41 con el día
 recuperado, se rompió. Un tope arbitrario caduca solo; ahora comprueba la **relación**: las que se
 promedian son las medibles menos las que entran hoy (39 = 41 − 2).
+
+## 04-05/11/2026 · Dos filtros de entrada propuestos: medidos, no adoptados
+
+Borja propone: (1) evitar biotecnológicas que hayan caído más de un 20 % con los índices aguantando;
+(2) evitar las que tengan un catalizador binario a menos de una semana, y admitirlas cuando pase.
+
+### Filtro 1: habría excluido CERO entradas
+
+En las 21 sesiones guardadas solo ha habido **dos** caídas de más del 20 % en una sesión con el S&P
+aguantando: **XRPN** (−29,4 % el 09/10) e **IOVA** (−35,4 % el 29/10). **Ninguna de las dos entró al
+top después de su caída**, así que el filtro no habría quitado ni una sola entrada.
+
+El motivo es que **los 9 requisitos ya lo hacen**: RSI > 55, precio sobre la media de 200 días,
+EMA 9 > EMA 50 y a menos del 20 % de su máximo. Una acción que acaba de caer un 20 % falla casi
+todos.
+
+**Y la que motiva la idea no la habría evitado:** IOVA entró el 07/10 y se desplomó el **29/10**. La
+caída fue *después* de entrar. Un filtro sobre caídas pasadas no ve una caída futura.
+
+### El sector entero va MEJOR, no peor
+
+| | n | Media | Mediana | Peor |
+|---|---|---|---|---|
+| Biotech / farma | 16 | **−0,05 %** | **+0,17 %** | −26,0 % (IOVA) |
+| El resto | 24 | −2,93 % | −5,49 % | −21,0 % (COHU) |
+
+Excluirlas habría empeorado la media de −1,78 % a −2,93 % y costado **16 de 40** entradas, **CDNA
+incluida** (+26,7 %), que es la que sostiene toda la cartera simulada.
+
+**La cola tampoco lo sostiene:** σ diaria 5,06 (biotech) contra 4,70 (resto), mediana diaria +0,39
+contra −0,13. Las caídas de más del 20 % en un día son 0,60 % de los días en biotech contra 0,22 %
+en el resto — ratio 2,8x, pero es **un solo evento en cada grupo**: 1 de 166 contra 1 de 462. No
+permite concluir nada.
+
+### Filtro 2: el panel no tiene ese dato
+
+Los catalizadores binarios de una biotecnológica son fechas **PDUFA** y lecturas de ensayos. El
+panel **no los tiene**: TradingView da la fecha de *resultados*, no la de la FDA. Conseguirlos exige
+otra fuente, o sea llamadas nuevas, y el presupuesto son 4 al día.
+
+De la versión que sí se puede medir —resultados a menos de 7 días— hay 4 entradas (KDP, FLYW, HNI,
+TGTX): evitarlas mueve la media **+0,04 pt** y cuesta 4 de 40. Con n=4, y con sus resultados aún sin
+publicar, no dice nada. **Tampoco habría evitado IOVA**, cuyos resultados estaban a 7 días cuando se
+desplomó por una noticia.
+
+### Lo que sí se hace
+
+Nada del algoritmo. Lo único que protege de una noticia imprevisible es **el tamaño de la posición**,
+y eso ya se cambió el 30/10: con el tope del 12 %, un hueco como el de IOVA cuesta −4,25 % de la
+cartera en vez de −8,85 %.
+
+Y se añade al registro permanente el **sector y la industria** de cada entrada (`entradas.json` →
+`sec`, `ind`), rellenado hacia atrás en las 42 ya anotadas. Sin eso, cualquier pregunta por sector
+hay que responderla rebuscando en `docs/datos` y solo mientras ese día siga archivado. Con esto, en
+primavera la pregunta de Borja se contesta con 150 entradas en vez de con 16. 2 pruebas nuevas,
+2 mutaciones detectadas.

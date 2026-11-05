@@ -393,7 +393,12 @@ def construye_entradas(historico):
                 reg[k] = {"t": a["ticker"], "s": a.get("simbolo"), "f": f, "p": a.get("precio"),
                           "sc": next((x.get("sc") for x in historico.get(f, {}).get("acciones", [])
                                       if x["t"] == a["ticker"]), None),
-                          "b": a.get("beta"), "n": a.get("empresa"), "spy": spy_f}
+                          "b": a.get("beta"), "n": a.get("empresa"), "spy": spy_f,
+                          # Sector e industria del dia que entro. Sin esto, cualquier pregunta por
+                          # sector ("¿las biotecnologicas van peor?", 04/11/2026) hay que responderla
+                          # rebuscando en docs/datos, y solo mientras ese dia siga archivado. Son dos
+                          # cadenas por accion, una vez en la vida de cada una.
+                          "sec": a.get("sector"), "ind": a.get("industria")}
             # Ultima vez que se la vio en el top, y su precio y el del indice ese dia. Sin esto, una
             # accion que salga del top y acabe fuera de la ventana de 90 sesiones DESAPARECERIA del
             # registro, que se quedaria solo con las que siguen dentro: supervivientes. Es un sesgo
