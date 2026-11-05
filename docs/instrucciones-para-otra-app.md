@@ -310,6 +310,36 @@ de venta.
 
 El requisito 8 usa el **mayor** de los dos crecimientos, el anual y el del último trimestre.
 
+### 5.1.1 Dos filtros de protección (desde el 05/11/2026)
+
+Se aplican **solo al entrar**, como el filtro de sectores. Una acción que ya tienes no pasa a «ya no
+cumple» por ellos, y vuelve al listado sola cuando dejan de aplicar.
+
+| Regla | Condición |
+|---|---|
+| **Resultados a la vista** | fuera si `resultados` está a **≤ 7 días** |
+| **Caída brusca reciente** | fuera si es **biotech/farma** y tuvo una caída de **≥ 20 % en una sesión** en los últimos **45 días**, con el índice cayendo **menos de un 2 %** ese día |
+
+```
+catalizadorCerca(a, hoy):
+    si no hay fecha de resultados: false
+    d = dias(resultados - hoy);  devolver 0 <= d <= 7
+
+cayoFuerte(a, serie, spy, hoy):
+    si no es biotech/farma: false                    # sector "Health Technology", o industria
+    si cambioHoy <= -20 y cambioSpyHoy > -2: true    #   que contenga "Biotech" o "Pharmaceutical"
+    para cada par de sesiones consecutivas de los ultimos 45 dias:
+        si la accion cayo <= -20 % y el indice cayo > -2 % ese dia: true
+    false
+```
+
+La condición del índice es lo que distingue un problema **de la empresa** de un día malo del
+mercado. Sin dato del índice ese día no se descarta.
+
+**Aviso importante:** «catalizador» aquí son **solo los resultados trimestrales**. Las fechas PDUFA
+y las lecturas de ensayos clínicos no están en los datos de TradingView, así que esta regla **no
+cubre el catalizador más peligroso de una biotecnológica**.
+
 Además hay un **filtro de universo** que no es un requisito vigilado: se excluyen al elegir el top
 las navieras, petroleras, mineras, químicas, utilities, REITs y gestoras, porque su crecimiento
 viene del precio de una materia prima. No se vigila después: si una empresa que ya tienes se

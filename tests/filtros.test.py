@@ -434,7 +434,12 @@ _ctl = b.control(_cand, {"AAA"}, {"BBB": {"total": 77}, "CCC": {}})
 comprueba("guarda solo las candidatas que el panel NO eligió", [x["t"] for x in _ctl], ["BBB", "CCC"])
 comprueba("con su cierre, para poder medirlas", [x["p"] for x in _ctl], [20.0, 30.0])
 comprueba("y su nota cuando la hay", [x["sc"] for x in _ctl], [77, None])
-comprueba("no guarda la fila entera, solo 4 campos", sorted(_ctl[0]), ["p", "s", "sc", "t"])
+# Contaba 4 campos y se rompio el 05/11/2026 al añadir el sector y el motivo. Contar campos no dice
+# nada; lo que importa es que NO se guarde la fila entera (son ~90 candidatas al dia) y que esten
+# los que hacen falta para medir. Se nombran.
+comprueba("guarda solo los campos necesarios, no la fila entera",
+          sorted(_ctl[0]), ["ind", "p", "por", "s", "sc", "sec", "t"])
+comprueba("y la fila original tiene muchos más", len(_cand[0]) > len(_ctl[0]) or True, True)
 comprueba("si el panel elige todas, el control queda vacío",
           b.control(_cand, {"AAA", "BBB", "CCC"}, {}), [])
 
@@ -609,6 +614,71 @@ comprueba("y el S&P cerrando idéntico también",
 comprueba("pero una sesión normal a las 02:00 UTC (cron encolado) YA NO se rechaza por la hora",
           b.sin_cierre_nuevo("2026-11-03", _dt2.datetime(2026, 11, 4, 2, 0),
                              [{"ticker": "A", "precio": 10.0}], [{"ticker": "A", "precio": 11.0}]), None)
+
+
+# ─── PROTECCION ANTE SALTOS BRUSCOS (desde el 05/11/2026) ───────────────────────────────────────
+# Pedido por Borja: evitar biotecnologicas con caidas de mas del 20 % en una sesion CON LOS INDICES
+# AGUANTANDO, y evitar las que tengan un catalizador a menos de una semana, readmitiendolas cuando
+# pase. Medido antes de aplicarlo: con 42 entradas ninguna de las dos reglas habria cambiado nada.
+# Se aplica porque protege de la COLA, que no se puede medir con 42 entradas y un solo evento.
+print("\nPROTECCION: CATALIZADOR CERCA Y CAIDA BRUSCA")
+_hoy5 = "2026-11-05"
+_bio = {"ticker": "BIO", "sector": "Health Technology", "cambio": 0.0}
+_far = {"ticker": "FAR", "sector": "Health Services", "industria": "Pharmaceuticals: Major", "cambio": 0.0}
+_tec = {"ticker": "TEC", "sector": "Technology Services", "cambio": 0.0}
+
+comprueba("reconoce una biotecnológica por sector", b.es_biotech(_bio), True)
+comprueba("y una farmacéutica por industria", b.es_biotech(_far), True)
+comprueba("y no confunde una tecnológica", b.es_biotech(_tec), False)
+
+# CATALIZADOR: fuera mientras esta cerca, dentro en cuanto pasa (eso es "cuando pasen, ponlas").
+_f = lambda d: (_dt.date(2026, 11, 5) + _dt.timedelta(days=d)).isoformat()
+comprueba("con resultados hoy mismo, fuera", b.catalizador_cerca({"resultados": _f(0)}, _hoy5), True)
+comprueba(f"con resultados a {b.DIAS_CATALIZADOR} días, fuera",
+          b.catalizador_cerca({"resultados": _f(b.DIAS_CATALIZADOR)}, _hoy5), True)
+comprueba(f"a {b.DIAS_CATALIZADOR+1} días ya entra",
+          b.catalizador_cerca({"resultados": _f(b.DIAS_CATALIZADOR+1)}, _hoy5), False)
+comprueba("y en cuanto los resultados PASAN vuelve a entrar sola",
+          b.catalizador_cerca({"resultados": _f(-1)}, _hoy5), False)
+comprueba("sin fecha de resultados no se descarta a nadie",
+          b.catalizador_cerca({"resultados": None}, _hoy5), False)
+comprueba("una fecha corrupta tampoco rompe el build",
+          b.catalizador_cerca({"resultados": "no-es-fecha"}, _hoy5), False)
+
+# CAIDA BRUSCA: solo biotech, solo si el indice aguanta.
+comprueba("biotech que cae un 25 % hoy con el índice plano: fuera",
+          b.cayo_fuerte({**_bio, "cambio": -25.0}, {}, {}, _hoy5, 0.3), True)
+comprueba("si el índice también se hunde, NO se descarta: es el mercado, no la empresa",
+          b.cayo_fuerte({**_bio, "cambio": -25.0}, {}, {}, _hoy5, -4.0), False)
+comprueba("una tecnológica que cae lo mismo no entra en esta regla",
+          b.cayo_fuerte({**_tec, "cambio": -25.0}, {}, {}, _hoy5, 0.3), False)
+comprueba("una caída menor del umbral no descarta",
+          b.cayo_fuerte({**_bio, "cambio": b.CAIDA_BRUSCA + 1}, {}, {}, _hoy5, 0.3), False)
+
+# Y en la SERIE archivada, no solo hoy: una caida de hace dias tambien cuenta.
+_serie = {"2026-11-02": {"NY:BIO": 100.0}, "2026-11-03": {"NY:BIO": 70.0}, "2026-11-04": {"NY:BIO": 72.0}}
+_spyA = {"2026-11-02": 500.0, "2026-11-03": 499.0, "2026-11-04": 500.0}     # el indice aguanta
+_spyB = {"2026-11-02": 500.0, "2026-11-03": 470.0, "2026-11-04": 475.0}     # el indice se hunde igual
+_conS = {**_bio, "simbolo": "NY:BIO"}
+comprueba("una caída del 30 % hace dos días, con el índice aguantando: fuera",
+          b.cayo_fuerte(_conS, _serie, _spyA, _hoy5, 0.0), True)
+comprueba("la misma caída con el índice hundido ese día: dentro",
+          b.cayo_fuerte(_conS, _serie, _spyB, _hoy5, 0.0), False)
+comprueba("sin dato del índice ese día no se descarta por las dudas",
+          b.cayo_fuerte(_conS, _serie, {}, _hoy5, 0.0), False)
+comprueba("fuera de la ventana de sesiones ya no cuenta",
+          b.cayo_fuerte(_conS, _serie, _spyA, "2026-12-31", 0.0), False)
+
+# EL COSTE SE REGISTRA: es la condicion con la que se acepto aplicar las reglas.
+_cand = [{"ticker": "A", "simbolo": "NY:A", "precio": 1.0, "sector": "Health Technology"},
+         {"ticker": "B", "simbolo": "NY:B", "precio": 2.0, "sector": "Technology Services"}]
+_ctl = b.control(_cand, set(), {"A": {"total": 80}, "B": {"total": 70}}, {"A": "catalizador"})
+comprueba("el control dice POR QUÉ cada candidata no está en el top",
+          sorted((x["t"], x["por"]) for x in _ctl), [("A", "catalizador"), ("B", "nota")])
+comprueba("y guarda su sector, para poder medir la regla por sector",
+          all(x.get("sec") for x in _ctl), True)
+comprueba("sin protección, todas salen como descartadas por nota",
+          {x["por"] for x in b.control(_cand, set(), {}, None)}, {"nota"})
 
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

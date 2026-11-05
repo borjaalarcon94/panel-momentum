@@ -122,6 +122,109 @@ def excluida(a):
             or any(x.lower() in ind for x in INDUSTRIAS_EXCLUIDAS))
 
 
+# ─── PROTECCION ANTE SALTOS BRUSCOS ─────────────────────────────────────────────────────────────
+# Pedido por Borja el 04/11/2026, literal: "evitemos empresas biotecnologicas que hayan tenido
+# caidas mayores del 20 % con los indices aguantando. Tambien evitemos las que tengan catalizadores
+# binarios cerca (1 semana), cuando estos catalizadores pasen, si mandan señal si que ponlas".
+#
+# MEDIDO ANTES DE APLICARLO (auditoria/registro.md, 04-05/11/2026): con las 42 entradas del registro
+# ninguna de las dos reglas habria cambiado una sola entrada, y la biotecnologia es el sector que
+# MEJOR va (-0,05 % de media contra -2,93 % del resto). Se aplica igualmente, y con razon: el
+# proposito no es ganar mas, es no estar dentro el dia del salto, y una proteccion de cola NO SE
+# PUEDE medir con 42 entradas y un solo evento. Mi medicion demuestra que no ha hecho falta todavia,
+# no que no vaya a hacer falta.
+#
+# Lo que si cuesta: desde hoy el registro mezcla dos reglas de entrada. Para que eso no estropee la
+# medicion de primavera, cada candidata descartada por estas reglas se anota en el grupo de control
+# con el motivo (ver control()), asi que en marzo se sabra exactamente cuantas subidas costo y
+# cuantos sustos ahorro.
+DIAS_CATALIZADOR = 7     # dias hasta resultados por debajo de los cuales no se entra
+CAIDA_BRUSCA = -20       # % de caida en UNA sesion que descarta a la accion
+INDICE_AGUANTA = -2      # si el indice cae MENOS de esto, la caida es de la empresa y no del mercado
+VENTANA_CAIDA = 20       # sesiones hacia atras en las que se busca esa caida
+DIAS_CAIDA = 45          # ...y ademas, nunca mas atras de estos dias naturales. Las dos cosas: la
+                         # cuenta de sesiones sola no acota nada si el archivo tiene huecos o si se
+                         # consulta una fecha lejana, y entonces una caida de hace meses seguiria
+                         # descartando a la accion para siempre.
+CAMBIO_REGLAS = "2026-11-05"   # desde este cierre el top se elige tambien con estas dos reglas
+
+
+def es_biotech(a):
+    """Biotecnologica o farmaceutica. La regla de la caida brusca se pidio SOLO para estas.
+
+    Nota para primavera: aplicarla a todo el universo seria mas protector y cuesta poco (COHU, que
+    cayo un 21 %, es Electronic Technology y no entraria aqui). Se deja como lo pidio Borja; el
+    grupo de control guarda el sector de cada candidata, asi que ampliarla se podra medir.
+    """
+    sec = a.get("sector") or ""
+    ind = (a.get("industria") or "").lower()
+    return sec == "Health Technology" or "biotech" in ind or "pharmaceutical" in ind
+
+
+def catalizador_cerca(a, hoy):
+    """Resultados a menos de DIAS_CATALIZADOR dias. Cuando pasan, la accion vuelve sola al top.
+
+    AVISO QUE HAY QUE REPETIR DONDE SE LEA: esto cubre SOLO los resultados trimestrales. Los
+    catalizadores binarios de una biotecnologica -fechas PDUFA, lecturas de ensayos- NO estan en los
+    datos que recibimos: TradingView da earnings_release_next_date y nada mas. Conseguirlos exige
+    otra fuente, o sea llamadas fuera del presupuesto de 4 al dia. Por eso esta regla NO habria
+    evitado lo de IOVA, que se desplomo por una noticia con los resultados todavia a 7 dias.
+    """
+    r = a.get("resultados")
+    if not r:
+        return False
+    try:
+        d = (datetime.date.fromisoformat(r) - datetime.date.fromisoformat(hoy)).days
+    except ValueError:
+        return False
+    return 0 <= d <= DIAS_CATALIZADOR
+
+
+def cayo_fuerte(a, serie, spy, hoy, cambio_spy_hoy=None):
+    """Biotecnologica con una caida de CAIDA_BRUSCA % o mas en UNA sesion, con el indice aguantando.
+
+    "Con el indice aguantando" es la parte que distingue un problema DE LA EMPRESA de un dia malo
+    del mercado: si el S&P se hunde a la vez, la caida no dice nada de la accion.
+
+    Se mira el dato de hoy (change), que viene en el scan y vale para cualquier accion aunque sea la
+    primera vez que la vemos, y ademas la serie archivada, que solo existe para las que han pasado
+    por el top o por el grupo de control. De una accion nueva sin serie solo se puede ver hoy.
+    """
+    if not es_biotech(a):
+        return False
+    if (a.get("cambio") or 0) <= CAIDA_BRUSCA and (cambio_spy_hoy is None or cambio_spy_hoy > INDICE_AGUANTA):
+        return True
+    k = a.get("simbolo") or a.get("ticker")
+    try:
+        limite = (datetime.date.fromisoformat(hoy) - datetime.timedelta(days=DIAS_CAIDA)).isoformat()
+    except ValueError:
+        return False
+    fechas = [f for f in sorted(serie) if limite <= f <= hoy][-VENTANA_CAIDA - 1:]
+    prev = prev_spy = None
+    for f in fechas:
+        p, s = serie[f].get(k), spy.get(f)
+        if p and prev and (p / prev - 1) * 100 <= CAIDA_BRUSCA:
+            # Sin dato del indice ese dia no se puede saber si aguanto: no se descarta por las dudas.
+            if prev_spy and s and (s / prev_spy - 1) * 100 > INDICE_AGUANTA:
+                return True
+        if p:
+            prev = p
+        if s:
+            prev_spy = s
+    return False
+
+
+def serie_spy():
+    """Cierre del SPY de cada dia archivado, para saber si el indice aguanto."""
+    out = {}
+    for q in sorted(DATOS.glob("2*.json")):
+        d = leer(q)
+        v = next((m.get("precio") for m in (d.get("mercado") or []) if m.get("ticker") == "SPY"), None)
+        if v:
+            out[q.stem] = v
+    return out
+
+
 def puntuar(acciones, ctx):
     """Ejecuta docs/puntuacion.js con node y devuelve {ticker: {total, sinPenalizar, extendida}}."""
     if not acciones:
@@ -317,7 +420,7 @@ def construye_historico(todos):
     return historico
 
 
-def control(candidatas, elegidas, puntos):
+def control(candidatas, elegidas, puntos, proteccion=None):
     """GRUPO DE CONTROL: las candidatas que pasaron los 9 requisitos y el panel NO eligio.
 
        Cada dia pasan los filtros del orden de 110 acciones y el panel se queda con GUARDAR=10, las
@@ -331,8 +434,15 @@ def control(candidatas, elegidas, puntos):
        nota), no la fila entera: unos 4 KB al dia en docs/datos, que no se sirve a los visitantes.
 
        No cambia ninguna regla ni entra en la web. Es solo el control que hoy no existe."""
+    # "por": por que no esta en el top. Sin esto, una candidata apartada por la proteccion del
+    # 05/11/2026 seria indistinguible de una que simplemente puntuo menos, y en primavera no se
+    # podria responder a lo unico que importa de esa regla: cuantas subidas costo y cuantos sustos
+    # ahorro. Es la condicion con la que se acepto aplicarla.
+    prot = proteccion or {}
     return [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
-             "sc": (puntos.get(a["ticker"]) or {}).get("total")}
+             "sc": (puntos.get(a["ticker"]) or {}).get("total"),
+             "sec": a.get("sector"), "ind": a.get("industria"),
+             "por": prot.get(a["ticker"], "nota")}
             for a in candidatas if a["ticker"] not in elegidas]
 
 
@@ -504,8 +614,25 @@ def main():
     universo = filas(scan({"columns": list(C), "filter": FILTROS, "range": [0, 3000],
                            "sort": {"sortBy": "market_cap_basic", "sortOrder": "desc"}}))
     candidatas = [a for a in universo if cumple(a) and not excluida(a)]
+    # Las dos reglas de proteccion. Van AQUI, al elegir el top, y NO en cumple(): cumple() se evalua
+    # cada dia sobre lo que ya tienes, y una posicion abierta no puede pasar a "ya no cumple" solo
+    # porque se acerquen sus resultados. Esto filtra a QUIEN ENTRA, como la exclusion de sectores.
     mercado = filas(scan({"columns": list(C), "symbols": {"tickers": ["AMEX:SPY", "NASDAQ:QQQ", "AMEX:IWM"]}}))
     ref = referencia()
+    _serie_prot, _ = serie_archivada()
+    _spy_prot = serie_spy()
+    _spy_hoy = next((m.get("cambio") for m in mercado if m.get("ticker") == "SPY"), None)
+    proteccion = {}
+    for a in candidatas:
+        if catalizador_cerca(a, hoy):
+            proteccion[a["ticker"]] = "catalizador"
+        elif cayo_fuerte(a, _serie_prot, _spy_prot, hoy, _spy_hoy):
+            proteccion[a["ticker"]] = "caida"
+    if proteccion:
+        print("Proteccion: fuera del top -> " +
+              ", ".join(f"{t} ({m})" for t, m in sorted(proteccion.items())))
+    protegidas = [a for a in candidatas if a["ticker"] in proteccion]
+    candidatas = [a for a in candidatas if a["ticker"] not in proteccion]
     spy = next((m for m in mercado if m["ticker"] == "SPY"), {})
     ctx = {"fecha": hoy, "spy": {"tres": spy.get("tres"), "seis": spy.get("seis")}, "sectores": ref["sectores"]}
     puntos = puntuar(candidatas, ctx)
@@ -531,7 +658,10 @@ def main():
         (DATOS / f"{hoy}.json").write_text(json.dumps(
             {"acciones": acciones, "enMarcha": en_marcha, "mercado": mercado, "referencia": ref,
              "universo": len(universo), "candidatas": len(candidatas),
-             "control": control(candidatas, elegidas, puntos)},
+             # Las apartadas por la proteccion van TAMBIEN al control, con su motivo: si se cayeran
+             # del registro no se podria medir nunca lo que la regla cuesta.
+             "control": control(candidatas + protegidas, elegidas, puntos, proteccion),
+             "reglas": CAMBIO_REGLAS},
             ensure_ascii=False))
     todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}
     historico = construye_historico(todos)

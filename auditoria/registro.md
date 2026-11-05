@@ -3008,3 +3008,60 @@ Y se añade al registro permanente el **sector y la industria** de cada entrada 
 hay que responderla rebuscando en `docs/datos` y solo mientras ese día siga archivado. Con esto, en
 primavera la pregunta de Borja se contesta con 150 entradas en vez de con 16. 2 pruebas nuevas,
 2 mutaciones detectadas.
+
+## 05/11/2026 · Se aplican las dos reglas de protección (decisión de Borja)
+
+Tras el debate del 05/11: yo había dicho «lo implemento» y acto seguido había llenado el código de
+advertencias, que es decir que sí con la boca pequeña. Borja lo vio y pidió entender la objeción.
+
+**Mis razones, y cuáles se sostienen:**
+
+1. **La que sí sostengo:** contamina lo único que hace valioso el registro. Desde hoy las ~150
+   entradas de primavera vendrían de dos sistemas. Y es distinto del tope del 12 % que sí cambié el
+   30/10: aquello cambia *cuánto metes*, no *qué entra en el registro*.
+2. **Más floja de lo que parecía:** «no habría cambiado nada, cero entradas excluidas». Cierto, pero
+   **una protección de cola no se puede medir con 42 entradas y un solo evento**. Demuestra que no
+   ha hecho falta todavía, no que no vaya a hacer falta. Aquí la razón la tiene él.
+3. **Tampoco decisiva:** «no habría evitado IOVA». Habría evitado *otra* IOVA, una que se desploma
+   antes de comprarla.
+4. **Problema real del diseño, no suyo:** «catalizador» cubre solo resultados trimestrales. Las
+   fechas PDUFA y las lecturas de ensayos no están en los datos. Para una biotech, los resultados
+   son el menos peligroso de sus eventos binarios.
+
+**Y una inconsistencia mía:** su argumento tiene **mecanismo** (un evento programado en el que un
+hueco se salta el stop), que es exactamente el razonamiento con el que justifiqué bajar el tope al
+12 % sin pedir 150 entradas. Aceptar el mecanismo para una cosa y rechazarlo para otra es
+inconsistente.
+
+**Acuerdo: se aplica, y se registra lo que cuesta.** Mi única objeción viva —que ensucia el
+registro— se resuelve anotando en el grupo de control **por qué** cada candidata no está en el top
+(`"por": "catalizador" | "caida" | "nota"`), junto con su sector. En primavera se sabrá exactamente
+cuántas subidas costó y cuántos sustos ahorró, y se podrá medir el registro con y sin la regla.
+
+### Lo implementado, fiel a su petición
+
+| | |
+|---|---|
+| `DIAS_CATALIZADOR = 7` | fuera si publica resultados en ≤ 7 días; vuelve sola al pasar |
+| `CAIDA_BRUSCA = -20` | fuera si cayó ≥ 20 % en una sesión… |
+| `INDICE_AGUANTA = -2` | …**con el índice aguantando** (cayó menos del 2 %) ese día |
+| `DIAS_CAIDA = 45` + `VENTANA_CAIDA = 20` | la caída tiene que ser reciente |
+| Solo biotech/farma | la caída brusca se pidió solo para ellas |
+| `CAMBIO_REGLAS = "2026-11-05"` | fecha anotada para separar los dos tramos en primavera |
+
+Van al **elegir el top**, no en `cumple()`: una posición abierta no puede pasar a «ya no cumple»
+porque se acerquen sus resultados. Primera aplicación: el cierre de **hoy, 5 de noviembre**.
+
+**Dos desviaciones mías corregidas:** había aplicado la caída a todos los sectores y sin mirar el
+índice. Las dos cosas estaban en su petición literal y no en mi código. Nota para primavera:
+aplicarla a todo el universo sería más protector y cuesta poco (COHU, que cayó un 21 %, es
+Electronic Technology y no entra); el control guarda el sector, así que ampliarla se podrá medir.
+
+**Pruebas:** 24 nuevas en `filtros.test.py` y 5 en `integridad.test.js`, que atan los cuatro
+umbrales a Parámetros y al documento para la otra app. **13 mutaciones probadas, las 13 detectadas.**
+
+**Dos pruebas propias obsoletas:** una contaba «4 campos» en el control y se rompió al añadir el
+sector y el motivo — contar campos no dice nada, ahora se nombran. Y la de la ventana de la caída
+**encontró un fallo real**: acotaba por número de sesiones del archivo, no por tiempo, así que con
+huecos o con una fecha lejana una caída de hace meses seguiría descartando a la acción para siempre.
+De ahí `DIAS_CAIDA`.

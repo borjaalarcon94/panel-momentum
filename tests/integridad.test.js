@@ -221,6 +221,32 @@ console.log('\nEL RECORRIDO VIVE EN UN SITIO Y TODO STOP MIRA EL MÁXIMO');
                : ok('todas las llamadas a stopDe de una posición pasan la ganancia máxima');
 }
 
+/* Las dos reglas de proteccion del 05/11/2026 viven en build.py (no son reglas de la web), pero
+   Parametros y el documento para la otra app TIENEN que decirlas con los mismos numeros: son
+   filtros de entrada, y alguien que reimplemente el sistema fuera sin ellos no sacaria el mismo
+   listado. Igual que con los umbrales, aqui se atan. */
+console.log('\nLAS REGLAS DE PROTECCIÓN ESTÁN DICHAS CON SUS NÚMEROS');
+{
+  const bp = fs.readFileSync(path.join(__dirname, '..', 'build.py'), 'utf8');
+  const val = n => { const m = bp.match(new RegExp('^' + n + ' *= *(-?\\d+)', 'm')); return m ? m[1] : null };
+  const dias = val('DIAS_CATALIZADOR'), caida = val('CAIDA_BRUSCA'), nat = val('DIAS_CAIDA'), idx = val('INDICE_AGUANTA');
+  const doc2 = fs.readFileSync(path.join(dir, 'instrucciones-para-otra-app.md'), 'utf8');
+  [['días hasta resultados', dias, 'en ' + dias + ' días o menos', '≤ ' + dias + ' días'],
+   ['caída brusca', Math.abs(caida), 'un ' + Math.abs(caida) + ' % o más en una sola sesión', '≥ ' + Math.abs(caida) + ' % en una sesión'],
+   ['ventana en días naturales', nat, 'los últimos ' + nat + ' días', 'últimos **' + nat + ' días**'],
+   ['el índice aguanta', Math.abs(idx), 'menos de un ' + Math.abs(idx) + ' %', 'menos de un ' + Math.abs(idx) + ' %']]
+    .forEach(([nom, v, enPar, enDoc]) => {
+      v == null ? mal('no se encuentra ' + nom + ' en build.py')
+        : !par.includes(enPar) ? mal('Parámetros no dice ' + nom + ' (' + v + ')', enPar)
+        : !doc2.includes(enDoc) ? mal('el documento no dice ' + nom + ' (' + v + ')', enDoc)
+        : ok(nom + ' (' + v + ') coincide en build.py, Parámetros y el documento');
+    });
+  /* Y el aviso de que NO cubre PDUFA ni ensayos, que es lo que la regla no hace. */
+  /FDA|PDUFA/.test(par) && /PDUFA/.test(doc2)
+    ? ok('y los dos avisan de que no cubre las fechas de la FDA ni los ensayos')
+    : mal('no se avisa de que la regla del catalizador solo cubre resultados trimestrales');
+}
+
 console.log('\nLAS REGLAS NO ESTÁN DUPLICADAS');
 const sospechosos = [['perdidaMaxima', /\b15\b.*p[eé]rdida|p[eé]rdida.*\b15\b/i], ['rsi de venta', /rsi[^\n]*<\s*45/i], ['devolución', /devuelto\s*>=\s*\d+/],
   /* El tope de concentracion estaba escrito a mano en app.js (Math.min(..., 25)) y descrito "como un
