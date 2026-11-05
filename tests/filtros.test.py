@@ -680,5 +680,54 @@ comprueba("y guarda su sector, para poder medir la regla por sector",
 comprueba("sin protección, todas salen como descartadas por nota",
           {x["por"] for x in b.control(_cand, set(), {}, None)}, {"nota"})
 
+
+# ─── LA PROTECCION NO FALSEA EL RECUENTO NI DISPARA LA ALARMA ───────────────────────────────────
+# Dos numeros que estaban bien y que la proteccion del 05/11 rompio durante unas horas:
+#  - la cabecera de Hoy dice "N cumplian los requisitos de M analizadas". Las apartadas por
+#    proteccion LOS CUMPLEN: lo que se les impide es entrar hoy. Si no se cuentan, el numero miente.
+#  - comprueba() aborta el build con menos de 3 candidatas, para detectar que el filtro o la fuente
+#    se han roto. Con la lista ya filtrada, la proteccion podia disparar esa alarma sin que nada
+#    estuviese roto, y un build abortado es una sesion perdida.
+print("\nLA PROTECCION APARTA DEL TOP, NO DEL RECUENTO")
+_srcm = (R / "build.py").read_text()
+_main = _srcm[_srcm.index("def main("):]
+comprueba("el top se elige de la lista filtrada (elegibles)",
+          "sorted(elegibles, key=lambda a: (-nota(a)" in _main, True)
+comprueba("pero el recuento de candidatas es el de las que cumplen los requisitos",
+          '"candidatas": len(candidatas)' in _main, True)
+comprueba("y la alarma de comprueba() mira esa misma lista completa",
+          "comprueba(universo, candidatas, acciones, mercado, ref)" in _main, True)
+comprueba("las protegidas se puntúan igual, para poder medirlas después",
+          "puntos = puntuar(candidatas, ctx)" in _main, True)
+comprueba("y «en marcha» también sale de las elegibles, no de todas",
+          "en_marcha = sorted([a for a in elegibles" in _main, True)
+# Y el grupo de control se construye con la lista COMPLETA: si se le pasara la filtrada, las
+# apartadas por proteccion no quedarian anotadas en ningun sitio y no se podria medir lo que cuesta
+# la regla, que es la condicion con la que se acepto aplicarla.
+comprueba("el control se construye con todas las candidatas, no solo las elegibles",
+          "control(candidatas, elegidas, puntos, proteccion)" in _main, True)
+
+# Un dia completo simulado: 5 candidatas, 2 apartadas por proteccion.
+_u = [{"ticker": "A", "simbolo": "NY:A", "precio": 10.0, "sector": "Health Technology", "cambio": 0.0, "resultados": None},
+      {"ticker": "B", "simbolo": "NY:B", "precio": 11.0, "sector": "Technology Services", "cambio": 0.0, "resultados": None},
+      {"ticker": "C", "simbolo": "NY:C", "precio": 12.0, "sector": "Health Technology", "cambio": -30.0, "resultados": None},
+      {"ticker": "D", "simbolo": "NY:D", "precio": 13.0, "sector": "Technology Services", "cambio": 0.0,
+       "resultados": (_dt.date(2026, 11, 5) + _dt.timedelta(days=3)).isoformat()},
+      {"ticker": "E", "simbolo": "NY:E", "precio": 14.0, "sector": "Finance", "cambio": 0.0, "resultados": None}]
+_prot = {}
+for _a in _u:
+    if b.catalizador_cerca(_a, "2026-11-05"): _prot[_a["ticker"]] = "catalizador"
+    elif b.cayo_fuerte(_a, {}, {}, "2026-11-05", 0.1): _prot[_a["ticker"]] = "caida"
+comprueba("aparta exactamente a la que cae y a la que publica resultados",
+          sorted(_prot.items()), [("C", "caida"), ("D", "catalizador")])
+_eleg = [a for a in _u if a["ticker"] not in _prot]
+comprueba("quedan 3 elegibles para el top", [a["ticker"] for a in _eleg], ["A", "B", "E"])
+comprueba("pero las candidatas siguen siendo 5", len(_u), 5)
+_ctl2 = b.control(_u, {"A"}, {}, _prot)
+comprueba("y el control recoge las 4 no elegidas, con su motivo",
+          sorted((x["t"], x["por"]) for x in _ctl2),
+          [("B", "nota"), ("C", "caida"), ("D", "catalizador"), ("E", "nota")])
+comprueba("la elegida no aparece en el control", "A" in [x["t"] for x in _ctl2], False)
+
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

@@ -631,17 +631,27 @@ def main():
     if proteccion:
         print("Proteccion: fuera del top -> " +
               ", ".join(f"{t} ({m})" for t, m in sorted(proteccion.items())))
-    protegidas = [a for a in candidatas if a["ticker"] in proteccion]
-    candidatas = [a for a in candidatas if a["ticker"] not in proteccion]
+    # candidatas SIGUE siendo "las que cumplen los nueve requisitos". Las apartadas por proteccion
+    # los cumplen igual: lo que se les impide es ENTRAR HOY. Mezclar las dos cosas rompia dos
+    # numeros que ya estaban bien:
+    #   - la cabecera de Hoy dice "N cumplian los requisitos de M analizadas", y habria dejado de
+    #     contar a las protegidas, que si los cumplen;
+    #   - comprueba() aborta el build si hay menos de 3 candidatas para detectar que el filtro o la
+    #     fuente se han roto, y la proteccion habria podido disparar esa alarma sin que nada
+    #     estuviese roto.
+    # Asi que la lista filtrada lleva otro nombre y se usa SOLO para elegir el top.
+    elegibles = [a for a in candidatas if a["ticker"] not in proteccion]
     spy = next((m for m in mercado if m["ticker"] == "SPY"), {})
     ctx = {"fecha": hoy, "spy": {"tres": spy.get("tres"), "seis": spy.get("seis")}, "sectores": ref["sectores"]}
+    # Se puntuan TODAS, tambien las protegidas: su nota va al grupo de control y es lo que permitira
+    # medir en primavera si la regla aparto a buenas o a malas.
     puntos = puntuar(candidatas, ctx)
     nota = lambda a: (puntos.get(a["ticker"]) or {}).get("total") or 0
     # A igualdad de puntuacion, primero la de menor capitalizacion: mas recorrido para multiplicar.
-    acciones = sorted(candidatas, key=lambda a: (-nota(a), a.get("cap") or 0))[:GUARDAR]
+    acciones = sorted(elegibles, key=lambda a: (-nota(a), a.get("cap") or 0))[:GUARDAR]
     # Cumplen todos los requisitos pero estan muy extendidas: no son entrada temprana, van aparte.
     elegidas = {a["ticker"] for a in acciones}
-    en_marcha = sorted([a for a in candidatas if a["ticker"] not in elegidas
+    en_marcha = sorted([a for a in elegibles if a["ticker"] not in elegidas
                         and (puntos.get(a["ticker"]) or {}).get("extendida")],
                        key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
     comprueba(universo, candidatas, acciones, mercado, ref)
@@ -660,7 +670,7 @@ def main():
              "universo": len(universo), "candidatas": len(candidatas),
              # Las apartadas por la proteccion van TAMBIEN al control, con su motivo: si se cayeran
              # del registro no se podria medir nunca lo que la regla cuesta.
-             "control": control(candidatas + protegidas, elegidas, puntos, proteccion),
+             "control": control(candidatas, elegidas, puntos, proteccion),
              "reglas": CAMBIO_REGLAS},
             ensure_ascii=False))
     todos = {p.stem: leer(p) for p in sorted(DATOS.glob("2*.json"))[-DIAS:]}

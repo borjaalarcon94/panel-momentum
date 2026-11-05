@@ -3065,3 +3065,27 @@ sector y el motivo — contar campos no dice nada, ahora se nombran. Y la de la 
 **encontró un fallo real**: acotaba por número de sesiones del archivo, no por tiempo, así que con
 huecos o con una fecha lejana una caída de hace meses seguiría descartando a la acción para siempre.
 De ahí `DIAS_CAIDA`.
+
+## 05/11/2026 (2) · Dos fallos en mi propio código de ayer, cazados antes de que corriera
+
+Barrido pedido por Borja. Lo primero, revisar lo que yo mismo acababa de meter, porque iba a
+ejecutarse esta noche. Dos fallos, los dos de la misma raíz: **había reutilizado la variable
+`candidatas` para la lista ya filtrada por protección**, y `candidatas` significa otra cosa.
+
+1. **El recuento de la cabecera habría mentido.** La pestaña Hoy dice *«N cumplían los requisitos de
+   M analizadas»*. Las apartadas por protección **sí** cumplen los requisitos: lo que se les impide
+   es entrar hoy. Con la lista filtrada, ese número habría dejado de contarlas.
+2. **La alarma de `comprueba()` podía abortar el build sin motivo.** Aborta con menos de 3
+   candidatas, para detectar que el filtro o la fuente se han roto. Con la lista ya filtrada, la
+   protección podía dispararla sin que nada estuviese roto — y un build abortado es **una sesión
+   perdida**, que es exactamente lo que acabamos de arreglar el 04/11.
+
+Corregido separando los nombres: `candidatas` = las que cumplen los nueve requisitos (recuento,
+alarma, grupo de control y puntuación); `elegibles` = las que además pueden entrar hoy (top y «en
+marcha»). Se puntúan **todas**, también las apartadas: su nota va al control y es lo que permitirá
+medir en primavera si la regla apartó a buenas o a malas.
+
+11 pruebas nuevas, incluida la simulación de un día entero con protección. **8 mutaciones probadas,
+las 8 detectadas** — dos de ellas solo después de corregir mi propio mutador, que había caído en la
+*firma* de `comprueba()` en vez de en la llamada, y una comprobación que faltaba: nada ataba que el
+grupo de control se construyera con la lista completa.
