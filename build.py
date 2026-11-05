@@ -438,12 +438,38 @@ def control(candidatas, elegidas, puntos, proteccion=None):
     # 05/11/2026 seria indistinguible de una que simplemente puntuo menos, y en primavera no se
     # podria responder a lo unico que importa de esa regla: cuantas subidas costo y cuantos sustos
     # ahorro. Es la condicion con la que se acepto aplicarla.
+    # El sector NO va aqui: es el mismo todos los dias para la misma accion, y repetirlo en 131
+    # filas x 250 sesiones son ~2 MB al año de puro duplicado. Va una sola vez en
+    # docs/datos/sectores.json (ver guarda_sectores), que es un diccionario simbolo -> sector.
     prot = proteccion or {}
     return [{"t": a["ticker"], "s": a.get("simbolo"), "p": a.get("precio"),
              "sc": (puntos.get(a["ticker"]) or {}).get("total"),
-             "sec": a.get("sector"), "ind": a.get("industria"),
              "por": prot.get(a["ticker"], "nota")}
             for a in candidatas if a["ticker"] not in elegidas]
+
+
+def guarda_sectores(acciones):
+    """Diccionario simbolo -> [sector, industria], acumulado y sin repetir.
+
+    Hace falta para medir cualquier cosa por sector sobre el grupo de control (p. ej. si la regla
+    de la caida brusca deberia ampliarse fuera de la biotecnologia). Guardarlo en cada fila de cada
+    dia costaba ~2 MB al año de dato identico; aqui ocupa unos bytes por accion, una vez.
+    Nunca se borra una entrada: una accion que desaparece del universo sigue necesitando su sector
+    para poder medir lo que hizo."""
+    ruta = DATOS / "sectores.json"
+    reg = leer(ruta) if ruta.exists() else {}
+    cambios = 0
+    for a in acciones:
+        k = a.get("simbolo") or a.get("ticker")
+        if not k:
+            continue
+        v = [a.get("sector"), a.get("industria")]
+        if reg.get(k) != v and any(v):
+            reg[k] = v
+            cambios += 1
+    if cambios:
+        ruta.write_text(json.dumps(reg, ensure_ascii=False, sort_keys=True))
+    return reg
 
 
 def serie_archivada():
@@ -654,6 +680,7 @@ def main():
     en_marcha = sorted([a for a in elegibles if a["ticker"] not in elegidas
                         and (puntos.get(a["ticker"]) or {}).get("extendida")],
                        key=lambda a: (puntos.get(a["ticker"]) or {}).get("sinPenalizar") or 0, reverse=True)[:EN_MARCHA]
+    guarda_sectores(candidatas)   # sector de cada candidata, una vez, no en cada fila de cada dia
     comprueba(universo, candidatas, acciones, mercado, ref)
     acciones_hoy = list(acciones)   # el top de hoy, aunque luego no se guarde como dia nuevo
     _prev = leer(previos_de(hoy)[-1]) if previos_de(hoy) else None

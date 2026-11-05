@@ -438,8 +438,37 @@ comprueba("y su nota cuando la hay", [x["sc"] for x in _ctl], [77, None])
 # nada; lo que importa es que NO se guarde la fila entera (son ~90 candidatas al dia) y que esten
 # los que hacen falta para medir. Se nombran.
 comprueba("guarda solo los campos necesarios, no la fila entera",
-          sorted(_ctl[0]), ["ind", "p", "por", "s", "sc", "sec", "t"])
-comprueba("y la fila original tiene muchos más", len(_cand[0]) > len(_ctl[0]) or True, True)
+          sorted(_ctl[0]), ["p", "por", "s", "sc", "t"])
+# El sector NO va en cada fila: es el mismo todos los dias para la misma accion y repetirlo son
+# ~2 MB al año de duplicado. Va una vez en docs/datos/sectores.json.
+comprueba("el sector no se repite en cada fila del control",
+          any(k in _ctl[0] for k in ("sec", "ind", "sector")), False)
+# OJO: guarda_sectores() ESCRIBE en docs/datos/sectores.json. Una prueba no puede dejar una accion
+# inventada en los datos de verdad, asi que se guarda el fichero y se restaura. (Lo dejo anotado
+# porque ya me paso: la primera version de esta prueba metio "NY:ZZZ" en el fichero real.)
+_rsec = b.DATOS / "sectores.json"
+_sec_antes = _rsec.read_text() if _rsec.exists() else None
+try:
+    _dicc = b.guarda_sectores([{"ticker": "ZZZ", "simbolo": "NY:ZZZ",
+                                "sector": "Health Technology", "industria": "Biotechnology"}])
+    comprueba("pero sí en el diccionario de sectores", _dicc.get("NY:ZZZ"), ["Health Technology", "Biotechnology"])
+    comprueba("que acumula y no pierde lo anterior", len(_dicc) > 1, True)
+    comprueba("y no reescribe el fichero si nada ha cambiado",
+              b.guarda_sectores([{"ticker": "ZZZ", "simbolo": "NY:ZZZ",
+                                  "sector": "Health Technology", "industria": "Biotechnology"}]).get("NY:ZZZ"),
+              ["Health Technology", "Biotechnology"])
+finally:
+    if _sec_antes is not None: _rsec.write_text(_sec_antes)
+    elif _rsec.exists(): _rsec.unlink()
+comprueba("y la prueba no deja basura en los datos reales",
+          "NY:ZZZ" not in (_rsec.read_text() if _rsec.exists() else ""), True)
+# Buscando la cadena a secas, una llamada COMENTADA seguia contando como presente. Tiene que ser
+# una linea de codigo de verdad.
+comprueba("main() guarda el diccionario en cada build",
+          any(l.strip().startswith("guarda_sectores(")
+              for l in (R / "build.py").read_text().splitlines()), True)
+comprueba("y vive fuera del glob de los días (no crea sesiones fantasma)",
+          (b.DATOS / "sectores.json").exists() and "sectores.json" not in [q.name for q in b.DATOS.glob("2*.json")], True)
 comprueba("si el panel elige todas, el control queda vacío",
           b.control(_cand, {"AAA", "BBB", "CCC"}, {}), [])
 
@@ -675,8 +704,8 @@ _cand = [{"ticker": "A", "simbolo": "NY:A", "precio": 1.0, "sector": "Health Tec
 _ctl = b.control(_cand, set(), {"A": {"total": 80}, "B": {"total": 70}}, {"A": "catalizador"})
 comprueba("el control dice POR QUÉ cada candidata no está en el top",
           sorted((x["t"], x["por"]) for x in _ctl), [("A", "catalizador"), ("B", "nota")])
-comprueba("y guarda su sector, para poder medir la regla por sector",
-          all(x.get("sec") for x in _ctl), True)
+comprueba("y el sector de cada una está en el diccionario, no en la fila",
+          all("sec" not in x for x in _ctl), True)
 comprueba("sin protección, todas salen como descartadas por nota",
           {x["por"] for x in b.control(_cand, set(), {}, None)}, {"nota"})
 
@@ -728,6 +757,39 @@ comprueba("y el control recoge las 4 no elegidas, con su motivo",
           sorted((x["t"], x["por"]) for x in _ctl2),
           [("B", "nota"), ("C", "caida"), ("D", "catalizador"), ("E", "nota")])
 comprueba("la elegida no aparece en el control", "A" in [x["t"] for x in _ctl2], False)
+
+
+# ─── CUADRE DEL FICHERO DE CADA DIA ─────────────────────────────────────────────────────────────
+# top + control tiene que ser EXACTAMENTE candidatas: el control son "las que cumplen y no se
+# eligieron". Si alguna se cae por el camino -como estuvo a punto de pasar con las apartadas por
+# proteccion el 05/11/2026- desaparece del registro sin dejar rastro y no se puede medir nada.
+# Es el invariante que habria cazado ese fallo solo.
+print("\nEL FICHERO DE CADA DIA CUADRA")
+_desc, _sinctl = [], []
+for _q in sorted(b.DATOS.glob("2*.json")):
+    _d = b.leer(_q) or {}
+    if not _d.get("acciones"):
+        continue
+    _n = _d.get("candidatas")
+    _c = _d.get("control")
+    if _c is None:
+        _sinctl.append(_q.stem); continue
+    if _n is not None and len(_c) + len(_d["acciones"]) != _n:
+        _desc.append(f"{_q.stem}: {len(_d['acciones'])}+{len(_c)} != {_n}")
+comprueba("top + control = candidatas en todos los días archivados", _desc[:3], [])
+comprueba(f"({len(_sinctl)} días son anteriores al grupo de control y no se comprueban)", True, True)
+
+# Y desde que existen las reglas de proteccion, el motivo de cada descartada tiene que estar.
+_sinmotivo = []
+for _q in sorted(b.DATOS.glob("2*.json")):
+    if _q.stem < b.CAMBIO_REGLAS:
+        continue
+    _d = b.leer(_q) or {}
+    if not _d.get("control"):
+        continue
+    if any("por" not in _x for _x in _d["control"]):
+        _sinmotivo.append(_q.stem)
+comprueba(f"desde el {b.CAMBIO_REGLAS}, cada descartada dice por qué lo está", _sinmotivo, [])
 
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

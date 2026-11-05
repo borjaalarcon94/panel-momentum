@@ -3089,3 +3089,26 @@ medir en primavera si la regla apartó a buenas o a malas.
 las 8 detectadas** — dos de ellas solo después de corregir mi propio mutador, que había caído en la
 *firma* de `comprueba()` en vez de en la llamada, y una comprobación que faltaba: nada ataba que el
 grupo de control se construyera con la lista completa.
+
+### Y el sector sale de las filas: ~2 MB al año de dato duplicado
+
+Al medir el coste del cambio salió que `docs/datos` pasaba de 21 a ~29 KB al día (7 MB al año), y
+**8 KB de esos eran el sector repetido** en las 131 filas del control, todos los días, para las
+mismas acciones. Movido a `docs/datos/sectores.json`: un diccionario `símbolo → [sector, industria]`
+que se acumula y nunca pierde una entrada (una acción que desaparece del universo sigue necesitando
+su sector para poder medir lo que hizo). Vive fuera del glob `2*.json`, como `serie-extra.json`, para
+no crear sesiones fantasma.
+
+**Invariante nuevo que habría cazado mi fallo solo:** `top + control = candidatas` en todos los días
+archivados, y desde el 05/11 cada descartada tiene que decir por qué. 6 pruebas, 7 mutaciones
+detectadas.
+
+**Tres cosas mías que salieron mal por el camino y conviene anotar:**
+- Una prueba **escribió una acción inventada en los datos reales** (`NY:ZZZ` en `sectores.json`),
+  porque `guarda_sectores()` escribe en disco. Ahora guarda y restaura el fichero, y comprueba que
+  no deja basura. Ya estaba el rastro en el fichero de verdad; limpiado.
+- Una mutación dejó un `2sectores.json` que **entró en el glob de los días** y rompió la suite
+  entera. Limpiado, y es justo lo que la comprobación nueva vigila.
+- Y dos comprobaciones que no comprobaban nada: una buscaba `comprueba(universo, candidatas, ...)`
+  y mi mutador cayó en la **firma** de la función en vez de en la llamada; otra daba por buena una
+  llamada **comentada**, porque buscaba la cadena a secas en vez de una línea de código.
