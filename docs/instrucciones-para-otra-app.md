@@ -253,9 +253,11 @@ evaluaPosicion(datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasR
       un-requisito    si fallos == 1
       devolviendo     si limite != null y alMenos(devuelto, limite * 0,6)
       ema21           si ema21 != null y precio < ema21
-      ganancia-corta  si limite == null y ganMax > 0 y adr y ganMax < 2 * adr
-                      -> la ganancia es más pequeña que dos días del movimiento normal de esa
-                         acción, así que NINGUNA regla puede protegerla. No vende; solo avisa.
+      ganancia-corta  si limite == null y adr y alMenos(ganMax, 2 * adr)
+                      -> tienes ganancia real y todavía NO hay regla que la proteja. El umbral
+                         es proporcional a la volatilidad: con ADR 4,6 avisa desde +9,2 %, con
+                         ADR 1,5 desde +3 %. Por debajo no se avisa: esa ganancia es el vaivén
+                         de un día. No vende; solo avisa.
 
     estado = 'vender'   si hay motivos
              'vigilar'  si no, y hay avisos
@@ -273,7 +275,7 @@ evaluaPosicion(datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasR
 | Aviso de devolución | al **60 %** del límite | avisa antes de vender |
 | Aviso de EMA 21 | `precio < ema21` | primera señal de debilidad |
 | Aviso de resultados | **≤ 10 días** | puede abrir con un hueco que el stop no evita |
-| **Aviso de ganancia corta** | ganancia máxima **menor que 2 × ADR** y por debajo del primer escalón | una ganancia más pequeña que dos días de su propio movimiento **no se puede proteger**: por debajo de dos días de rango cualquier regla salta sola, y por encima la devuelve entera antes de dispararse |
+| **Aviso de ganancia sin proteger** | ganancia máxima **≥ 2 × ADR** y por debajo del primer escalón | tienes ganancia real y aún no hay regla que la cubra; dice cuánto falta. Por debajo de 2 × ADR no se avisa: esa ganancia es el vaivén de un día |
 
 **Perder la EMA 50 no es una regla aparte.** El stop es `max(EMA 50, …)`, así que si el precio
 pierde la EMA 50 ya está por debajo del stop y lo coge la primera rama. En el panel había una rama

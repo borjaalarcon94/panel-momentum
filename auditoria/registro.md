@@ -3233,3 +3233,21 @@ lejosDeMaximo lo sigan**. Ninguna puede quedarse atrás.
 
 **Pruebas:** 20 nuevas. **18 mutaciones probadas, las 18 detectadas**, incluidas las cuatro de
 «volver a escribir el umbral a mano en una sola fila».
+
+### Y el aviso tenía una banda muda: lo encontró su pregunta
+
+Borja: *«una acción que llevo un 15 % de ganancia, ¿cómo la protejo?»*. No la protegía nada **y el
+panel no lo decía**. El aviso que había publicado horas antes solo cubría `ganMax < 2 × ADR`, así
+que entre **~9 % y 20 %** (con el ADR típico de 4,6) no había ni regla ni aviso. Había movido el
+hueco, no cerrado.
+
+Al extenderlo a toda la banda apareció el problema contrario: con cualquier ganancia > 0, una
+posición al **+4 % salía como VIGILAR** — todas las que van en verde marcadas, que es ruido en
+pantalla. Lo cazó una prueba que ya existía («sube un 4 % y todo bien: mantener»).
+
+Resuelto con la misma vara que usa el resto del panel: **se avisa a partir de dos días de rango de
+esa acción**. Por debajo, la ganancia es el vaivén de un día y no hay nada que proteger. El umbral
+queda **proporcional a la volatilidad**: con ADR 4,6 avisa desde +9,2 %; con ADR 1,5, desde +3 %.
+
+16 pruebas nuevas, incluido un barrido de ganancias del 1 al 60 % que exige que **ninguna ganancia
+real se quede sin regla y sin aviso**. 7 mutaciones probadas y detectadas.

@@ -151,10 +151,30 @@
          por debajo de dos dias cualquier regla salta con el movimiento normal, y por encima
          devuelve la ganancia entera antes de dispararse. No es un fallo del panel, es el tamaño de
          la ganancia frente a su volatilidad, y conviene saberlo antes de contar ese dinero. */
+      /* El aviso cubre TODA la banda sin regla, no solo la parte de abajo. En la primera version
+         solo saltaba con ganMax < 2*ADR, y eso dejaba un hueco mudo entre ~9 % y 20 % para una
+         accion de ADR 4,6: ni regla de devolucion ni aviso. Lo encontro Borja el 05/11/2026
+         preguntando "¿y una que llevo un 15 %, como la protejo?". No la protegia nada y el panel
+         no lo decia.
+         Son dos situaciones distintas y el texto lo distingue:
+           - por debajo de 2 dias de rango: NO SE PUEDE proteger, cualquier regla seria ruido;
+           - de ahi al primer escalon: todavia no hay regla, y falta X para tenerla. */
+      /* AVISO SOLO CUANDO HAY ALGO QUE PROTEGER. La primera version avisaba con cualquier ganancia
+         por encima de cero, y con eso una posicion al +4 % salia como VIGILAR: todas las que van
+         en verde marcadas, que es ruido puro en pantalla.
+         La linea es la misma que usa el resto del panel: DOS DIAS DE RANGO de esa accion. Por
+         debajo de ahi la ganancia no es un movimiento, es el vaiven de un dia, y no hay nada que
+         proteger ni nada que decir. Por encima, la ganancia es real y el usuario tiene que saber
+         que todavia no hay regla que la cubra y cuanto le falta.
+         Ojo: esto hace el aviso PROPORCIONAL A LA VOLATILIDAD de cada accion. En una que se mueve
+         un 4,6 % al dia salta a partir del +9,2 %; en una tranquila de ADR 1,5, a partir del +3 %.
+         Es lo correcto: en la tranquila, un +8 % si es una ganancia que se puede perder. */
       const adr = num(datos.adr);
-      if (limite == null && ganMax > 0 && adr && ganMax < 2 * adr)
+      if (limite == null && adr && alMenos(ganMax, 2 * adr)) {
+        const desde = R.devolucion[R.devolucion.length - 1].desde;
         avisos.push({ codigo: 'ganancia-corta', ganMax, gan, adr, dias: ganMax / adr,
-                      desde: R.devolucion[R.devolucion.length - 1].desde });
+                      desde, faltan: desde - ganMax });
+      }
       if (ema21 != null && precio < ema21) avisos.push({ codigo: 'ema21', ema21 });
     }
     return { estado: motivos.length ? 'vender' : avisos.length ? 'vigilar' : 'mantener',

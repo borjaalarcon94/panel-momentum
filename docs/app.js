@@ -185,10 +185,11 @@ window.TEXTO_SENAL = function (m) {
     case 'rsi': return 'RSI ' + n(m.rsi, 0) + ': sin fuerza compradora';
     case 'devuelto': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de lo que llegó a ganar (de ' + pc(m.ganMax) + ' a ' + pc(m.gan) + ')';
     case 'devolviendo': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de su ganancia máxima (vendería al ' + m.limite + ' %)';
-    case 'ganancia-corta': return 'ha llegado a ' + pc(m.ganMax) + ', que son solo ' + n(m.dias, 1) +
-      ' días de su movimiento normal (' + n(m.adr, 1) + ' % al día). Ninguna regla puede proteger una ganancia tan pequeña: ' +
-      'por debajo de dos días de rango saltaría sola, y por encima la habría devuelto entera. A partir del ' + m.desde +
-      ' % sí entra la regla de devolución';
+    case 'ganancia-corta': return 'ha llegado a ' + pc(m.ganMax) + ' (' + n(m.dias, 1) +
+      ' días de su movimiento normal) y todavía NO hay regla que proteja ese beneficio: la devolución entra ' +
+      'a partir del ' + m.desde + ' %, le faltan ' + n(m.faltan, 1) + ' puntos. Hasta entonces solo está el stop, que ' +
+      (m.ganMax >= 20 ? 'ya protege tu precio de compra' : 'todavía está por debajo de tu precio de compra') +
+      '. Si quieres asegurar parte, la decisión es tuya';
     case 'requisitos': return 'ya no cumple ' + m.fallos.length + ' requisitos: ' + m.fallos.map(f => f.t.toLowerCase()).join(', ');
     case 'un-requisito': return 'ha dejado de cumplir: ' + m.fallo.t.toLowerCase() + ' (' + m.fallo.v + ')';
     case 'capitalizacion': return 'su capitalización (' + m.valor + ') ha caído por debajo del mínimo: ya no entraría como nueva, pero eso solo no es motivo de venta';

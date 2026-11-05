@@ -384,30 +384,73 @@ console.log('\nRECORRIDO DE UNA ENTRADA');
    al dia y el pico mediano de una entrada es +5,5 %, o sea 1,2 dias de movimiento. Una ganancia asi
    NO SE PUEDE proteger: por debajo de dos dias de rango cualquier regla salta sola, y por encima la
    devuelve entera antes de dispararse. El aviso lo dice; no vende ni mueve el stop. */
-console.log('\nAVISO DE GANANCIA MÁS PEQUEÑA QUE EL RUIDO');
+/* LOS DOS CASOS QUE PREGUNTO BORJA, con sus numeros, para que no se puedan mover sin querer. */
+console.log('\nUNA AL +15 % Y UNA AL +40 %: QUE HACE EL SISTEMA');
+{
+  const caso = (pico, ema50) => REGLAS.evaluaPosicion({
+    datos: { precio: 100 * (1 + pico / 100), ema50, ema21: ema50, rsi: 60, adr: 4.6 },
+    compra: 100, maxRegistrado: 100 * (1 + pico / 100), stopPrevio: 0, dias: 20, requisitos: [],
+    maxSerie: 100 * (1 + pico / 100) });
+  const q = caso(15, 88);
+  comprueba('al +15 % NO hay regla de beneficio', REGLAS.limiteDevolucion(15), null);
+  comprueba('y el stop sigue por debajo de tu compra (88 $)', q.stop, 88);
+  comprueba('pero el panel avisa de que faltan 5 puntos para tenerla',
+    q.avisos.some(a => a.codigo === 'ganancia-corta' && Math.abs(a.faltan - 5) < 0.01), true);
+
+  const c = caso(40, 95);
+  comprueba('al +40 % el stop ya protege tu precio de compra', c.stop, 100);
+  comprueba('y la regla de beneficio deja devolver la mitad', REGLAS.limiteDevolucion(40), 50);
+  /* Vende cuando ha devuelto el 50 % de 40 puntos: se sale con +20 %, a 120 $. */
+  const vende = REGLAS.evaluaPosicion({ datos: { precio: 119.9, ema50: 95, ema21: 95, rsi: 60, adr: 4.6 },
+    compra: 100, maxRegistrado: 140, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: 140 });
+  comprueba('a 119,9 $ (+19,9 %) manda vender', codigos(vende).includes('devuelto'), true);
+  comprueba('y te vas con ganancia, no con pérdida', vende.gan > 0, true);
+  const aguanta = REGLAS.evaluaPosicion({ datos: { precio: 125, ema50: 95, ema21: 95, rsi: 60, adr: 4.6 },
+    compra: 100, maxRegistrado: 140, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: 140 });
+  comprueba('a 125 $ (+25 %) todavía no vende', codigos(aguanta).includes('devuelto'), false);
+  comprueba('pero ya avisa de que está devolviendo',
+    aguanta.avisos.some(a => a.codigo === 'devolviendo'), true);
+}
+
+console.log('\nAVISO: TIENES GANANCIA Y TODAVÍA NO HAY REGLA QUE LA PROTEJA');
 {
   const ev = (compra, hoy, max, adr) => REGLAS.evaluaPosicion({
     datos: { precio: hoy, ema50: compra * 0.8, ema21: compra * 0.8, rsi: 60, adr },
     compra, maxRegistrado: max, stopPrevio: 0, dias: 20, requisitos: [], maxSerie: max });
-  const cods = x => x.avisos.map(a => a.codigo);
+  const tiene = x => x.avisos.map(a => a.codigo).includes('ganancia-corta');
 
-  const corta = ev(100, 108, 108, 4.6);     // pico +8 %, ADR 4,6 -> 1,7 dias
-  comprueba('ganancia de 1,7 días de rango: avisa', cods(corta).includes('ganancia-corta'), true);
-  comprueba('y no vende', corta.motivos.length, 0);
-  comprueba('el aviso dice cuántos días de rango es', Math.abs(corta.avisos.find(a => a.codigo === 'ganancia-corta').dias - 8 / 4.6) < 0.01, true);
+  /* La linea es DOS DIAS DE RANGO de esa accion, la misma vara que usa el resto del panel. Por
+     debajo, la "ganancia" es el vaiven de un dia: no hay nada que proteger ni que decir. La primera
+     version avisaba con cualquier ganancia > 0 y dejaba TODAS las posiciones en verde marcadas como
+     VIGILAR, que es ruido en pantalla. */
+  comprueba('al +4 % con ADR 4,6 no avisa: son menos de dos días de rango', tiene(ev(100, 104, 104, 4.6)), false);
+  comprueba('y la posición sigue en MANTENER', ev(100, 104, 104, 4.6).estado, 'mantener');
+  comprueba('al +10 % (2,2 días) sí avisa', tiene(ev(100, 110, 110, 4.6)), true);
+  comprueba('al +15 % también, y dice que faltan 5 puntos',
+    Math.abs(ev(100, 115, 115, 4.6).avisos.find(a => a.codigo === 'ganancia-corta').faltan - 5) < 0.01, true);
+  comprueba('y no vende', ev(100, 115, 115, 4.6).motivos.length, 0);
 
-  comprueba('con la misma ganancia pero una acción tranquila (ADR 1,5) NO avisa: ahí sí se puede proteger',
-    cods(ev(100, 108, 108, 1.5)).includes('ganancia-corta'), false);
-  comprueba('por encima del +20 % tampoco avisa: ahí ya hay regla de devolución',
-    cods(ev(100, 120, 122, 4.6)).includes('ganancia-corta'), false);
-  /* El caso que distingue las DOS condiciones: una accion tan volatil (ADR 12 %) que un pico del
-     +22 % sigue siendo menos de dos dias de rango... pero que YA tiene regla de devolucion. Ahi no
-     se avisa, porque el aviso es para cuando no hay regla. Sin este caso, quitar el "limite == null"
-     del codigo pasaba sin que nada fallase. */
-  comprueba('ni siquiera en una acción tan volátil que el +22 % sean 1,8 días: ahí ya hay regla',
-    cods(ev(100, 120, 122, 12)).includes('ganancia-corta'), false);
-  comprueba('sin ADR no se inventa el aviso', cods(ev(100, 108, 108, null)).includes('ganancia-corta'), false);
-  comprueba('y sin ganancia tampoco', cods(ev(100, 98, 100, 4.6)).includes('ganancia-corta'), false);
+  /* Es PROPORCIONAL a la volatilidad: en una accion tranquila un +4 % ya es una ganancia real. */
+  comprueba('en una acción tranquila (ADR 1,5) el +4 % sí avisa', tiene(ev(100, 104, 104, 1.5)), true);
+  comprueba('pero el +2 % no', tiene(ev(100, 102, 102, 1.5)), false);
+
+  comprueba('por encima del primer escalón no avisa: ahí ya hay regla', tiene(ev(100, 120, 122, 4.6)), false);
+  /* Caso que distingue las dos condiciones del codigo: accion tan volatil que un pico del +22 %
+     sigue siendo poco rango... pero que YA tiene regla. Sin esto, quitar el "limite == null" pasaba. */
+  comprueba('ni en una tan volátil que el +22 % sean 1,8 días: ahí ya hay regla', tiene(ev(100, 120, 122, 12)), false);
+  comprueba('sin ADR no se inventa el aviso', tiene(ev(100, 115, 115, null)), false);
+  comprueba('y sin ganancia tampoco', tiene(ev(100, 98, 100, 4.6)), false);
+
+  /* NINGUNA BANDA MUDA entre dos dias de rango y el primer escalon: ese hueco (de ~9 % a 20 % con
+     ADR 4,6) existio unas horas el 05/11/2026 y lo encontro Borja preguntando por una al +15 %. */
+  {
+    const mudas = [];
+    for (let gm = 1; gm < 60; gm++) {
+      const x = ev(100, 100 * (1 + gm / 100), 100 * (1 + gm / 100), 4.6);
+      if (REGLAS.limiteDevolucion(gm) == null && gm >= 2 * 4.6 && !tiene(x)) mudas.push(gm);
+    }
+    comprueba('ninguna ganancia real se queda sin regla Y sin aviso', mudas, []);
+  }
 }
 
 console.log(`\n${total - fallos} de ${total} comprobaciones correctas`);

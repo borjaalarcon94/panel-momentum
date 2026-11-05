@@ -61,18 +61,26 @@ acciones** (IOVA y TEAM): descontándolas, ninguna variante mejoraba nada.
 No vende, no mueve el stop. Solo informa.
 
 ```
-ganancia-corta:  si limite == null  y  ganMax > 0  y  hay adr  y  ganMax < 2 * adr
+ganancia-corta:  si limite == null  y  hay adr  y  alMenos(ganMax, 2 * adr)
 ```
 
-Significa: *la ganancia es más pequeña que dos días del movimiento normal de esa acción, así que
-ninguna regla puede protegerla.* Por debajo de dos días de rango cualquier regla saltaría sola; por
-encima, habría devuelto la ganancia entera antes de dispararse.
+Significa: *tienes una ganancia real y todavía no hay ninguna regla que la proteja.* Cubre toda la
+banda entre «la ganancia deja de ser ruido» y el primer escalón de devolución (+20 %).
 
-No es un fallo del sistema: es el tamaño de la ganancia frente a su volatilidad. Solo **13 de 39**
-entradas superan ese umbral.
+**El umbral es proporcional a la volatilidad de cada acción**, no un porcentaje fijo:
 
-Texto sugerido: *«ha llegado a +8,0 %, que son solo 1,7 días de su movimiento normal (4,6 % al día).
-Ninguna regla puede proteger una ganancia tan pequeña. A partir del 20 % sí entra la devolución.»*
+| ADR de la acción | Avisa a partir de |
+|---|---|
+| 4,6 % al día (lo típico aquí) | +9,2 % |
+| 1,5 % al día (una tranquila) | +3,0 % |
+
+Por debajo de dos días de rango no se avisa, y es deliberado: esa «ganancia» es el vaivén de un día,
+no hay nada que proteger. Si se avisara con cualquier ganancia, **todas** las posiciones en verde
+saldrían marcadas y el aviso no significaría nada.
+
+Texto sugerido: *«ha llegado a +15,0 % (3,3 días de su movimiento normal) y todavía NO hay regla que
+proteja ese beneficio: la devolución entra a partir del 20 %, le faltan 5,0 puntos. Hasta entonces
+solo está el stop, que todavía está por debajo de tu precio de compra.»*
 
 ---
 
@@ -83,6 +91,30 @@ Ninguna regla puede proteger una ganancia tan pequeña. A partir del 20 % sí en
 - El escalón del +100 % → devolver 40 %. Igual.
 - Todos los avisos anteriores (EMA 21, resultados en ≤10 días, un requisito roto, devolviendo al
   60 % del límite). Iguales.
+
+---
+
+---
+
+## Los dos casos concretos, con números
+
+**Compras a 100 $ y sube a 115 $ (+15 %), acción de ADR 4,6 %:**
+
+| | |
+|---|---|
+| Stop | 88,00 $ (−12 % sobre tu compra) — la EMA 50 o el suelo del −15 % |
+| Regla de beneficio | **ninguna todavía** |
+| El panel avisa | *«+15 %, faltan 5,0 puntos para que entre la devolución»* |
+
+**Compras a 100 $ y sube a 140 $ (+40 %):**
+
+| | |
+|---|---|
+| Stop | **100,00 $** — ya protege tu precio de compra (superó el +20 %) |
+| Avisa si cae a | 128,00 $ (todavía +28 %) |
+| **Vende si cae a** | **120,00 $ → te quedas con +20 %** |
+
+Es decir: de un pico del +40 % se asegura la mitad. Y mientras siga subiendo, no vende nada.
 
 ---
 
