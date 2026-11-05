@@ -111,8 +111,12 @@
     let base = alMenos(pico, R.gananciaProteger) ? Math.max(ema50 || 0, ref) : Math.max(ema50 || 0, suelo);
     /* Trailing de beneficio: K dias de rango por debajo del maximo alcanzado, y solo si ese nivel
        asegura ganancia. maxPrecio se deduce del pico: no hace falta pasarlo aparte. */
+    /* adr > 0, no solo "adr": un ADR NEGATIVO invierte la resta y coloca el stop POR ENCIMA del
+       maximo alcanzado y del precio de hoy, o sea una venta forzada a un precio que no existe.
+       TradingView no deberia mandarlo nunca, y por eso mismo no se nota si lo manda: el panel se
+       escribe para que un dato corrupto no tumbe nada. Encontrado el 05/11/2026 auditando bordes. */
     const adr = num(datos && datos.adr);
-    if (adr && num(ganMax) != null && ganMax > 0) {
+    if (adr > 0 && num(ganMax) != null && ganMax > 0) {
         const maxPrecio = ref * (1 + ganMax / 100);
         const nivel = maxPrecio * (1 - R.diasTrailing * adr / 100);
         if (nivel > ref) base = Math.max(base, nivel);
@@ -230,9 +234,17 @@
       if (ganMax > 0 && stop != null && stop < compra
           && adrPos && alMenos(ganMax, R.diasTrailing * adrPos)) {
         const adr = adrPos;
+        /* "falta" son los puntos que le quedan para que el TRAILING entre, no para que salte el
+           aviso. Hasta el 05/11/2026 medía lo segundo y valía exactamente 0 en todos los avisos
+           que se emiten, porque es la misma línea que los dispara: la rama "le faltan N puntos"
+           era código muerto y el texto caía siempre en "subirá en cuanto lo haga su EMA 50", que
+           con el trailing ya es falso. El trailing manda cuando (1+g)(1-2·adr) > 1, o sea a partir
+           de g = 2·adr / (1 - 2·adr/100). Con ADR 4,6 son 10,13 puntos. */
+        const k = R.diasTrailing * adr;
+        const paraTrailing = k < 100 ? k / (1 - k / 100) : null;
         avisos.push({ codigo: 'ganancia-corta', ganMax, gan, adr, stop,
-                      dias: adr ? ganMax / adr : null,
-                      falta: adr ? Math.max(0, R.diasTrailing * adr - ganMax) : null });
+                      dias: adr ? ganMax / adr : null, paraTrailing,
+                      falta: paraTrailing != null ? Math.max(0, paraTrailing - ganMax) : null });
       }
       if (ema21 != null && precio < ema21) avisos.push({ codigo: 'ema21', ema21 });
     }
@@ -253,10 +265,11 @@
        sesiones   fechas posteriores a la entrada, en orden
        precioDe   f -> cierre de ese dia, o null si no se tiene
        emaDe      f -> EMA 50 de ese dia, o undefined
+       adr        rango diario medio de la accion, para el trailing. Sin el no hay trailing
 
      Devuelve { ret, fecha, motivo, peor, peorCerrada, vistos }. ret es null si nunca salto: quien
      llama decide si eso significa "sigue abierta" o "vale lo de hoy". */
-  function recorrido(compra, sesiones, precioDe, emaDe) {
+  function recorrido(compra, sesiones, precioDe, emaDe, adr) {
     const c = num(compra);
     if (c == null || c <= 0) return { ret: null, fecha: null, motivo: null, peor: 0, peorCerrada: 0, vistos: 0 };
     let maxVisto = c, peor = c, peorCerrada = c;
@@ -270,10 +283,13 @@
       if (cerrada) continue;
       peorCerrada = Math.min(peorCerrada, p);
       const gan = (p / c - 1) * 100, ganMax = (maxVisto / c - 1) * 100;
-      /* Los CUATRO argumentos de stopDe. Sin ema50 el stop se queda en el suelo de perdida maxima,
+      /* TODOS los argumentos de stopDe. Sin ema50 el stop se queda en el suelo de perdida maxima,
          mas flojo que el de verdad; sin ganMax vuelve a mirar la ganancia de hoy en vez de la
-         maxima, que es el fallo que se corrigio aqui mismo este mes. */
-      stopPrevio = Math.max(stopPrevio, stopDe({ precio: p, ema50: num(emaDe(f)) }, c, stopPrevio, ganMax) || 0);
+         maxima, que es el fallo que se corrigio aqui mismo este mes; y SIN ADR no hay trailing, o
+         sea que el registro mediria un sistema que ya no existe. Ese ultimo aparecio el 05/11/2026
+         en la auditoria del propio trailing: evaluaPosicion ya lo aplicaba y este bucle no, justo
+         la divergencia entre pestañas que esta funcion existe para impedir. */
+      stopPrevio = Math.max(stopPrevio, stopDe({ precio: p, ema50: num(emaDe(f)), adr: num(adr) }, c, stopPrevio, ganMax) || 0);
       if (p < stopPrevio) { salida = p; fSalida = f; motivo = 'stop'; cerrada = true; continue }
       const limite = limiteDevolucion(ganMax);
       const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;

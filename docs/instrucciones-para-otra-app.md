@@ -276,11 +276,21 @@ evaluaPosicion(datos, compra, maxRegistrado, stopPrevio, dias, requisitos, diasR
       un-requisito    si fallos == 1
       devolviendo     si limite != null y alMenos(devuelto, limite * 0,6)
       ema21           si ema21 != null y precio < ema21
-      ganancia-corta  si limite == null y adr y alMenos(ganMax, 2 * adr)
-                      -> tienes ganancia real y todavía NO hay regla que la proteja. El umbral
-                         es proporcional a la volatilidad: con ADR 4,6 avisa desde +9,2 %, con
-                         ADR 1,5 desde +3 %. Por debajo no se avisa: esa ganancia es el vaivén
-                         de un día. No vende; solo avisa.
+      ganancia-corta  si limite == null y adr > 0 y alMenos(ganMax, 2 * adr) y stop < compra
+                      -> tienes ganancia real y todavía NO hay regla ni stop que la proteja. El
+                         umbral es proporcional a la volatilidad: con ADR 4,6 avisa desde +9,2 %,
+                         con ADR 1,5 desde +3 %. Por debajo no se avisa: esa ganancia es el
+                         vaivén de un día. No vende; solo avisa.
+                         La condición "stop < compra" es la que lo apaga en cuanto el trailing
+                         protege: sin ella avisaría de posiciones que ya están a salvo. Con eso
+                         la franja queda en uno o dos puntos, y es lo que se quiere.
+                         El aviso lleva el número útil: cuántos puntos faltan para que el
+                         trailing pase tu precio de compra.
+                             paraTrailing = (2*adr) / (1 - 2*adr/100)      # +10,13 % con ADR 4,6
+                             falta        = max(0, paraTrailing - ganMax)
+                         OJO: NO calcular "falta" contra el umbral del propio aviso (2*adr). Es
+                         la misma línea que lo dispara, así que da 0 siempre y el texto que lo
+                         imprime se vuelve código muerto. Pasó en el panel hasta el 05/11/2026.
 
     estado = 'vender'   si hay motivos
              'vigilar'  si no, y hay avisos

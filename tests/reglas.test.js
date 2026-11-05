@@ -450,6 +450,32 @@ console.log('\nAVISO: TIENES GANANCIA Y TODAVÍA NO HAY REGLA QUE LA PROTEJA');
   comprueba('al +4 % con ADR 4,6 no avisa: son menos de dos días de rango', tiene(ev(100, 104, 104, 4.6)), false);
   comprueba('y la posición sigue en MANTENER', ev(100, 104, 104, 4.6).estado, 'mantener');
   comprueba('al +10 % (2,2 días) sí avisa', tiene(ev(100, 110, 110, 4.6)), true);
+
+  /* EL NUMERO DEL AVISO TIENE QUE ESTAR VIVO. Hasta el 05/11/2026 "falta" media los puntos que
+     quedaban para que saltase EL AVISO, que es la misma linea que lo dispara: valia exactamente 0
+     en los 42 casos en que se emite, la rama que lo imprimia era codigo muerto y el texto caia
+     siempre en "el stop subira en cuanto lo haga su EMA 50", que con el trailing es falso. Ahora
+     mide los puntos que faltan para que el TRAILING pase tu precio de compra. */
+  {
+    const avi = (gm, adr) => ev(100, 100 * (1 + gm / 100), 100 * (1 + gm / 100), adr)
+      .avisos.find(a => a.codigo === 'ganancia-corta');
+    comprueba('el aviso dice en qué ganancia entra el trailing (ADR 4,6 -> +10,13 %)',
+      Math.abs(avi(9.5, 4.6).paraTrailing - 10.1321586) < 0.001, true);
+    comprueba('y cuántos puntos faltan para eso, que NO es cero',
+      Math.abs(avi(9.5, 4.6).falta - 0.6321586) < 0.001, true);
+    comprueba('en una tranquila (ADR 1,5) el trailing entra en +3,09 %',
+      Math.abs(avi(3.0, 1.5).paraTrailing - 3.0921) < 0.001, true);
+    comprueba('en una muy volátil (ADR 8) le faltan 3 puntos enteros',
+      Math.abs(avi(16, 8).falta - 3.0476) < 0.001, true);
+    /* La linea que calcula paraTrailing es la misma que decide si el stop sube: tienen que cuadrar. */
+    const cuadra = [1.5, 3, 4.6, 8, 12].every(adr => {
+      const u = (R.diasTrailing * adr) / (1 - R.diasTrailing * adr / 100);
+      const justoAntes = REGLAS.stopDe({ precio: 100 * (1 + (u - 0.05) / 100), ema50: 50, adr }, 100, null, u - 0.05);
+      const justoDespues = REGLAS.stopDe({ precio: 100 * (1 + (u + 0.05) / 100), ema50: 50, adr }, 100, null, u + 0.05);
+      return justoAntes <= 100 && justoDespues > 100;
+    });
+    comprueba('el umbral que anuncia el aviso es EXACTAMENTE donde el stop empieza a subir', cuadra, true);
+  }
   comprueba('y no vende', ev(100, 110, 110, 4.6).motivos.length, 0);
 
   /* LA FRANJA DEL AVISO ES ESTRECHA A PROPOSITO, y desde el trailing lo es mucho mas. El aviso dice
@@ -473,6 +499,19 @@ console.log('\nAVISO: TIENES GANANCIA Y TODAVÍA NO HAY REGLA QUE LA PROTEJA');
      sigue siendo poco rango... pero que YA tiene regla. Sin esto, quitar el "limite == null" pasaba. */
   comprueba('ni en una tan volátil que el +22 % sean 1,8 días: ahí ya hay regla', tiene(ev(100, 120, 122, 12)), false);
   comprueba('sin ADR no se inventa el aviso', tiene(ev(100, 115, 115, null)), false);
+
+  /* DATOS CORRUPTOS. Un ADR negativo invertia la resta del trailing y dejaba el stop POR ENCIMA del
+     maximo y del precio de hoy: venta forzada a un precio que no existe. TradingView no deberia
+     mandarlo, y por eso mismo pasaba desapercibido. */
+  comprueba('un ADR negativo NO sube el stop por encima del máximo',
+    REGLAS.stopDe({ precio: 115, ema50: 50, adr: -5 }, 100, null, 15), 85);
+  comprueba('ni un ADR de −0,1', REGLAS.stopDe({ precio: 115, ema50: 50, adr: -0.1 }, 100, null, 15), 85);
+  comprueba('un ADR tan grande que el nivel saldría negativo se ignora',
+    REGLAS.stopDe({ precio: 115, ema50: 50, adr: 60 }, 100, null, 15), 85);
+  comprueba('un ADR que no es número tampoco mueve el stop',
+    REGLAS.stopDe({ precio: 115, ema50: 50, adr: 'x' }, 100, null, 15), 85);
+  comprueba('y con cualquier ADR válido el stop nunca pasa del máximo alcanzado',
+    [0.5, 1, 4.6, 12, 30].every(a => REGLAS.stopDe({ precio: 115, ema50: 50, adr: a }, 100, null, 15) <= 115), true);
   comprueba('y sin ganancia tampoco', tiene(ev(100, 98, 100, 4.6)), false);
 
   /* NINGUNA BANDA DESPROTEGIDA entre dos dias de rango y el primer escalon: ese hueco (de ~9 % a

@@ -85,7 +85,10 @@ window.SALTO_STOP = function (p) {
     const e = emas[f] && emas[f][clave];
     maxCierre = Math.max(maxCierre, c);
     const ganMax = (maxCierre / compra - 1) * 100;
-    trinquete = Math.max(trinquete, window.REGLAS.stopDe({ precio: c, ema50: e }, compra, trinquete, ganMax) || 0);
+    /* Con su ADR: sin el este bucle calcula el stop de antes del trailing y puede NO VER una salida
+       que la regla si ordena, que en simulacion significa anotar la venta tarde o no anotarla. */
+    const adr = ((ACT || {})[clave] || {}).adr;
+    trinquete = Math.max(trinquete, window.REGLAS.stopDe({ precio: c, ema50: e, adr }, compra, trinquete, ganMax) || 0);
     if (trinquete && c < trinquete) return { fecha: f, precio: c, stop: trinquete, mio: false };
   }
   return null;
@@ -109,7 +112,7 @@ window.TRINQUETE_EN_SERIE = function (clave, desde, compra) {
     if (c == null) continue;
     maxCierre = Math.max(maxCierre, c);
     const ganMax = (maxCierre / compra - 1) * 100;
-    const st = window.REGLAS.stopDe({ precio: c, ema50: e }, compra, null, ganMax);
+    const st = window.REGLAS.stopDe({ precio: c, ema50: e, adr: ((ACT || {})[clave] || {}).adr }, compra, null, ganMax);
     if (st != null && st > trinquete) trinquete = st;
   }
   return trinquete || null;
@@ -145,10 +148,15 @@ async function dia(f) {
    los datos. Lo usan Resultados y Seguimiento, para que no puedan contar historias distintas del
    mismo dia: hasta el 25/10/2026 cada una tenia su copia del bucle y daban stops diferentes. */
 function recorridoConReglas(clave, entrada, compra) {
+  /* El ADR es el de HOY, el unico que se guarda: no hay serie historica de rangos. Usarlo para
+     todas las sesiones es una aproximacion, y es la misma que usa la tarjeta de la posicion, asi
+     que el registro y el panel siguen contando lo mismo. */
+  const adr = ((ACT || {})[clave] || {}).adr;
   return window.REGLAS.recorrido(compra,
     FH.filter(f => f > entrada && esSesion(f)).sort(),
     f => cierre(f, clave),
-    f => ((window.__EMAS__ || {})[f] || {})[clave]);
+    f => ((window.__EMAS__ || {})[f] || {})[clave],
+    adr);
 }
 window.recorridoConReglas = recorridoConReglas;
 
@@ -187,8 +195,11 @@ window.TEXTO_SENAL = function (m) {
     case 'devolviendo': return 'ha devuelto el ' + n(m.devuelto, 0) + ' % de su ganancia máxima (vendería al ' + m.limite + ' %)';
     case 'ganancia-corta': return 'ha llegado a ' + pc(m.ganMax) + ' pero tu salida sigue en ' + n(m.stop) +
       ' $, por DEBAJO de tu precio de compra: si se da la vuelta ahora, no te llevas nada de esa ganancia. ' +
-      (m.falta > 0 ? 'Le faltan ' + n(m.falta, 1) + ' puntos para que el stop suba a terreno de beneficio.'
-                   : 'El stop subirá en cuanto lo haga su EMA 50.')
+      /* El numero que importa es cuanto le falta para que el TRAILING pase tu compra, que es
+         cuando el stop entra en beneficio. Decir "en cuanto suba su EMA 50" era lo que se decia
+         antes del trailing, y ya no es verdad. */
+      (m.falta > 0 ? 'Con ' + n(m.falta, 1) + ' puntos más (' + pc(m.paraTrailing) + ') el stop sube solo a terreno de beneficio.'
+                   : 'El stop sube a terreno de beneficio con el próximo cierre al alza.')
     case 'requisitos': return 'ya no cumple ' + m.fallos.length + ' requisitos: ' + m.fallos.map(f => f.t.toLowerCase()).join(', ');
     case 'un-requisito': return 'ha dejado de cumplir: ' + m.fallo.t.toLowerCase() + ' (' + m.fallo.v + ')';
     case 'capitalizacion': return 'su capitalización (' + m.valor + ') ha caído por debajo del mínimo: ya no entraría como nueva, pero eso solo no es motivo de venta';
@@ -254,12 +265,21 @@ window.TAMANO = function (distanciaStop) {
    cuatro. Un stop a menos de dos dias de rango no es un nivel tecnico, es una moneda al aire sobre
    el ruido diario. El umbral no es una regla de compra ni de venta: solo decide cuando se enciende
    el aviso, asi que no toca el sistema ni invalida el registro. */
+/* EL BORDE SE COMPARA CON TOLERANCIA, y desde el trailing no es un detalle: el trailing coloca el
+   stop a EXACTAMENTE dos dias de rango por debajo del maximo, que es justo este umbral. Una
+   posicion parada en su maximo cae clavada en la linea, y ahi el redondeo binario decide el color:
+   SEPN daba 1,99999999999999978 y se pintaba en ambar mientras FIGS daba 2,00000000000000000 y no,
+   las dos ensenando "2,0 dias" en pantalla. Mismo numero a la vista, colores distintos.
+   Los dos "2" de este fichero y de R.diasTrailing son el mismo suelo de ruido del panel, pero se
+   dejan separados a proposito: uno decide donde va un stop y el otro cuando se enciende un aviso,
+   y cambiar lo primero no deberia repintar la pantalla sin querer. */
+const BORDE = 1e-9;
 window.MARGEN_STOP = function (distanciaStop, adr) {
   const d = typeof distanciaStop === 'number' && isFinite(distanciaStop) ? Math.abs(distanciaStop) : null;
   const a = typeof adr === 'number' && isFinite(adr) && adr > 0 ? adr : null;
   if (d == null || a == null) return null;
   const dias = d / a;
-  return { dias, apretado: dias < 2, muyApretado: dias < 1 };
+  return { dias, apretado: dias < 2 - BORDE, muyApretado: dias < 1 - BORDE };
 };
 
 /* Dias hasta la publicacion de resultados (hueco de precio: el stop no protege de un salto al abrir). */

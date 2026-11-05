@@ -359,7 +359,7 @@ function operandoElPanel(huecos) {
       pos.maxc = Math.max(pos.maxc, c);
       const ganMax = (pos.maxc / pos.compra - 1) * 100, gan = (c / pos.compra - 1) * 100;
       pos.stop = Math.max(pos.stop, window.REGLAS.stopDe(
-        { precio: c, ema50: (emas[hoy] || {})[pos.k] }, pos.compra, pos.stop, ganMax) || 0);
+        { precio: c, ema50: (emas[hoy] || {})[pos.k], adr: pos.adr }, pos.compra, pos.stop, ganMax) || 0);
       const limite = window.REGLAS.limiteDevolucion(ganMax);
       const devuelto = ganMax > 0 ? (1 - gan / ganMax) * 100 : 0;
       const motivo = c < pos.stop ? 'stop'
@@ -395,7 +395,11 @@ function operandoElPanel(huecos) {
         const importe = Math.min(total / huecos, caja);
         if (importe <= total * 0.01) break;   // calderilla: no se abre posicion por migajas
         caja -= importe;
-        abiertas.push({ k, ticker: a.t, f: hoy, compra: c, acc: importe / c, maxc: c, stop: 0 });
+        /* El ADR sale de ACT (hoy) porque el historico no lo guarda: solo se archivan t/s/p/sc/ac/b/n.
+           Es la misma aproximacion que usa recorridoConReglas, para que la curva y el registro no
+           puedan contar historias distintas. */
+        abiertas.push({ k, ticker: a.t, f: hoy, compra: c, acc: importe / c, maxc: c, stop: 0,
+          adr: (ACT[k] || {}).adr });
       }
     }
     const valor = caja + abiertas.reduce((s, x) => s + x.acc * (PRECIOS[hoy][x.k] || x.compra), 0);

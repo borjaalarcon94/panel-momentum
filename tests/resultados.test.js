@@ -3,7 +3,10 @@
    que agrupe por dia de entrada, que no baile entre repintados y que contenga la media. */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 
-const ctx = { window: {}, document: { }, console };
+/* ACT lo declara app.js en el navegador y resultados.js lo usa para el precio de hoy y para el ADR
+   de cada accion (el historico archivado no guarda el ADR, solo t/s/p/sc/ac/b/n). Sin el, la curva
+   de la cartera calcularia los stops de antes del trailing. */
+const ctx = { window: {}, document: { }, console, ACT: {} };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/resultados.js'), 'utf8'), ctx);

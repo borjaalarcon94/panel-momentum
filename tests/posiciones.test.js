@@ -108,7 +108,11 @@ console.log('\nSIMULACIÓN: ¿SALTÓ EL STOP, Y QUÉ DÍA?');
    el martes no existía: la venta se anotaba tres días tarde y a otro precio. SALTO_STOP recorre la
    serie diaria y devuelve el PRIMER cierre que lo rompió. */
 {
-  const ctx = { window: {}, console, PRECIOS: null };
+  /* ACT existe siempre en el navegador (app.js lo declara en su primera linea) y SALTO_STOP lo
+     necesita para sacar el ADR de la accion: sin ADR no hay trailing y la funcion calcularia el
+     stop de antes del 05/11/2026, que es justo el fallo que se arreglo en esa fecha. Aqui se
+     declara porque el test extrae la funcion suelta, sin el resto del fichero. */
+  const ctx = { window: {}, console, PRECIOS: null, ACT: {} };
   ctx.globalThis = ctx; vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(dir, 'reglas.js'), 'utf8'), ctx);
   const src = fs.readFileSync(path.join(dir, 'app.js'), 'utf8');
@@ -126,6 +130,29 @@ console.log('\nSIMULACIÓN: ¿SALTÓ EL STOP, Y QUÉ DÍA?');
   const sis = S(base);
   comprueba('sin stop propio usa el del sistema y da el día exacto en que se rompió',
     sis && sis.fecha === '2026-12-04' && sis.precio === 80 && sis.mio === false, JSON.stringify(sis));
+
+  /* EL TRAILING TIENE QUE CONTAR AQUI. Serie que sube a 115 y luego cae: con ADR 4,6 el stop se
+     queda en 104,42 (dos dias de rango por debajo de 115), asi que la salida real es el cierre de
+     103, no el suelo del -15 %. Sin el ADR esta funcion devolvia "nunca saltó" y la simulacion no
+     anotaba la venta: una ganancia del +4,4 % que se quedaba sin cobrar y se iba a perdida. */
+  {
+    ctx.PRECIOS = { '2026-12-01': { Y: 100 }, '2026-12-02': { Y: 110 }, '2026-12-03': { Y: 115 },
+                    '2026-12-04': { Y: 103 }, '2026-12-05': { Y: 99 } };
+    const posY = { ticker: 'Y', simbolo: 'Y', fecha: '2026-12-01', precio: 100 };
+    ctx.ACT = {};
+    const sinAdr = S(posY);
+    comprueba('sin ADR en ACT no ve la salida del trailing (y por eso ACT importa)',
+      sinAdr === null, JSON.stringify(sinAdr));
+    ctx.ACT = { Y: { adr: 4.6 } };
+    const conAdr = S(posY);
+    comprueba('con su ADR sí la ve: sale el día 4 a 103, con la ganancia puesta',
+      conAdr && conAdr.fecha === '2026-12-04' && conAdr.precio === 103, JSON.stringify(conAdr));
+    comprueba('y el stop que da es el del trailing (104,42), no el suelo del −15 %',
+      conAdr && Math.abs(conAdr.stop - 104.42) < 0.01, conAdr && conAdr.stop);
+    ctx.PRECIOS = { '2026-12-01': { X: 100 }, '2026-12-02': { X: 96 }, '2026-12-03': { X: 90 },
+                    '2026-12-04': { X: 80 }, '2026-12-05': { X: 70 } };
+    ctx.ACT = {};
+  }
 
   /* Con MI stop en 95 salta antes, el día 2, y a otro precio: eso es lo que cambia el resultado. */
   const mio = S({ ...base, stopPropio: 95 });

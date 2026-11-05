@@ -182,6 +182,23 @@ for (const f of orden) {
   casi && casi.apretado ? ok('a 1,98 días todavía se avisa') : mal('no avisa justo por debajo de dos días', JSON.stringify(casi));
   dosDias && !dosDias.apretado && Math.abs(dosDias.dias - 2) < 1e-9
     ? ok('y justo en 2 ADR ya no: el umbral es "menos de dos días"') : mal('el límite de 2 ADR no es el esperado', JSON.stringify(dosDias));
+  /* EL BORDE CON ERROR DE REDONDEO. El trailing deja el stop a exactamente dos dias de rango del
+     maximo, asi que una posicion parada en su maximo cae clavada en este umbral y la division da
+     1,99999999999999978 en vez de 2. Sin tolerancia, SEPN se pintaba en ambar y FIGS no, las dos
+     ensenando "2,0 dias" en pantalla. Se reproduce con los numeros reales de SEPN del 05/11/2026. */
+  {
+    const bordeSEPN = MG(-(2 * 5.5) * (1 - 1e-16), 5.5);
+    bordeSEPN && !bordeSEPN.apretado
+      ? ok('un margen de 2 días con error de redondeo NO se marca (el caso SEPN)')
+      : mal('el redondeo decide el color del stop', JSON.stringify(bordeSEPN));
+    const deVerdad = MG(-(2 * 5.5) * (1 - 0.001), 5.5);
+    deVerdad && deVerdad.apretado
+      ? ok('pero 1,998 días de verdad sí se marca: la tolerancia no tapa casos reales')
+      : mal('la tolerancia se ha comido un caso real', JSON.stringify(deVerdad));
+    const unoBorde = MG(-5 * (1 - 1e-16), 5);
+    unoBorde && !unoBorde.muyApretado
+      ? ok('y lo mismo en el umbral de 1 día') : mal('el borde de 1 ADR depende del redondeo');
+  }
   MG(-5, null) === null && MG(null, 5) === null && MG(-5, 0) === null
     ? ok('sin ADR o sin distancia no se inventa un margen') : mal('devuelve algo sin datos suficientes');
   MG(5, 5) && Math.abs(MG(5, 5).dias - 1) < 1e-9 ? ok('el signo de la distancia no importa') : mal('el signo de la distancia altera el margen');
@@ -2046,6 +2063,47 @@ for (const f of orden) {
      mas bajo). Importa porque tu stop es FIJO y el del sistema SUBE: con el tiempo se separan, y si
      el tuyo queda muy por debajo de la EMA 50 el panel te deja aguantar una tendencia ya rota sin
      decirtelo. Encontrado el 31/10/2026 barriendo la pestaña de Posiciones. */
+  /* UN STOP PEGADO NO SIGNIFICA LO MISMO EN GANANCIA QUE EN PERDIDA. El aviso "menos de dos dias
+     de rango" nacio para la pestaña Hoy, donde quiere decir "este stop no es un nivel, es una
+     moneda al aire" y ademas produce la posicion mas grande. En una posicion abierta cuyo stop ya
+     esta POR ENCIMA de tu compra significa lo contrario: esta pegado porque protege lo ganado, y
+     que salte es cobrar. Desde el trailing (05/11/2026) esto afecta a 11 de las 42 seguidas, asi
+     que un texto que suene a reproche ahi esta mintiendo. */
+  console.log('\nCON EL STOP YA EN GANANCIA, EL MARGEN SE EXPLICA AL REVÉS');
+  {
+    const previo = almacen['posiciones-v1'];
+    const hoyF = panel.dias[panel.dias.length - 1];
+    /* Hace falta una con ADR y el stop pegado al precio Y en ganancia: se busca una en la que el
+       trailing mande, comprando muy por debajo y con el maximo por encima del precio de hoy. */
+    const k = Object.keys(panel.actual).find(x => {
+      const d = panel.actual[x];
+      if (!d.adr || !d.precio || !d.ema50) return false;
+      const compra = d.precio / 1.4, maxV = d.precio * 1.03;
+      const gm = (maxV / compra - 1) * 100;
+      const st = ventana.REGLAS.stopDe(d, compra, 0, gm);
+      return st > compra && st < d.precio && Math.abs((st / d.precio - 1) * 100) / d.adr < 2;
+    });
+    if (!k) ok('ninguna acción del panel sirve para este escenario hoy (no es un fallo)');
+    else {
+      const d = panel.actual[k];
+      almacen['posiciones-v1'] = JSON.stringify([{ ticker: d.ticker, simbolo: k, acciones: 10,
+        precio: +(d.precio / 1.4).toFixed(2), fecha: hoyF, maxVisto: +(d.precio * 1.03).toFixed(2) }]);
+      await ventana.posiciones();
+      const leer = x => (x.textContent || '') + ' ' + (x.hijos || []).map(leer).join(' ');
+      const txt = leer(porId.rpos).replace(/\s+/g, ' ');
+      /protege tu ganancia/.test(txt)
+        ? ok('dice que el stop está pegado porque protege tu ganancia')
+        : mal('no explica por qué el stop está pegado', txt.slice(0, 200));
+      !/menos de dos días de rango/.test(txt)
+        ? ok('y NO suelta el "menos de dos días de rango", que ahí se lee como un reproche')
+        : mal('trata un stop en ganancia como un stop mal puesto');
+      !/un día normal lo cruza/.test(txt)
+        ? ok('ni "un día normal lo cruza": lo que cruza es cobrar')
+        : mal('dice que lo cruza, como si saltar fuese perder');
+    }
+    almacen['posiciones-v1'] = previo;
+  }
+
   console.log('\nCON UN STOP PROPIO, LA TARJETA LO DISTINGUE DEL DEL PANEL');
   {
     const previo = almacen['posiciones-v1'];

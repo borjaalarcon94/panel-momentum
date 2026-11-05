@@ -997,8 +997,18 @@ window.posiciones = async function () {
           '· el del panel estaría en ' + n(r.stopDelSistema) + ' $' +
           (r.stopDelSistema > r.ahora ? ': ya lo habría saltado'
             : r.stopDelSistema > r.stop ? ' (' + pc((r.stopDelSistema / r.stop - 1) * 100, 0) + ' por encima del tuyo)' : '')));
-      if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado ? ' aviso' : ''),
-        '· margen de ' + n(mg.dias, 1) + ' días de rango' + (mg.muyApretado ? ': un día normal lo cruza' : mg.apretado ? ': menos de dos días de rango' : '')));
+      /* QUE SIGNIFICA UN STOP PEGADO CAMBIA SEGUN DONDE ESTE. En la pestaña Hoy el aviso dice
+         "este stop no es un nivel, es una moneda al aire", y ademas produce la posicion mas grande.
+         En una posicion ABIERTA cuyo stop ya esta en ganancia significa lo contrario: esta pegado
+         PORQUE esta protegiendo lo ganado, y que salte es cobrar. Decirle "menos de dos dias de
+         rango" ahi se lee como que el stop esta mal puesto, y no lo esta. Desde el trailing esto
+         dejo de ser un caso raro: 11 de las 42 seguidas tienen el stop en ganancia. */
+      const protege = r.stop != null && r.p && r.stop > Number(r.p.precio);
+      if (mg) sb.appendChild(el('span', 'ds' + (mg.apretado && !protege ? ' aviso' : ''),
+        '· margen de ' + n(mg.dias, 1) + ' días de rango'
+        + (protege
+            ? (mg.apretado ? ': pegado porque protege tu ganancia; un día normal lo cobra' : '')
+            : (mg.muyApretado ? ': un día normal lo cruza' : mg.apretado ? ': menos de dos días de rango' : ''))));
       if (r.gan >= window.REGLAS.R.gananciaProteger) sb.appendChild(el('span', 'ds', '· ya protege tu compra'));
       c.appendChild(sb); }
     if (r.ahora != null) {

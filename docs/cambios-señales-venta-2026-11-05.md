@@ -118,8 +118,19 @@ la devolución la que pone el límite sensato.
 No vende, no mueve el stop. Solo informa.
 
 ```
-ganancia-corta:  si limite == null  y  hay adr  y  ganMax ≥ 2 × adr  y  stop < compra
+ganancia-corta:  si limite == null  y  adr > 0  y  ganMax ≥ 2 × adr  y  stop < compra
+
+paraTrailing = (2 × adr) / (1 − 2 × adr / 100)     ← la ganancia en que el stop empieza a subir
+falta        = max(0, paraTrailing − ganMax)        ← lo que se le dice al usuario
 ```
+
+**Dos trampas que hay que evitar al implementarlo**, las dos encontradas en el panel el mismo día:
+
+- **`adr > 0`, no solo `adr`.** Un ADR negativo invierte la resta del trailing y coloca el stop por
+  encima del máximo alcanzado y del precio de hoy: una venta forzada a un precio que no existe.
+- **`falta` no se mide contra el umbral del propio aviso (2 × adr).** Es la misma línea que lo
+  dispara, así que vale 0 siempre y la frase que lo imprime nunca se ve. Se mide contra
+  `paraTrailing`, que es la ganancia en la que el stop sube de verdad.
 
 Significa: *tienes una ganancia real y todavía no hay ninguna regla que la proteja.*
 
@@ -139,9 +150,9 @@ marcadas y el aviso no significaría nada. **Exige el ADR**: sin ese dato no se 
 ganancia es un movimiento o ruido, y avisar por si acaso marca como VIGILAR cualquier posición
 al +2 %.
 
-Texto sugerido: *«ha llegado a +9,5 % (2,1 días de su movimiento normal) y todavía NO hay regla que
-proteja ese beneficio: el stop está en 85,00 $, por debajo de tu precio de compra. Le falta medio
-punto para que el trailing pueda subirlo a terreno de ganancia.»*
+Texto sugerido: *«ha llegado a +9,5 % (2,1 días de su movimiento normal) pero tu salida sigue en
+85,00 $, por DEBAJO de tu precio de compra: si se da la vuelta ahora, no te llevas nada de esa
+ganancia. Con 0,6 puntos más (+10,1 %) el stop sube solo a terreno de beneficio.»*
 
 ---
 
