@@ -14,7 +14,30 @@ new Function('window', fs.readFileSync('docs/reglas.js','utf8'))(g);
 const RG=g.REGLAS, R=RG.R;
 let m=0,b=0; const t=(n,c)=>{ c?(m++,console.log('  ✓ '+n)):(b++,console.log('  ✗ '+n)) };
 
-console.log('\n§2 el stop es el mayor de los cuatro candidatos');
+console.log('\n§2 el stop es el mayor de los CINCO candidatos');
+/* EL QUINTO CANDIDATO: el trailing a 2 dias de rango (05/11/2026). Las comprobaciones de abajo
+   pasan ema50 muy por debajo a proposito, para que el valor que sale sea el del trailing y no otro.
+   Se verifican LOS NUMEROS QUE EL DOCUMENTO IMPRIME, no la formula en abstracto: si alguien cambia
+   diasTrailing, estas lineas caen y hay que reescribir el documento, que es el objetivo. */
+{
+  const tr = (pico, adr) => RG.stopDe({ precio: 100 * (1 + pico / 100), ema50: 50, adr }, 100, null, pico);
+  t('el documento dice 2 días de rango, y R.diasTrailing es 2', R.diasTrailing === 2);
+  t('§2 al +15 % con ADR 4,6 el stop queda en 104,42 $ (+4,4 %), como dice el documento',
+    Math.abs(tr(15, 4.6) - 104.42) < 0.005);
+  t('§2 al +40 % queda en 127,12 $ (+27,1 %), más apretado que los 120 $ de la devolución',
+    Math.abs(tr(40, 4.6) - 127.12) < 0.005 && tr(40, 4.6) > 120);
+  t('§2 con ADR 4,6 empieza a mandar en el +10,2 %, no antes',
+    tr(10.2, 4.6) > 100 && tr(10.1, 4.6) <= 100);
+  t('§2 "solo si ese nivel queda por encima de tu precio de compra": al +5 % no toca el stop',
+    Math.abs(tr(5, 4.6) - 85) < 1e-9);
+  t('§2 sin ADR el quinto candidato no existe (el documento dice "si hay adr")',
+    Math.abs(RG.stopDe({ precio: 115, ema50: 50 }, 100, null, 15) - 85) < 1e-9);
+  t('§2 se mide desde el cierre más alto (ganMax), no desde el precio de hoy',
+    Math.abs(RG.stopDe({ precio: 105, ema50: 50, adr: 4.6 }, 100, null, 15) - 104.42) < 0.005);
+  t('§2 y sigue sin poder bajar: stopPrevio más alto gana',
+    RG.stopDe({ precio: 115, ema50: 50, adr: 4.6 }, 100, 110, 15) === 110);
+}
+
 // EMA 50 manda
 t('EMA 50 por encima del suelo -> manda la EMA 50',
   RG.stopDe({precio:100,ema50:95},100,null,0)===95);

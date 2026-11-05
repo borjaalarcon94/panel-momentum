@@ -74,7 +74,7 @@ los casos frontera, que son precisamente los que importan.
 ### La fórmula
 
 ```
-stopDe(precio, ema50, compra, stopPrevio, ganMax):
+stopDe(precio, ema50, adr, compra, stopPrevio, ganMax):
 
     ref = compra  (si no hay precio de compra —es una acción que solo vigilas— ref = precio)
     si ref es null: no hay stop
@@ -86,18 +86,41 @@ stopDe(precio, ema50, compra, stopPrevio, ganMax):
     si alMenos(pico, 20):  base = max(ema50, ref)       # protección del coste
     si no:                 base = max(ema50, suelo)
 
+    # trailing por volatilidad (05/11/2026)
+    si hay adr y ganMax > 0:
+        maxPrecio = ref * (1 + ganMax / 100)            # el cierre más alto desde tu compra
+        nivel     = maxPrecio * (1 - 2 * adr / 100)     # 2 días de rango por debajo
+        si nivel > ref:  base = max(base, nivel)        # SOLO si ya asegura ganancia
+
     stop = max(base, stopPrevio)
 ```
 
-Leído en palabras: **el stop es el mayor de cuatro candidatos.**
+Leído en palabras: **el stop es el mayor de cinco candidatos.**
 
 1. **la EMA 50** — el nivel técnico; mientras no la pierda, la tendencia está intacta;
 2. **tu precio de compra − 15 %** — el suelo de pérdida máxima, para no arriesgar más de eso
    aunque la EMA 50 esté lejísimos;
 3. **tu precio de compra**, en cuanto la posición haya llegado a ganar un 20 % — a partir de ahí
    la operación no puede acabar en pérdida;
-4. **el stop más alto que ya alcanzó** (`stopPrevio`) — **el stop nunca baja**, ni aunque la
+4. **2 días de rango (ADR) por debajo del cierre más alto alcanzado**, y solo si ese nivel queda
+   por encima de tu precio de compra — es la regla que protege las ganancias por debajo del 20 %,
+   donde la devolución todavía no entra. Con ADR 4,6 % empieza a mandar en el +10,2 %: una posición
+   al +15 % deja el stop en +4,4 % en vez de en la EMA 50, así que ya no puede acabar en pérdida.
+   Por encima del +20 % suele ser **más apretado** que la devolución (al +40 % saca a +27,1 % en vez
+   de a +20 %) y entonces manda él;
+5. **el stop más alto que ya alcanzó** (`stopPrevio`) — **el stop nunca baja**, ni aunque la
    EMA 50 retroceda.
+
+**Por qué el candidato 4 se mide en días de rango y no en un porcentaje fijo:** un 10 % es medio día
+en una acción que se mueve un 6 % diario y una semana en una que se mueve un 1,5 %. Un porcentaje
+fijo igual para las dos o salta solo o no protege nada. Y la condición `nivel > ref` no es un
+detalle: sin ella el trailing aprieta stops que todavía están en pérdida, que es justo donde hay que
+dejar respirar a la posición.
+
+**Sobre las 42 entradas del registro este candidato no cambia ni una salida** (idéntico con 2, 2,5,
+3, 4 o 5 días de rango): las cerradas lo fueron antes de tener ganancia suficiente para activarlo.
+No es una mejora medida en el histórico, es una red para los ganadores abiertos. Apretarlo a 1 día
+sí mueve el histórico y lo empeora: cierra 7 posiciones más y la media baja un punto entero.
 
 ### Las tres trampas de esta fórmula
 
