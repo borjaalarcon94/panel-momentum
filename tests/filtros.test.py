@@ -533,7 +533,7 @@ comprueba(f"las {len(_hoy)} del top de hoy tienen estado actual", _sin, [])
 # nunca, y precios.json pasa a ser una vista derivada.
 print("\nLA SERIE DIARIA ESTA ARCHIVADA, NO SOLO EN precios.json")
 _pr = _json.loads((b.WEB / "precios.json").read_text())
-_ap, _ae = b.serie_archivada()
+_ap, _ae, _aa = b.serie_archivada()
 
 comprueba("el archivo tiene al menos tantos días como precios.json",
           len(_ap) >= len(_pr["dias"]), True)
@@ -541,6 +541,24 @@ _distintos = [f for f in _pr["dias"] if _ap.get(f) != _pr["dias"][f]]
 comprueba("y reproduce todos sus cierres exactos", _distintos, [])
 _distintasE = [f for f in _pr.get("emas", {}) if _ae.get(f) != _pr["emas"][f]]
 comprueba("y todas sus EMA 50", _distintasE, [])
+
+# EL ADR DIARIO, desde el 06/11/2026. Se archiva pero TODAVIA NO LO LEE NADIE: el trailing sigue
+# usando el ADR de hoy para todas las sesiones. Se empieza a guardar porque el dato solo existe el
+# dia que se descarga, y sin serie no hay forma de decidir en diciembre si merece la pena usarlo.
+# Los dias anteriores al cambio no lo tienen y eso es correcto: no se puede inventar.
+# El bloque empieza a existir con el PRIMER CIERRE posterior al cambio: --rehacer no toca
+# precios.json a proposito ("sin cierres nuevos no hay nada que anadir alli"), asi que exigirlo
+# antes de ese cierre haria fallar la prueba sin que nada este mal. Se exige en cuanto el archivo
+# tiene algun ADR, que es justo cuando ya deberia estar.
+_distintasA = [f for f in _pr.get("adr", {}) if _aa.get(f) != _pr["adr"][f]]
+comprueba("y todos los ADR que haya archivados", _distintasA, [])
+if _aa:
+    comprueba("precios.json sirve el ADR diario que hay en el archivo", "adr" in _pr, True)
+    comprueba("y cubre al menos tantos días como el archivo",
+              len(_pr.get("adr", {})) >= min(len(_aa), len(_pr["dias"])), True)
+else:
+    comprueba("todavía no hay ADR archivado: empieza con el primer cierre tras el 06/11/2026",
+              "adr" not in _pr or _pr["adr"] == {}, True)
 
 # Lo que de verdad importa: las que YA NO estan en el top ni entre las candidatas. Son las que se
 # perderian, y son las que fueron mal: justo las que hay que poder medir.

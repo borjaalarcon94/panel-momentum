@@ -473,28 +473,36 @@ def guarda_sectores(acciones):
 
 
 def serie_archivada():
-    dias_p, dias_e = {}, {}
+    dias_p, dias_e, dias_a = {}, {}, {}
     # Dias con cierres pero SIN fichero de dia: el 21/10/2026 el build fallo y no se guardo el
     # top, pero los precios si entraron en precios.json. No se puede crear un 2026-10-21.json
     # porque sin "acciones" se colaria como sesion fantasma en panel["dias"], que es justo lo que
     # vigila filtros.test.py. Van aparte, en un fichero que no entra en el glob de los dias.
+    # Cada entrada de "seguidas" es [cierre, ema50, adr]. El tercer hueco se añadio el 06/11/2026 y
+    # los dias anteriores solo tienen dos: por eso se lee con len(v) > N y no por posicion fija.
+    def trozo(sg, i):
+        return {k: v[i] for k, v in sg.items() if v and len(v) > i and v[i] is not None}
     extra_f = DATOS / "serie-extra.json"
     if extra_f.exists():
         for f, sg in (leer(extra_f) or {}).items():
-            dias_p[f] = {k: v[0] for k, v in sg.items() if v and v[0] is not None}
-            e = {k: v[1] for k, v in sg.items() if v and len(v) > 1 and v[1] is not None}
+            dias_p[f] = trozo(sg, 0)
+            e, a = trozo(sg, 1), trozo(sg, 2)
             if e:
                 dias_e[f] = e
+            if a:
+                dias_a[f] = a
     for q in sorted(DATOS.glob("2*.json")):
         d = leer(q)
         sg = d.get("seguidas") or {}
         if not sg:
             continue
-        dias_p[q.stem] = {k: v[0] for k, v in sg.items() if v and v[0] is not None}
-        e = {k: v[1] for k, v in sg.items() if v and len(v) > 1 and v[1] is not None}
+        dias_p[q.stem] = trozo(sg, 0)
+        e, a = trozo(sg, 1), trozo(sg, 2)
         if e:
             dias_e[q.stem] = e
-    return dias_p, dias_e
+        if a:
+            dias_a[q.stem] = a
+    return dias_p, dias_e, dias_a
 
 
 def construye_entradas(historico):
@@ -645,7 +653,7 @@ def main():
     # porque se acerquen sus resultados. Esto filtra a QUIEN ENTRA, como la exclusion de sectores.
     mercado = filas(scan({"columns": list(C), "symbols": {"tickers": ["AMEX:SPY", "NASDAQ:QQQ", "AMEX:IWM"]}}))
     ref = referencia()
-    _serie_prot, _ = serie_archivada()
+    _serie_prot, _, _ = serie_archivada()
     _spy_prot = serie_spy()
     _spy_hoy = next((m.get("cambio") for m in mercado if m.get("ticker") == "SPY"), None)
     proteccion = {}
@@ -771,11 +779,12 @@ def main():
         ruta_hoy = DATOS / f"{hoy}.json"
         if ruta_hoy.exists():
             d_hoy = leer(ruta_hoy)
-            d_hoy["seguidas"] = {s: [redondea(v), redondea((actual.get(s) or {}).get("ema50"))]
+            d_hoy["seguidas"] = {s: [redondea(v), redondea((actual.get(s) or {}).get("ema50")),
+                                     redondea((actual.get(s) or {}).get("adr"))]
                                  for s, v in precios.items()}
             ruta_hoy.write_text(json.dumps(d_hoy, ensure_ascii=False))
 
-    historicos_precios, emas_archivo = serie_archivada()
+    historicos_precios, emas_archivo, adr_archivo = serie_archivada()
     fp = WEB / "precios.json"
     # Transicion: lo que ya estaba en precios.json y todavia no esta archivado no se pierde.
     if fp.exists():
@@ -785,6 +794,8 @@ def main():
                 historicos_precios.setdefault(f, v)
             for f, v in (viejo.get("emas") or {}).items():
                 emas_archivo.setdefault(f, v)
+            for f, v in (viejo.get("adr") or {}).items():
+                adr_archivo.setdefault(f, v)
         except Exception:
             pass
     # Junto al cierre se guarda la EMA 50 del dia. Motivo: el trinquete del stop ("el stop nunca
@@ -794,13 +805,22 @@ def main():
     # que el sistema decia. Con la EMA 50 diaria el trinquete se reconstruye entero desde la serie y
     # deja de depender de un habito. El dato ya se descarga (esta en CAMPOS_SEGUIMIENTO): solo se
     # guardaba. Cuesta unos 8 KB mas en un fichero que solo se descarga en dos pestañas.
+    # EL ADR DE CADA DIA, desde el 06/11/2026. De momento NO LO LEE NADIE: el trailing sigue usando
+    # el ADR de hoy para todas las sesiones. Se guarda ahora porque el dato solo existe el dia que
+    # se descarga, y sin empezar a archivarlo no se puede decidir nada en diciembre. Cuesta 551
+    # bytes por sesion: 48 KB cuando la ventana se llene, en un sitio de 1 MB con un limite de 1 GB.
+    # Cambiar el motor para que lo use es una decision aparte, y necesita medirse con datos.
     historicas_emas = emas_archivo
+    historicos_adr = adr_archivo
     if acciones is not None:   # en fin de semana o festivo no hay cierre nuevo que guardar
         historicos_precios[hoy] = {s: redondea(v) for s, v in precios.items()}
         historicas_emas[hoy] = {s: redondea(v.get("ema50")) for s, v in actual.items() if v.get("ema50")}
+        historicos_adr[hoy] = {s: redondea(v.get("adr")) for s, v in actual.items() if v.get("adr")}
     historicos_precios = {f: v for f, v in sorted(historicos_precios.items())[-DIAS:]}
     historicas_emas = {f: v for f, v in sorted(historicas_emas.items())[-DIAS:]}
-    fp.write_text(json.dumps({"dias": historicos_precios, "emas": historicas_emas},
+    historicos_adr = {f: v for f, v in sorted(historicos_adr.items())[-DIAS:]}
+    fp.write_text(json.dumps({"dias": historicos_precios, "emas": historicas_emas,
+                              "adr": historicos_adr},
                              ensure_ascii=False, separators=(",", ":")))
 
     # plantilla.html entra en el hash: un cambio solo de plantilla (textos, nombres de pestañas)
