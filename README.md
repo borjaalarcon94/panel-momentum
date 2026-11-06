@@ -308,3 +308,27 @@ anterior.
 ```bash
 python3 build.py && python3 -m http.server 8900 --directory docs
 ```
+
+`build.py --rehacer` reconstruye el panel **sin gastar ni una llamada** a TradingView: útil para
+comprobar un cambio de código contra los datos que ya hay.
+
+## Herramientas de medición
+
+Scripts que no forman parte del panel: se ejecutan a mano para contestar una pregunta concreta y
+dejar la respuesta medida en vez de recordada. Todos se lanzan desde la raíz del repositorio.
+
+| | Qué contesta |
+|---|---|
+| `node herramientas/ab-reglas-venta.js` | Las reglas de venta de antes del 05/11/2026 contra las de ahora, **entrada por entrada** sobre el registro. Da lo realizado y el suelo (qué te llevarías si todas las abiertas tocaran su stop). |
+| `node herramientas/ab-cartera.js` | Lo mismo pero sobre **la cartera entera**, llamando a la función real que pinta Resultados: 5 huecos, compra con un día de retraso y reinversión de cada venta. Incluye la sensibilidad al número de huecos. |
+| `node herramientas/ab-escalon-devolucion.js` | Dónde poner el primer escalón de la devolución (+10, +15, +20, +30 %) y, sobre todo, **cuántas entradas mueve cada opción y cuánto aporta cada una**: la media sola engaña. |
+| `python3 herramientas/backtest.py` | El backtest histórico del universo elegible (ver «Qué se probó y se descartó»). |
+
+Los tres `ab-*` obtienen las reglas viejas parcheando `docs/reglas.js` y **verifican que el parche
+ha mordido** antes de medir. Sin esa comprobación, un cambio de forma en `reglas.js` haría fallar el
+parche en silencio y la comparación sería «las reglas nuevas contra sí mismas», que da un
+tranquilizador «no cambia nada» que es mentira.
+
+Aviso que costó una medición mal hecha: **poner `diasTrailing` a 0 NO apaga el trailing**, lo pone a
+distancia cero, o sea el stop clavado en el máximo. Para apagarlo hay que anular el ADR dentro de
+`stopDe`.
