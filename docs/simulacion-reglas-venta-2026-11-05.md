@@ -39,6 +39,79 @@ del registro día a día con las reglas de venta de antes y con las de ahora, y 
 
 ---
 
+## La cartera entera, no entrada por entrada
+
+Añadido el 6 de noviembre. Todo lo anterior mide **entrada por entrada**, y esa medida tiene un
+sesgo conocido contra las reglas nuevas: no cuenta qué haces con el dinero cuando cobras una venta.
+Esto simula el protocolo completo con `operandoElPanel(5)`, la función que pinta la pestaña
+Resultados: 5 huecos, compra al día siguiente de entrar al top, y cada venta se reinvierte.
+
+```
+node herramientas/ab-cartera.js
+```
+
+Del 5 de octubre al 5 de noviembre, 23 sesiones. **El S&P 500 hizo −5,40 %** en ese tramo.
+
+| | Sin los cambios | Con los cambios |
+|---|---|---|
+| Rentabilidad final | **+1,16 %** | **+1,16 %** |
+| Peor caída por el camino | −5,93 % | −5,93 % |
+| Ventas cerradas | 3 | 5 |
+| **De ellas en ganancia** | **0** | **2** |
+| Efectivo sin invertir | 0,00 | 0,69 |
+| Si mañana todo tocase su stop | **−8,62 %** | **−7,75 %** |
+
+### Por qué sale exactamente lo mismo
+
+No es que dé igual: es que **las dos ventas nuevas cayeron en la última sesión disponible**. Vendiste
+CDNA y SLDE al cierre del 5 y volviste a comprar con ese dinero al cierre del 5, así que el valor de
+la cartera a ese cierre es idéntico por construcción. **La diferencia no existe todavía: nace mañana**
+y depende de lo que hagan los precios.
+
+Lo que sí se puede medir hoy es el riesgo que lleva cada una desde aquí, y ahí sí difieren: si todas
+las posiciones abiertas tocasen su stop, la cartera con los cambios quedaría **0,87 puntos por
+encima** de la otra. Y lo que llevan dentro ya no se parece:
+
+| | Lleva ahora |
+|---|---|
+| Sin cambios | CDNA +21,1 %, HNGE +18,5 %, SLDE +3,0 %, AVPT −1,7 %, PAYS −4,2 % |
+| Con cambios | HNGE +18,5 %, CRON 0,0 %, SEPN 0,0 %, AVPT −1,7 %, PAYS −4,2 %, y 0,69 en caja |
+
+### El contraejemplo, que también hay que contarlo
+
+La conclusión no depende del número de huecos… salvo en un caso, y ese caso enseña el coste real
+del trailing:
+
+| Huecos | Sin cambios | Con cambios | Diferencia |
+|---|---|---|---|
+| 3 | +0,53 % | +0,53 % | 0,00 |
+| 5 | +1,16 % | +1,16 % | 0,00 |
+| 8 | +0,03 % | +0,03 % | 0,00 |
+| **10** | **−1,90 %** | **−3,61 %** | **−1,71** |
+
+Con 10 huecos entra **XERS** en la cartera, y ahí el trailing hace lo contrario de lo que hizo con
+CDNA: la saca a **+4,1 % el 2 de noviembre**, a 10,17 $. Tres sesiones después XERS cerró a
+**13,08 $**. Se dejó un **28,6 %** por el camino.
+
+Ese es el precio del trailing, y no es una pega menor: **te saca de algunas que luego siguen
+subiendo.** La misma regla que te cobró 21 puntos en CDNA te dejó fuera de 28 en XERS. Que en la
+cartera de 5 huecos salga a favor y en la de 10 en contra no es una propiedad del sistema, es el
+azar de qué acciones te cupieron.
+
+### Conclusión
+
+1. **Sobre la cartera, el cambio todavía no ha cambiado nada.** Ni para bien ni para mal: +1,16 %
+   con las dos. Lo que ha cambiado es la composición y el riesgo, no el resultado.
+2. **Lo que sí ha cambiado es la naturaleza de las ventas.** De 3 cerradas y ninguna en ganancia, a
+   5 cerradas y 2 en ganancia. El sistema ya realiza beneficios; antes solo realizaba pérdidas.
+3. **El suelo mejora 0,87 puntos de cartera.** Si todo se diera la vuelta, pierdes menos.
+4. **El coste es real y ya se ha visto:** XERS. Un trailing saca de los que se dan la vuelta y
+   también de algunos que solo estaban respirando.
+5. **Con 23 sesiones esto no decide nada.** La cifra entrada-por-entrada pasó de −0,09 a +0,65 en un
+   solo día. Cualquiera que saque una conclusión firme de aquí se la está inventando.
+
+---
+
 ## La versión original, con datos hasta el 4 de noviembre
 
 Lo que sigue se deja tal cual se escribió, porque la comparación entre las dos lecturas enseña más
