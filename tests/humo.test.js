@@ -34,7 +34,12 @@ const doc = {
 const almacen = {};
 const ventana = {
   document: doc, location: { pathname: '/', href: '/', replace() {} }, matchMedia: () => ({ matches: false }),
-  localStorage: { getItem: k => almacen[k] ?? null, setItem: (k, v) => { almacen[k] = String(v) }, removeItem: k => { delete almacen[k] } },
+  /* almacen.__bloquea permite simular un navegador que ACEPTA la escritura y no guarda nada, que
+     es lo que pasa con los datos del sitio bloqueados o en modo privado. Sirve para probar que la
+     app lo detecta en vez de dar por bueno el guardado. */
+  localStorage: { getItem: k => almacen[k] ?? null,
+                  setItem: (k, v) => { if (almacen.__bloquea === k) return; almacen[k] = String(v) },
+                  removeItem: k => { delete almacen[k] } },
   sessionStorage: { getItem: () => null, setItem() {} },
   fetch: async (u) => {
     const f = u.split('?')[0];
@@ -2091,6 +2096,48 @@ for (const f of orden) {
      esta POR ENCIMA de tu compra significa lo contrario: esta pegado porque protege lo ganado, y
      que salte es cobrar. Desde el trailing (05/11/2026) esto afecta a 11 de las 42 seguidas, asi
      que un texto que suene a reproche ahi esta mintiendo. */
+  /* RESTAURAR UNA COPIA CON EL ALMACENAMIENTO ROTO NO PUEDE PARECER QUE FUNCIONA. Es el momento
+     en que el usuario mas depende de que la app diga la verdad: esta restaurando precisamente
+     porque algo se perdio. Si el guardado falla, no se sigue adelante guardando la cartera y
+     dejando un estado a medias. */
+  console.log('\nRESTAURAR UNA COPIA CUANDO EL NAVEGADOR NO DEJA GUARDAR');
+  {
+    const previo = almacen['posiciones-v1'], previaCart = almacen['cartera-v1'];
+    const copia = JSON.stringify({ posiciones: [{ ticker: 'ZZZ', precio: 5, fecha: panel.dias[0] }],
+                                   cartera: { total: 12345, riesgo: 9 } });
+    const promptPrevio = ventana.prompt, setPrevio = almacen.__set;
+    ventana.prompt = () => copia;
+    almacen['cartera-v1'] = JSON.stringify({ total: 1000, riesgo: 1 });
+    /* Una posicion previa de verdad, para que "siguen siendo las de antes" signifique algo. */
+    almacen['posiciones-v1'] = JSON.stringify([{ ticker: 'PREVIA', simbolo: 'NASDAQ:PREVIA',
+      acciones: 1, precio: 50, fecha: panel.dias[0] }]);
+    await ventana.posiciones();
+    /* textContent concatena los hijos en este harness, asi que buscar por texto a secas devuelve el
+       contenedor entero. El boton es el que ADEMAS tiene onclick. */
+    const todos = x => [x, ...((x.hijos || []).flatMap(todos))];
+    const boton = todos(porId.rpos).filter(b => typeof b.onclick === 'function')
+      .find(b => /Restaurar desde una copia/.test(b.textContent || ''));
+    boton ? ok('el botón de restaurar está en la pestaña') : mal('no se encuentra el botón de restaurar');
+    if (boton && boton.onclick) {
+      /* Se rompe el almacenamiento SOLO para posiciones-v1: acepta la escritura y no guarda nada,
+         que es lo que hace un navegador con los datos del sitio bloqueados. */
+      almacen.__bloquea = 'posiciones-v1';
+      await boton.onclick();
+      almacen.__bloquea = null;
+      const cart = JSON.parse(almacen['cartera-v1'] || '{}');
+      cart.total === 1000
+        ? ok('al fallar el guardado NO se machaca también la cartera: queda como estaba')
+        : mal('ha guardado la cartera de la copia aunque las posiciones no se guardaron',
+              'total ' + cart.total);
+      const pos = JSON.parse(almacen['posiciones-v1'] || '[]');
+      !pos.some(p => p.ticker === 'ZZZ') && pos.some(p => p.ticker === 'PREVIA')
+        ? ok('y las posiciones siguen siendo las de antes, no las de la copia')
+        : mal('dice que restauró posiciones que no se han guardado', JSON.stringify(pos).slice(0, 120));
+    }
+    ventana.prompt = promptPrevio;
+    almacen['posiciones-v1'] = previo; almacen['cartera-v1'] = previaCart;
+  }
+
   console.log('\nCON EL STOP YA EN GANANCIA, EL MARGEN SE EXPLICA AL REVÉS');
   {
     const previo = almacen['posiciones-v1'];

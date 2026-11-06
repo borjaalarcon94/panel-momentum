@@ -26,7 +26,57 @@ function monta(guardado) {
   return ctx;
 }
 
-console.log('ARITMÉTICA DEL DINERO');
+/* GUARDAR TIENE QUE SER VERIFICADO Y RUIDOSO AL FALLAR.
+   Hasta el 06/11/2026 guardarPos era un setItem dentro de un try vacio: si el navegador rechazaba
+   la escritura (modo privado, datos del sitio bloqueados, Safari purgando el almacenamiento), la
+   app decia que habia guardado y no guardaba nada. El caso peor es restaurar una copia: crees que
+   has recuperado tus posiciones justo cuando mas lo necesitas. */
+console.log('\nSI EL NAVEGADOR NO DEJA GUARDAR, LA APP TIENE QUE DECIRLO');
+{
+  const avisos = [];
+  const montaRoto = (modo) => {
+    const ctx = { window: {}, console,
+      document: { createElement: nodo, getElementById: () => nodo(), querySelector: () => null },
+      prompt: (msg, txt) => { avisos.push({ msg, txt }); return null },
+      localStorage: { _d: { 'posiciones-v1': '[]' },
+        getItem(k) { return this._d[k] ?? null },
+        setItem(k, v) {
+          if (modo === 'excepcion') throw new Error('QuotaExceededError');
+          if (modo === 'silencioso') return;          // acepta y no guarda: lo que hace Safari a veces
+          this._d[k] = v;
+        } } };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(path.join(dir, 'reglas.js'), 'utf8'), ctx);
+    vm.runInContext(fs.readFileSync(path.join(dir, 'posiciones.js'), 'utf8'), ctx);
+    return ctx;
+  };
+  for (const modo of ['excepcion', 'silencioso']) {
+    avisos.length = 0;
+    const ctx = montaRoto(modo);
+    const ok = vm.runInContext('guardarPos([{ticker:"X",precio:10,fecha:"2026-01-01"}])', ctx);
+    comprueba('con el almacenamiento roto (' + modo + ') guardarPos devuelve false', ok === false, String(ok));
+    comprueba('  y avisa al usuario en vez de callarse', avisos.length === 1, 'avisos: ' + avisos.length);
+    comprueba('  el aviso dice que NO se ha guardado',
+      avisos.length > 0 && /NO se ha guardado|NO ESTÁ GUARDANDO/.test(avisos[0].msg), true);
+    comprueba('  y le da el texto para que pueda copiarlo',
+      avisos.length > 0 && /"ticker":"X"/.test(avisos[0].txt || ''), true);
+    /* Doce sitios llaman a guardarPos, algunos al repintar: una alerta por cada uno seria peor
+       que el fallo. Se avisa una vez por sesion. */
+    vm.runInContext('guardarPos([{ticker:"Y",precio:11,fecha:"2026-01-02"}])', ctx);
+    vm.runInContext('guardarPos([{ticker:"Z",precio:12,fecha:"2026-01-03"}])', ctx);
+    comprueba('  y NO repite el aviso en cada guardado', avisos.length === 1, 'avisos: ' + avisos.length);
+  }
+  /* Y cuando el almacenamiento funciona, ni devuelve false ni molesta. */
+  avisos.length = 0;
+  const bien = montaRoto('ok');
+  comprueba('con el almacenamiento sano devuelve true',
+    vm.runInContext('guardarPos([{ticker:"X",precio:10,fecha:"2026-01-01"}])', bien) === true);
+  comprueba('  y no avisa de nada', avisos.length === 0, 'avisos: ' + avisos.length);
+  comprueba('  y lo guardado se puede volver a leer',
+    vm.runInContext('leerPos().length', bien) === 1);
+}
+
+console.log('\nARITMÉTICA DEL DINERO');
 {
   const ctx = monta('[]'), W = ctx.window;
   /* Cuantas acciones salen de un importe. Se recorta al total: no puedes vender mas de las que tienes. */

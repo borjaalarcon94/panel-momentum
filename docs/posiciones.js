@@ -34,7 +34,35 @@ function leerPos() {
   if (!Array.isArray(v)) return [];
   return v.filter(x => x && typeof x === 'object');
 }
-function guardarPos(p) { try { localStorage.setItem(CLAVE, JSON.stringify(p)) } catch (e) {} }
+/* GUARDAR VERIFICANDO, Y AVISAR SI NO SE PUDO. Antes era un setItem dentro de un try vacio: si el
+   navegador rechazaba la escritura -almacenamiento lleno, modo privado, datos de sitio bloqueados,
+   o Safari purgando el almacenamiento tras dias sin visitar- la app decia que habia guardado y no
+   habia guardado nada. Con un registro de dinero real eso es perder datos sin enterarte.
+   El caso peor es RESTAURAR: pegas tu copia de seguridad, el guardado falla, y crees que la has
+   recuperado justo cuando mas lo necesitas.
+   Se escribe, se vuelve a leer y se compara. Si no coincide, se avisa UNA sola vez por sesion (hay
+   doce sitios que llaman a esta funcion, algunos al repintar: una alerta por cada uno seria
+   inutilizable) y se ofrece el texto para copiarlo a mano, igual que hace el boton de copia cuando
+   falla la descarga. Devuelve true/false para que quien llame pueda decir la verdad. */
+let falloGuardadoAvisado = false;
+function guardarPos(p) {
+  const txt = JSON.stringify(p);
+  try {
+    localStorage.setItem(CLAVE, txt);
+    if (localStorage.getItem(CLAVE) === txt) return true;
+  } catch (e) {}
+  if (!falloGuardadoAvisado) {
+    falloGuardadoAvisado = true;
+    try {
+      prompt('TU NAVEGADOR NO ESTÁ GUARDANDO LAS POSICIONES.\n\n' +
+             'Lo que acabas de hacer NO se ha guardado y se perderá al cerrar. Suele pasar en modo ' +
+             'privado o con los datos del sitio bloqueados.\n\n' +
+             'Copia este texto y guárdalo en un archivo; luego podrás restaurarlo con ' +
+             '«Restaurar desde una copia».', txt);
+    } catch (e) {}
+  }
+  return false;
+}
 window.tengoPosicion = t => leerPos().some(p => p.ticker === t && !p.cerrada);
 
 /* Formulario para corregir una compra: precio medio, fecha y, si quieres, nº de acciones. */
@@ -298,7 +326,9 @@ function copiaSeguridad() {
       if (!Array.isArray(d2.posiciones)) throw new Error('formato');
       const abiertas = d2.posiciones.filter(p => p && p.ticker && p.precio > 0);
       if (!confirm('Vas a sustituir tus ' + leerPos().length + ' posiciones por las ' + abiertas.length + ' de la copia. ¿Seguro?')) return;
-      guardarPos(abiertas);
+      /* Si el guardado falla aqui no se puede seguir como si nada: el usuario esta restaurando
+         precisamente porque algo se perdio. guardarPos ya le ha enseñado el texto. */
+      if (!guardarPos(abiertas)) { window.posiciones(); return }
       if (d2.cartera) window.CARTERA.guardar(d2.cartera);
       window.posiciones();
     } catch (e) { alert('Esa copia no se entiende. Pega el texto completo tal cual lo copiaste.'); }

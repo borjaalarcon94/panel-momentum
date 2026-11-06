@@ -189,6 +189,19 @@ def cayo_fuerte(a, serie, spy, hoy, cambio_spy_hoy=None):
     Se mira el dato de hoy (change), que viene en el scan y vale para cualquier accion aunque sea la
     primera vez que la vemos, y ademas la serie archivada, que solo existe para las que han pasado
     por el top o por el grupo de control. De una accion nueva sin serie solo se puede ver hoy.
+
+    QUE ESTE FILTRO NO SE DISPARE CASI NUNCA ES LO ESPERADO, Y NO SIGNIFICA QUE SOBRE. El dia del
+    desplome no lo para el: una accion que cae un 20 % queda a mas del 20 % de su maximo y ya falla
+    el requisito de cercania (tope del 10 %), asi que ni llega a ser candidata. El trabajo de esta
+    funcion es el de DESPUES: impedir que vuelva a entrar cuando se recupera y pasa otra vez los
+    nueve requisitos, dentro de la ventana de VENTANA_CAIDA sesiones. Por eso mira la serie y no
+    solo el cambio de hoy.
+    Medido el 06/11/2026 sobre los 23 dias archivados: 6 caidas de 20 % o mas en una sesion, cuatro
+    de ellas de biotech (IOVA -35,4, NRIX -38,2, ARQT -20,7, CAI -21,6). Ninguna fue apartada por
+    esta regla, y es correcto: dos son anteriores al 05/11 (la regla no existia) y las otras dos
+    cayeron el dia en que el indice se hundio un 4,41 %, que es justo el caso que la condicion del
+    indice excluye a proposito. El filtro de catalizadores, en cambio, SI ha actuado: aparto seis
+    el 05/11 (ASND, MSGK, ANDG, RDNT, ARX, RPAY).
     """
     if not es_biotech(a):
         return False
