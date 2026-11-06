@@ -857,9 +857,31 @@ for (const f of orden) {
   tarjetas.length ? ok('hay ' + tarjetas.length + ' tarjetas que comprobar') : mal('no se pinto ninguna tarjeta');
   conDosNumeros.length === 0 ? ok('ninguna tarjeta enseña dos puestos distintos')
     : mal('tarjetas con numeración doble', conDosNumeros.join(' | '));
+  /* EL PUESTO ES EL DE LA LISTA COMPLETA, NO EL DE LA PANTALLA, y por eso PUEDE haber saltos.
+     Una accion que tienes comprada o que ha dado señal de salida se muestra aunque este fuera del
+     top 10, y entonces se ve "...#10, #13": el 13 es su puesto de verdad por puntuacion. Fijarlo
+     antes de filtrar es deliberado (ver el comentario en seguimiento.js): un puesto que cambia al
+     desplegar la lista no es un puesto.
+     Hasta el 06/11/2026 esta comprobacion exigia numeracion consecutiva, que contradice ese diseño.
+     No habia fallado nunca porque ninguna de fuera del top se habia tenido que mostrar; la sesion
+     del 05/11 cerro seis posiciones y aparecio la primera. Lo que SI hay que exigir: que el orden
+     se respete, que las primeras sean 1..10, y que toda la que rompa la secuencia diga por que. */
   const puestos = tarjetas.map(c => (c.textContent.match(/#(\d+)/) || [])[1]).map(Number);
-  puestos.every((v, i) => v === i + 1) ? ok('el número de cada tarjeta es su posición en la lista')
-    : mal('los números no siguen el orden de la lista', puestos.join(', '));
+  puestos.every((v, i) => i === 0 || v > puestos[i - 1])
+    ? ok('los puestos van en orden creciente (' + puestos.join(', ') + ')')
+    : mal('los puestos no van en orden', puestos.join(', '));
+  puestos.slice(0, 10).every((v, i) => v === i + 1)
+    ? ok('las que están dentro del corte van numeradas del 1 al ' + Math.min(10, puestos.length))
+    : mal('las de dentro del corte no van del 1 al 10', puestos.slice(0, 10).join(', '));
+  const fuera = tarjetas.filter(c => Number((c.textContent.match(/#(\d+)/) || [])[1]) > 10);
+  const sinMotivo = fuera.filter(c => !/LA TIENES|SEÑAL DE SALIDA/.test(c.textContent))
+    .map(c => (c.textContent.match(/#\d+/) || [])[0]);
+  fuera.length
+    ? (sinMotivo.length === 0
+        ? ok(fuera.length === 1 ? 'y la de fuera del top dice por qué se muestra, así que el salto no parece un error'
+                                : 'y las ' + fuera.length + ' de fuera del top dicen por qué se muestran, así que el salto no parece un error')
+        : mal('hay un salto de numeración sin explicar', sinMotivo.join(', ')))
+    : ok('hoy no se muestra ninguna de fuera del top (no es un fallo)');
 
   /* La simulacion de stops era ciega los dias que una accion caia del top, que es justo cuando el
      stop saltaria. Ahora hay una serie diaria de cierres aparte; esto comprueba que la usa. */
@@ -2482,17 +2504,34 @@ for (const f of orden) {
     /· [\d.,]+ \$/.test(bloqueCart) ? ok('y cada fila sigue llevando su precio en dólares')
       : mal('las filas de la cartera han perdido el precio en dólares', bloqueCart.slice(0, 120));
 
-    /* Y el cuadre tiene que seguir cuadrando: 100 + lo perdido + lo ganado = el total. */
-    const m = txt.match(/Empiezas con 100[^.]*\.([+-−][\d,]+) se perdieron[^.]*solo quedaron ([\d,]+) invertidos\.\+([\d,]+) han ganado[^.]*\.Total ([\d,]+) de 100/);
-    if (m) {
-      const num = z => parseFloat(z.replace('−', '-').replace(',', '.'));
-      const [, perd, inv, gan, tot] = m;
-      Math.abs((100 + num(perd)) - num(inv)) < 0.02
-        ? ok('el cuadre cuadra: 100 ' + perd + ' = ' + inv + ' invertidos')
-        : mal('100 más lo perdido no da lo invertido', `100 ${perd} != ${inv}`);
-      Math.abs((num(inv) + num(gan)) - num(tot)) < 0.5
-        ? ok('y lo invertido más lo ganado da el total (' + tot + ')')
-        : mal('lo invertido más lo ganado no da el total', `${inv} + ${gan} != ${tot}`);
+    /* EL CUADRE TIENE QUE CUADRAR ENTERO, con el efectivo incluido. La version anterior de esta
+       comprobacion solo miraba 100 + perdido = invertido y invertido + ganado = total, y con una
+       tolerancia de 0,5 que se tragaba el hueco. El 06/11/2026, tras cerrarse seis posiciones de
+       golpe, quedaron 0,69 en caja: el texto no los nombraba y la suma salia 100,47 contra un total
+       de 101,16. La cadena completa es
+            100 + resultado de las ventas = invertido + efectivo
+            invertido + efectivo + ganado = total
+       y se comprueba al centimo, no con medio punto de margen. */
+    const num = z => parseFloat(z.replace('−', '-').replace(',', '.'));
+    const m = txt.match(/Empiezas con 100[^.]*\.([+-−][\d,]+) se (?:perdieron|ganaron)[^.]*te quedaron ([\d,]+)\./);
+    const mEf = txt.match(/De eso, ([\d,]+) están invertidos[^.]*y ([\d,]+) esperan hueco/)
+             || txt.match(/Todo eso está invertido en las \d+ vivas\./);
+    const mG = txt.match(/\+([\d,]+) han ganado[^.]*\.Total ([\d,]+) de 100/);
+    if (m && mG) {
+      const [, vent, tras] = m, [, gan, tot] = mG;
+      Math.abs((100 + num(vent)) - num(tras)) < 0.02
+        ? ok('100 ' + vent + ' de las ventas = ' + tras)
+        : mal('100 más el resultado de las ventas no da lo que quedó', `100 ${vent} != ${tras}`);
+      const inv = mEf && mEf.length === 3 ? num(mEf[1]) : num(tras);
+      const efe = mEf && mEf.length === 3 ? num(mEf[2]) : 0;
+      mEf ? ok(efe ? 'y se dice el efectivo sin invertir (' + mEf[2] + ')' : 'y se dice que está todo invertido')
+          : mal('no se dice cuánto hay invertido y cuánto en efectivo');
+      Math.abs((inv + efe) - num(tras)) < 0.02
+        ? ok('invertido + efectivo = lo que quedó tras vender')
+        : mal('invertido más efectivo no da lo que quedó', `${inv} + ${efe} != ${tras}`);
+      Math.abs((inv + efe + num(gan)) - num(tot)) < 0.02
+        ? ok('y todo junto más lo ganado da el total (' + tot + '): la cadena cuadra al céntimo')
+        : mal('la cadena no cuadra', `${inv} + ${efe} + ${gan} != ${tot}`);
     } else mal('no se puede leer el cuadre de la cartera', (txt.match(/Empiezas con 100.{0,160}/) || ['(no)'])[0]);
 
     evE('Object.keys(HIST).forEach(f => delete HIST[f]); Object.assign(HIST, ' + Hp + '); FH = ' + Fp + ';');

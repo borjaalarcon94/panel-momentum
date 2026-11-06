@@ -517,10 +517,23 @@ function bloqueOperando() {
     const cuadre = el('div', 'margen');
     cuadre.appendChild(el('b', null, '¿Por qué ' + pc(r.ret) + ' si las cinco van a ' + pc(media) + ' de media?'));
     const cc = el('div', 'm');
+    /* LA CAJA TIENE QUE APARECER O LA SUMA NO CUADRA, y este bloque existe justamente para que
+       cuadre. Hasta el 06/11/2026 se decia "quedaron COSTE invertidos" y luego "Total VALOR+CAJA",
+       saltandose el efectivo: con 97,91 invertidos y +2,56 ganados el total salia 101,16 en vez de
+       100,47, y los 0,69 que faltaban no se nombraban en ninguna linea. Ademas lo que se presentaba
+       como perdido en las ventas (100 - coste) mezclaba la perdida real con el dinero que todavia
+       no se ha reinvertido: lo perdido de verdad es (coste + caja) - 100.
+       No se veia porque hasta ayer la caja era 0. La sesion del 05/11 cerro seis posiciones de
+       golpe y dejo dinero esperando hueco. */
+    const trasVentas = coste + r.caja;             // lo que habia justo despues de vender
     cc.appendChild(el('div', null, 'Empiezas con 100 (toda tu cartera, sea la que sea).'));
-    cc.appendChild(el('div', null, n(coste - 100, 2) + ' se perdieron en las ' + r.cerradas.length +
-      ' ventas cerradas (' + r.cerradas.map(x => x.ticker).join(', ') + '), así que solo quedaron ' +
-      n(coste, 2) + ' invertidos.'));
+    cc.appendChild(el('div', null, n(trasVentas - 100, 2) + ' se ' + (trasVentas >= 100 ? 'ganaron' : 'perdieron') +
+      ' en las ' + r.cerradas.length + ' ventas cerradas (' + r.cerradas.map(x => x.ticker).join(', ') +
+      '), así que te quedaron ' + n(trasVentas, 2) + '.'));
+    cc.appendChild(el('div', null, r.caja >= 0.005
+      ? 'De eso, ' + n(coste, 2) + ' están invertidos en las ' + r.cartera.length + ' vivas y ' +
+        n(r.caja, 2) + ' esperan hueco en efectivo.'
+      : 'Todo eso está invertido en las ' + r.cartera.length + ' vivas.'));
     cc.appendChild(el('div', null, '+' + n(valor - coste, 2) + ' han ganado las ' + r.cartera.length +
       ' vivas, pero sobre esos ' + n(coste, 2) + ', no sobre 100.'));
     cc.appendChild(el('div', null, 'Total ' + n(valor + r.caja, 2) + ' de 100 → ' + pc(r.ret) + '.'));

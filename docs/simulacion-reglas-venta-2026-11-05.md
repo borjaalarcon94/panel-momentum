@@ -1,7 +1,48 @@
 # ¿Hemos mejorado la aplicación cambiando las señales de venta?
 
-Simulación del 5 de noviembre de 2026. Rehace **las 42 entradas del registro** día a día con las
-reglas de venta de antes y con las de ahora, y compara.
+Simulación del 5 de noviembre de 2026, **actualizada el 6 con la sesión del 5**. Rehace las entradas
+del registro día a día con las reglas de venta de antes y con las de ahora, y compara.
+
+> ## Lo que cambió en 24 horas
+>
+> La primera versión de este documento, con datos hasta el 4 de noviembre, concluía que el cambio
+> medía **0,09 puntos peor** y que la única diferencia era CAI, que seguía abierta a +11,9 %.
+> Decía literalmente: *«si CAI cae mañana, el signo se invierte»*.
+>
+> **El 5 de noviembre fue una sesión de caída y eso es exactamente lo que pasó.** Con 44 entradas y
+> 23 sesiones:
+>
+> | | Antes | Ahora |
+> |---|---|---|
+> | Media por entrada | −2,73 % | **−2,08 %** |
+> | Cerradas | 18 | 22 |
+> | **Cerradas en ganancia** | **0** | **5** |
+>
+> De 0,09 puntos peor a **0,65 puntos mejor**, en un día. Y el sistema ha realizado sus primeras
+> ganancias: hasta ayer llevaba 15 operaciones cerradas y las 15 en pérdida.
+>
+> Las dos entradas que mueven la cifra:
+>
+> - **CAI**: las reglas viejas la habrían sacado a **−12,4 %** el día 5; las nuevas la cerraron a
+>   **+8,1 %** el día 2 por el escalón del +20 %. Llegó a +21,7 %, que con la regla vieja (primer
+>   escalón en +30 %) no activaba nada. **20,5 puntos de diferencia.**
+> - **TEAM**: el trailing la sacó a **−0,3 %** el 29 de octubre; sin él habría seguido hasta
+>   **−8,6 %** el 2 de noviembre. **8,3 puntos.**
+>
+> Y cuatro más cerraron en verde con el cierre del día 5, todas por el trailing: CDNA **+19,7 %**
+> (su stop con las reglas viejas estaba en +1,0 %), SLDE +7,3 %, RSKD +6,7 % y HALO +5,3 %.
+>
+> **Pero léelo con la misma desconfianza que la versión de ayer.** Que la cifra pase de −0,09 a
+> +0,65 con una sola sesión es la demostración de lo inestable que es esto con 44 entradas. Las
+> cuatro que cerraron ayer no tienen todavía ningún día por delante: si rebotan, aguantar habría
+> sido mejor. Lo sabremos en una semana, no hoy.
+
+---
+
+## La versión original, con datos hasta el 4 de noviembre
+
+Lo que sigue se deja tal cual se escribió, porque la comparación entre las dos lecturas enseña más
+que cualquiera de las dos por separado.
 
 Se puede repetir en cualquier momento:
 
