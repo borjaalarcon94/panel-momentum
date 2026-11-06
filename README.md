@@ -322,6 +322,7 @@ dejar la respuesta medida en vez de recordada. Todos se lanzan desde la raíz de
 | `node herramientas/ab-reglas-venta.js` | Las reglas de venta de antes del 05/11/2026 contra las de ahora, **entrada por entrada** sobre el registro. Da lo realizado y el suelo (qué te llevarías si todas las abiertas tocaran su stop). |
 | `node herramientas/ab-cartera.js` | Lo mismo pero sobre **la cartera entera**, llamando a la función real que pinta Resultados: 5 huecos, compra con un día de retraso y reinversión de cada venta. Incluye la sensibilidad al número de huecos. |
 | `node herramientas/ab-escalon-devolucion.js` | Dónde poner el primer escalón de la devolución (+10, +15, +20, +30 %) y, sobre todo, **cuántas entradas mueve cada opción y cuánto aporta cada una**: la media sola engaña. |
+| `node herramientas/probar-break-even.js` | Si merecería la pena proteger **antes** del +10 %, con un stop a break-even. Medido: no. Ninguna de las salidas por break-even sale a break-even — el stop solo paga lo que da el cierre. |
 | `python3 herramientas/backtest.py` | El backtest histórico del universo elegible (ver «Qué se probó y se descartó»). |
 
 Los tres `ab-*` obtienen las reglas viejas parcheando `docs/reglas.js` y **verifican que el parche
