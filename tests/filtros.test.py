@@ -592,15 +592,25 @@ comprueba("docs/datos no se recorta: hay un fichero por sesión al menos",
 _primera = min(_panel["dias"])
 _sinSerie = [q.stem for q in _ficheros if q.stem != _primera and not (b.leer(q) or {}).get("seguidas")]
 comprueba(f"todos los días archivados llevan su serie, salvo la primera sesión ({_primera})", _sinSerie, [])
-# Cada entrada de la serie es [cierre, EMA 50]. Esto se comprueba por ESTRUCTURA porque el camino de
-# ESCRITURA solo corre en un build completo, que gasta llamadas a TradingView y no se puede lanzar
-# desde una prueba. Si un dia se dejara de archivar la EMA, se veria aqui al dia siguiente.
-_mal = []
+# Cada entrada de la serie es [cierre, EMA 50] hasta el 05/11/2026 y [cierre, EMA 50, ADR] desde el
+# 06/11. Esto se comprueba por ESTRUCTURA porque el camino de ESCRITURA solo corre en un build
+# completo, que gasta llamadas a TradingView y no se puede lanzar desde una prueba. Si un dia se
+# dejara de archivar la EMA o el ADR, se veria aqui al dia siguiente.
+# Los dos tamaños se aceptan a proposito, pero NO en cualquier dia: los ficheros viejos se quedan
+# en pareja para siempre (nadie los reescribe) y los nuevos tienen que traer el ADR. Si solo se
+# aceptara "2 o 3" sin mirar la fecha, el dia que el build dejase de archivar el ADR la serie
+# volveria a la pareja sin que nada se quejase, que es exactamente el fallo que esto vigila.
+DIA_ADR = "2026-11-06"
+_mal, _sinAdr = [], []
 for _q in _ficheros:
+    _esperado = 3 if _q.stem >= DIA_ADR else 2
     for _k, _v in ((b.leer(_q) or {}).get("seguidas") or {}).items():
-        if not isinstance(_v, list) or len(_v) != 2:
+        if not isinstance(_v, list) or len(_v) not in (2, 3):
             _mal.append(f"{_q.stem}/{_k}")
-comprueba("cada cierre archivado va con su EMA 50 en pareja [precio, ema]", _mal[:3], [])
+        elif len(_v) != _esperado:
+            _sinAdr.append(f"{_q.stem}/{_k} lleva {len(_v)}, esperaba {_esperado}")
+comprueba("cada cierre archivado va con su EMA 50 al lado", _mal[:3], [])
+comprueba(f"y desde el {DIA_ADR} tambien con su ADR, sin volver a la pareja", _sinAdr[:3], [])
 _conEma = sum(1 for _q in _ficheros for _v in ((b.leer(_q) or {}).get("seguidas") or {}).values() if _v[1] is not None)
 _tot = sum(1 for _q in _ficheros for _v in ((b.leer(_q) or {}).get("seguidas") or {}).values())
 comprueba(f"y la mayoría llevan EMA de verdad ({_conEma} de {_tot})", _tot > 0 and _conEma > _tot * 0.8, True)
@@ -808,6 +818,24 @@ for _q in sorted(b.DATOS.glob("2*.json")):
     if any("por" not in _x for _x in _d["control"]):
         _sinmotivo.append(_q.stem)
 comprueba(f"desde el {b.CAMBIO_REGLAS}, cada descartada dice por qué lo está", _sinmotivo, [])
+
+# EL GASTO DE LLAMADAS NO CRECE SIN QUE NADIE LO DECIDA
+# El presupuesto de llamadas a TradingView era una creencia: un comentario de build.py decia 4 al
+# dia y nada lo medía. El 07/11/2026 la cuenta real era 5. Lo que hace dano no es el numero, es que
+# pueda subir solo: anadir un scan() mas en cualquier sitio del build no rompia nada visible y el
+# gasto subia en silencio. Esto se cuenta por ESTRUCTURA (sitios de escaneo en el codigo) porque las
+# llamadas de verdad solo ocurren en un build completo, que no se puede lanzar desde una prueba.
+print("\nEL GASTO DE LLAMADAS A TRADINGVIEW NO SUBE EN SILENCIO")
+SITIOS_ESPERADOS = 5
+_fuente = (R / "build.py").read_text()
+_sitios = len([_l for _l in _fuente.splitlines()
+               if "scan(" in _l and "def scan(" not in _l and not _l.lstrip().startswith("#")])
+comprueba(f"build.py tiene {SITIOS_ESPERADOS} sitios que llaman al escaner", _sitios, SITIOS_ESPERADOS)
+# El contador tiene que seguir existiendo y sumando: sin esto el registro del build mentiria.
+comprueba("y scan() cuenta cada peticion, reintentos incluidos",
+          "LLAMADAS += 1" in _fuente and "global LLAMADAS" in _fuente, True)
+comprueba("y el build publica el gasto en su resumen",
+          _fuente.count("llamadas a TradingView en esta ejecucion:"), 2)
 
 print(f"\n{total - fallos} de {total} comprobaciones correctas")
 sys.exit(1 if fallos else 0)

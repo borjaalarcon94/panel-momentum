@@ -76,13 +76,25 @@ C = {"name": "ticker", "description": "empresa", "close": "precio", "change": "c
      "total_shares_outstanding_fundamental": "acciones", "revenue_forecast_next_fy": "ingresosprev"}
 
 
+LLAMADAS = 0   # peticiones REALES a TradingView en esta ejecucion, reintentos incluidos.
+
+
 def scan(body, intentos=3):
     """Con reintento: un fallo puntual de red dejaba el panel sin actualizar ese dia, y una sesion
-    perdida no se recupera nunca porque TradingView solo sirve el dato del momento."""
+    perdida no se recupera nunca porque TradingView solo sirve el dato del momento.
+
+    Cuenta las peticiones. El presupuesto de llamadas era una CREENCIA: un comentario decia 4 al dia
+    y nadie lo medía, asi que al anadir un sitio de escaneo el gasto subia en silencio. Un build
+    completo gasta 5 hoy (referencia, universo, mercado, seguimiento, cierres antiguos) y pasara a 6
+    cuando el archivo supere SEGUIR_DIAS sesiones, hacia el 18/11/2026, porque entonces la lista de
+    antiguos seguidos deja de estar vacia. Se imprime al final del build y hay una prueba que cuenta
+    los sitios de escaneo, para que un sexto no entre sin que nadie lo decida."""
+    global LLAMADAS
     body = {"markets": ["america"], "options": {"lang": "en"}, **body}
     ultimo = None
     for i in range(intentos):
         try:
+            LLAMADAS += 1
             req = urllib.request.Request(
                 "https://scanner.tradingview.com/america/scan", data=json.dumps(body).encode(),
                 headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0",
@@ -600,7 +612,8 @@ def publica_html(version):
 def rehacer():
     """Republica la web SIN TOCAR LA RED: cero llamadas a TradingView.
 
-       Hace falta porque el presupuesto de 4 llamadas al dia estaba atado al despliegue: tocar un
+       Hace falta porque el presupuesto de llamadas (4 segun este comentario hasta el 07/11/2026;
+       medidas, son 5) estaba atado al despliegue: tocar un
        texto o arreglar una pestana disparaba el workflow por push, que escaneaba entero. O gastabas
        llamadas fuera de presupuesto, o esperabas a la noche para ver el arreglo publicado.
 
@@ -633,6 +646,9 @@ def rehacer():
     con_beta = sum(1 for a in filas if a.get("b") is not None)
     print(f"Rehecho sin tocar la red: version {antes} -> {panel['version']} | "
           f"{len(todos)} dias | beta en {con_beta}/{len(filas)} filas | precios y estado de hoy intactos.")
+    # "Sin tocar la red" deja de ser una promesa del comentario y pasa a ser un dato del registro:
+    # si algun dia un push gastara llamadas, aqui saldria un numero distinto de cero.
+    print("llamadas a TradingView en esta ejecucion:", LLAMADAS)
     return 0
 
 
@@ -855,6 +871,7 @@ def main():
     print(hoy, "universo:", len(universo), "candidatas:", len(candidatas),
           "guardadas:", "-" if acciones is None else len(acciones),
           "ya en marcha:", len(en_marcha), "vigiladas:", len(actual), "+", len(extra), "en extra.json")
+    print("llamadas a TradingView en esta ejecucion:", LLAMADAS)
 
 
 if __name__ == "__main__":
