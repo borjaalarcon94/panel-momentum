@@ -3251,3 +3251,29 @@ queda **proporcional a la volatilidad**: con ADR 4,6 avisa desde +9,2 %; con ADR
 
 16 pruebas nuevas, incluido un barrido de ganancias del 1 al 60 % que exige que **ninguna ganancia
 real se quede sin regla y sin aviso**. 7 mutaciones probadas y detectadas.
+
+---
+
+## 7 de noviembre de 2026 · ¿Una nota de 80-83 rinde peor que una de 86-90+?
+
+Pregunta de Borja: las compras que salen tienen notas «bajitas» (80-83) y quiere saber si no merece la pena
+comprarlas. `herramientas/analizar-nota.js` mide **las 240 apariciones en el top 10** (24 días, 44 acciones),
+no solo las 44 entradas, a 5, 10 y 15 sesiones y frente a la media del top de ese mismo día.
+
+| Nota | a 5 sesiones (exceso) | a 10 | a 15 |
+|---|---|---|---|
+| < 78 | +0,7 | −2,2 | −1,7 |
+| 78-79 | 0,0 | **+3,8** | **+3,4** |
+| 80-82 | −1,4 | −2,6 | −2,2 |
+| 83-85 | −1,1 | −0,7 | +3,8 |
+| 86-88 | +5,4 | +3,7 | +0,8 |
+| 89+ (3 acciones) | −1,3 | +1,2 | −8,5 |
+
+- **No hay escalera**: si la nota midiera algo, iría de mejor a peor al bajar. 78-79 bate a 80-82.
+- ≥ 86 frente a 80-85: +4,5 a 5 sesiones (IC90 +0,3 a +9,0, bootstrap por acción), pero a 10 sesiones el
+  intervalo ya incluye el cero y a 15 se da la vuelta (−2,0). Son 6-10 acciones distintas y es uno de varios
+  contrastes: pista, no prueba.
+- Correlación de rangos nota↔resultado dentro de cada día: +0,02, +0,14 y −0,03.
+
+**Decisión: no se toca nada** (ni pesos ni un mínimo de nota). Coincide con lo del 25/10 y el 06/11. Repetir
+con el mismo script a finales de noviembre y con 150-200 entradas en primavera de 2027.
